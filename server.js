@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 프론트에 카카오/구글 키를 안전하게 전달 (JS 키는 원래 공개되는 키라 문제 없음)
+// 프론트에 지도/로그인 키를 안전하게 전달 (JS 키는 원래 공개되는 키라 문제 없음)
 app.get('/config.js', (req, res) => {
   res.type('application/javascript');
   res.send(
