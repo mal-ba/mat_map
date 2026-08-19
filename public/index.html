@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>찐맛집 — 진짜 검증된 맛집 지도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+<script src="/config.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text">
+      <strong>찐맛집</strong>
+      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+    </div>
+  </div>
+  <div class="auth-area" id="authArea">
+    <button id="loginBtn" class="btn-ghost">Google로 시작하기</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="panel">
+    <div class="panel-head">
+      <h2>공개된 맛집</h2>
+      <button id="addBtn" class="btn-primary" disabled title="로그인 후 등록할 수 있어요">+ 맛집 등록</button>
+    </div>
+    <ul id="placeList" class="place-list">
+      <li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>
+    </ul>
+  </aside>
+
+  <section class="map-wrap">
+    <div id="map"></div>
+  </section>
+</main>
+
+<!-- 등록 모달 -->
+<dialog id="registerModal">
+  <form id="registerForm" class="register-form">
+    <h3>새 맛집 등록</h3>
+    <p class="hint">등록하면 카카오맵 + AI가 실제 존재 여부와 신뢰도를 확인한 뒤 지도에 공개됩니다.</p>
+
+    <label>가게 이름
+      <input name="name" required placeholder="예: 왕십리곱창골목" />
+    </label>
+    <label>주소
+      <input name="address" required placeholder="지번 또는 도로명 주소" />
+    </label>
+    <div class="row">
+      <label>위도(lat)
+        <input name="lat" required placeholder="지도를 클릭하면 자동 입력" readonly />
+      </label>
+      <label>경도(lng)
+        <input name="lng" required placeholder="지도를 클릭하면 자동 입력" readonly />
+      </label>
+    </div>
+    <label>카테고리
+      <input name="category" placeholder="예: 분식 / 곱창 / 카페" />
+    </label>
+    <label>한줄평
+      <textarea name="comment" rows="2" placeholder="여기 진짜 맛있어요..."></textarea>
+    </label>
+
+    <div class="modal-actions">
+      <button type="button" id="cancelBtn" class="btn-ghost">취소</button>
+      <button type="submit" class="btn-primary">검증 요청</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 검증 진행 스탬프 오버레이 -->
+<div id="verifyOverlay" class="verify-overlay hidden">
+  <div class="stamp-spin">확인중</div>
+  <p>실존 여부와 신뢰도를 확인하고 있어요...</p>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="/app.js"></script>
+</body>
+</html>
