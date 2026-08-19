@@ -36,7 +36,14 @@
   </aside>
 
   <section class="map-wrap">
-    <div id="map"></div>
+    <div class="map-tabs">
+      <button class="map-tab active" data-provider="kakao">카카오맵</button>
+      <button class="map-tab" data-provider="naver">네이버지도</button>
+      <button class="map-tab" data-provider="google">구글맵</button>
+    </div>
+    <div id="map-kakao" class="map-instance active"></div>
+    <div id="map-naver" class="map-instance"></div>
+    <div id="map-google" class="map-instance"></div>
   </section>
 </main>
 
