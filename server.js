@@ -20,6 +20,8 @@ app.get('/config.js', (req, res) => {
   res.send(
     `window.__CONFIG__ = ${JSON.stringify({
       KAKAO_JS_KEY: process.env.KAKAO_JS_KEY || '',
+      NAVER_MAP_CLIENT_ID: process.env.NAVER_MAP_CLIENT_ID || '',
+      GOOGLE_MAPS_JS_KEY: process.env.GOOGLE_MAPS_JS_KEY || '',
       GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
     })};`
   );

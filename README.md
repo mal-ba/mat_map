@@ -1,6 +1,6 @@
 # 찐맛집 (mat-map)
 
-사람들이 발견한 맛집을 등록하면, 실존 여부를 확인하고
+사람들이 발견한 맛집을 등록하면, 카카오맵으로 실존 여부를 확인하고
 애매한 경우 AI가 한 번 더 검증한 뒤 지도에 공개하는 서비스.
 
 ## 준비물 (키 발급)
@@ -14,7 +14,13 @@
 3. **카카오 개발자센터** (developers.kakao.com)
    - 애플리케이션 생성 → JS 키(지도 표시용), REST API 키(장소 검색용) 복사
    - 플랫폼 > Web에 사이트 도메인 등록
-4. (선택) **Anthropic API 키** — 애매한 케이스에서 AI가 이중 판단하게 하려면 필요.
+4. **네이버클라우드플랫폼** (console.ncloud.com) — 지도 전환 탭 중 네이버지도용
+   - AI·Application Service > Maps > Application 등록
+   - Web 서비스 URL에 배포 도메인 등록
+   - 발급된 **Client ID**를 `NAVER_MAP_CLIENT_ID`에 입력
+5. **Google Cloud Console** — 지도 전환 탭 중 구글맵용 (Places API와 별개로 "Maps JavaScript API" 사용 설정 필요)
+   - 이미 만든 키에 Maps JavaScript API를 추가로 사용 설정하면 `GOOGLE_PLACES_API_KEY`와 같은 값을 `GOOGLE_MAPS_JS_KEY`에 써도 됨
+6. (선택) **Anthropic API 키** — 애매한 케이스에서 AI가 이중 판단하게 하려면 필요.
    없어도 카카오 존재확인만으로 동작함.
 
 ## 실행
