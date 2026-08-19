@@ -1,70 +1,197 @@
-let map, tempMarker;
 let currentUser = null;
-const markers = [];
+let currentProvider = 'kakao';
+let placesCache = [];
 
-// ---------- 카카오맵 로드 & 초기화 ----------
-function loadKakaoSDK() {
-  return new Promise((resolve) => {
-    const key = window.__CONFIG__.KAKAO_JS_KEY;
+const maps = { kakao: null, naver: null, google: null };
+const markers = { kakao: [], naver: [], google: [] };
+const tempMarkers = { kakao: null, naver: null, google: null };
+const sdkPromises = {};
+
+// ---------- SDK 지연 로드 (탭 클릭 시에만 불러옴) ----------
+function loadScriptOnce(key, src, onReady) {
+  if (sdkPromises[key]) return sdkPromises[key];
+  sdkPromises[key] = new Promise((resolve) => {
     const script = document.createElement('script');
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false`;
-    script.onload = () => window.kakao.maps.load(resolve);
+    script.src = src;
+    script.onload = () => onReady(resolve);
     document.head.appendChild(script);
   });
+  return sdkPromises[key];
 }
 
-async function initMap() {
+function loadKakaoSDK() {
+  const key = window.__CONFIG__.KAKAO_JS_KEY;
+  return loadScriptOnce(
+    'kakao',
+    `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false`,
+    (resolve) => window.kakao.maps.load(resolve)
+  );
+}
+
+function loadNaverSDK() {
+  const clientId = window.__CONFIG__.NAVER_MAP_CLIENT_ID;
+  return loadScriptOnce(
+    'naver',
+    `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`,
+    (resolve) => resolve()
+  );
+}
+
+function loadGoogleMapsSDK() {
+  const key = window.__CONFIG__.GOOGLE_MAPS_JS_KEY;
+  return loadScriptOnce(
+    'google',
+    `https://maps.googleapis.com/maps/api/js?key=${key}`,
+    (resolve) => resolve()
+  );
+}
+
+// ---------- 지도별 초기화 ----------
+async function initKakaoMap() {
+  if (maps.kakao) return;
   await loadKakaoSDK();
-  const center = new kakao.maps.LatLng(37.5665, 126.9780); // 서울시청 기본값
-  map = new kakao.maps.Map(document.getElementById('map'), { center, level: 6 });
+  const center = new kakao.maps.LatLng(37.5665, 126.978);
+  maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
 
-  // 등록 모달이 열려있을 때 지도 클릭 -> 좌표 자동 입력
-  kakao.maps.event.addListener(map, 'click', (mouseEvent) => {
-    const modal = document.getElementById('registerModal');
-    if (!modal.open) return;
+  kakao.maps.event.addListener(maps.kakao, 'click', (mouseEvent) => {
+    if (currentProvider !== 'kakao') return;
     const latlng = mouseEvent.latLng;
-    document.querySelector('input[name=lat]').value = latlng.getLat().toFixed(6);
-    document.querySelector('input[name=lng]').value = latlng.getLng().toFixed(6);
+    setPickedLocation(latlng.getLat(), latlng.getLng());
 
-    if (tempMarker) tempMarker.setMap(null);
-    tempMarker = new kakao.maps.Marker({ position: latlng, map });
+    if (tempMarkers.kakao) tempMarkers.kakao.setMap(null);
+    tempMarkers.kakao = new kakao.maps.Marker({ position: latlng, map: maps.kakao });
   });
 
-  loadPlaces();
+  renderKakaoMarkers(placesCache);
 }
 
-function renderMarkers(places) {
-  markers.forEach((m) => m.setMap(null));
-  markers.length = 0;
+async function initNaverMap() {
+  if (maps.naver) return;
+  await loadNaverSDK();
+  const center = new naver.maps.LatLng(37.5665, 126.978);
+  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
 
-  places.forEach((p) => {
-    const marker = new kakao.maps.Marker({
-      position: new kakao.maps.LatLng(p.lat, p.lng),
-      map,
-    });
-    kakao.maps.event.addListener(marker, 'click', () => {
-      map.panTo(marker.getPosition());
-    });
-    markers.push(marker);
+  naver.maps.Event.addListener(maps.naver, 'click', (e) => {
+    if (currentProvider !== 'naver') return;
+    setPickedLocation(e.coord.lat(), e.coord.lng());
+
+    if (tempMarkers.naver) tempMarkers.naver.setMap(null);
+    tempMarkers.naver = new naver.maps.Marker({ position: e.coord, map: maps.naver });
   });
+
+  renderNaverMarkers(placesCache);
+}
+
+async function initGoogleMap() {
+  if (maps.google) return;
+  await loadGoogleMapsSDK();
+  const center = { lat: 37.5665, lng: 126.978 };
+  maps.google = new google.maps.Map(document.getElementById('map-google'), { center, zoom: 12 });
+
+  maps.google.addListener('click', (e) => {
+    if (currentProvider !== 'google') return;
+    setPickedLocation(e.latLng.lat(), e.latLng.lng());
+
+    if (tempMarkers.google) tempMarkers.google.setMap(null);
+    tempMarkers.google = new google.maps.Marker({ position: e.latLng, map: maps.google });
+  });
+
+  renderGoogleMarkers(placesCache);
+}
+
+function setPickedLocation(lat, lng) {
+  const modal = document.getElementById('registerModal');
+  if (!modal.open) return;
+  document.querySelector('input[name=lat]').value = lat.toFixed(6);
+  document.querySelector('input[name=lng]').value = lng.toFixed(6);
+}
+
+// ---------- 마커 렌더링 (제공자별) ----------
+function renderKakaoMarkers(places) {
+  if (!maps.kakao) return;
+  markers.kakao.forEach((m) => m.setMap(null));
+  markers.kakao = places.map((p) => {
+    const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
+    kakao.maps.event.addListener(marker, 'click', () => maps.kakao.panTo(marker.getPosition()));
+    return marker;
+  });
+}
+
+function renderNaverMarkers(places) {
+  if (!maps.naver) return;
+  markers.naver.forEach((m) => m.setMap(null));
+  markers.naver = places.map((p) => {
+    const position = new naver.maps.LatLng(p.lat, p.lng);
+    const marker = new naver.maps.Marker({ position, map: maps.naver });
+    naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
+    return marker;
+  });
+}
+
+function renderGoogleMarkers(places) {
+  if (!maps.google) return;
+  markers.google.forEach((m) => m.setMap(null));
+  markers.google = places.map((p) => {
+    const position = { lat: p.lat, lng: p.lng };
+    const marker = new google.maps.Marker({ position, map: maps.google });
+    marker.addListener('click', () => maps.google.panTo(position));
+    return marker;
+  });
+}
+
+function renderAllMarkers(places) {
+  renderKakaoMarkers(places);
+  renderNaverMarkers(places);
+  renderGoogleMarkers(places);
+}
+
+// ---------- 지도 탭 전환 ----------
+function setupMapTabs() {
+  document.querySelectorAll('.map-tab').forEach((tab) => {
+    tab.addEventListener('click', async () => {
+      const provider = tab.dataset.provider;
+      if (provider === currentProvider) return;
+
+      document.querySelectorAll('.map-tab').forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`map-${provider}`).classList.add('active');
+      currentProvider = provider;
+
+      if (provider === 'kakao') await initKakaoMap();
+      if (provider === 'naver') await initNaverMap();
+      if (provider === 'google') await initGoogleMap();
+    });
+  });
+}
+
+function panActiveMapTo(lat, lng) {
+  if (currentProvider === 'kakao' && maps.kakao) {
+    maps.kakao.panTo(new kakao.maps.LatLng(lat, lng));
+  } else if (currentProvider === 'naver' && maps.naver) {
+    maps.naver.panTo(new naver.maps.LatLng(lat, lng));
+  } else if (currentProvider === 'google' && maps.google) {
+    maps.google.panTo({ lat, lng });
+  }
 }
 
 // ---------- 목록 ----------
 async function loadPlaces() {
   const res = await fetch('/api/places');
-  const places = await res.json();
+  placesCache = await res.json();
 
   const list = document.getElementById('placeList');
-  if (!places.length) {
+  if (!placesCache.length) {
     list.innerHTML = '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
   } else {
-    list.innerHTML = places
+    list.innerHTML = placesCache
       .map(
         (p) => `
       <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
         <div class="verified-badge">인증</div>
         <h3>${escapeHtml(p.name)}</h3>
         <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
+        ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
         ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
       </li>`
       )
@@ -72,13 +199,12 @@ async function loadPlaces() {
 
     list.querySelectorAll('.place-card').forEach((card) => {
       card.addEventListener('click', () => {
-        const pos = new kakao.maps.LatLng(card.dataset.lat, card.dataset.lng);
-        map.panTo(pos);
+        panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
       });
     });
   }
 
-  renderMarkers(places);
+  renderAllMarkers(placesCache);
 }
 
 function escapeHtml(str) {
@@ -176,8 +302,10 @@ function setupRegisterModal() {
 }
 
 // ---------- 시작 ----------
-window.addEventListener('DOMContentLoaded', () => {
-  initMap();
+window.addEventListener('DOMContentLoaded', async () => {
+  setupMapTabs();
+  await initKakaoMap(); // 기본 탭만 먼저 로드, 나머지는 탭 클릭 시 지연 로드
   initGoogleLogin();
   setupRegisterModal();
+  loadPlaces();
 });
