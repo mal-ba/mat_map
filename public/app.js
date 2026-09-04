@@ -41,7 +41,7 @@ function loadGoogleMapsSDK() {
   const key = window.__CONFIG__.GOOGLE_MAPS_JS_KEY;
   return loadScriptOnce(
     'google',
-    `https://maps.googleapis.com/maps/api/js?key=${key}`,
+    `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`,
     (resolve) => resolve()
   );
 }
