@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개인정보처리방침 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #E7DCC3;
+    --paper-deep: #DCCEA9;
+    --ink: #241E17;
+    --ink-soft: #5A4F3F;
+    --stamp: #B23A2E;
+    --stamp-deep: #8C2C22;
+    --mustard: #D9A441;
+    --line: rgba(36,30,23,0.16);
+    --radius: 4px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    background-image: radial-gradient(rgba(36,30,23,0.035) 1px, transparent 1px);
+    background-size: 4px 4px;
+  }
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 28px;
+    border-bottom: 3px solid var(--ink);
+    background: var(--paper);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+  .brand-mark {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 30px;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--stamp);
+    color: var(--paper);
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+    transform: rotate(-6deg);
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.3; }
+  .brand-text strong { font-family: 'Black Han Sans', sans-serif; font-size: 22px; letter-spacing: 1px; }
+  .brand-text span { font-size: 12px; color: var(--ink-soft); }
+
+  .container {
+    max-width: 760px;
+    margin: 48px auto;
+    padding: 0 24px 80px;
+  }
+  h1 {
+    font-family: 'Black Han Sans', sans-serif;
+    font-size: 28px;
+    margin: 0 0 8px;
+  }
+  .updated {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 36px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--ink);
+  }
+  p, li {
+    font-size: 14px;
+    line-height: 1.9;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+  }
+  ul { padding-left: 20px; margin: 0 0 8px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 12px 0;
+  }
+  th, td {
+    border: 1.5px solid var(--ink);
+    padding: 10px 14px;
+    text-align: left;
+    color: var(--ink-soft);
+  }
+  th {
+    background: var(--paper-deep);
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .highlight {
+    background: var(--paper-deep);
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+  .back-btn {
+    display: inline-block;
+    margin-top: 48px;
+    padding: 10px 20px;
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--ink);
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .back-btn:hover { background: var(--ink); color: var(--paper); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text">
+      <strong>찐맛집</strong>
+      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+    </div>
+  </a>
+</header>
+
+<div class="container">
+  <h1>개인정보처리방침</h1>
+  <p class="updated">시행일: 2026년 9월 1일 &nbsp;|&nbsp; 최종 수정일: 2026년 9월 1일</p>
+
+  <p>찐맛집(이하 "서비스")은 이용자의 개인정보를 소중히 여기며, 「개인정보 보호법」 및 관련 법령을 준수합니다. 본 방침은 서비스가 수집하는 개인정보의 항목, 수집 목적, 보유 기간, 이용자 권리 등을 안내합니다.</p>
+
+  <h2>1. 수집하는 개인정보 항목 및 수집 방법</h2>
+  <table>
+    <tr>
+      <th>구분</th>
+      <th>항목</th>
+      <th>수집 방법</th>
+    </tr>
+    <tr>
+      <td>Google 소셜 로그인</td>
+      <td>이름, 이메일 주소, 프로필 사진 URL, Google 식별자(sub)</td>
+      <td>Google 로그인 시 Google로부터 자동 수집</td>
+    </tr>
+    <tr>
+      <td>맛집 등록</td>
+      <td>가게명, 주소, 위도·경도 좌표, 카테고리, 한줄평</td>
+      <td>이용자 직접 입력</td>
+    </tr>
+  </table>
+  <p>서비스는 회원가입 양식을 별도로 운영하지 않으며, Google 로그인을 통해서만 회원 식별이 이루어집니다.</p>
+
+  <h2>2. 개인정보 수집 및 이용 목적</h2>
+  <ul>
+    <li>회원 식별 및 로그인 유지</li>
+    <li>맛집 등록자 확인 및 등록 내역 관리</li>
+    <li>허위·중복 등록 방지</li>
+    <li>서비스 품질 개선 및 통계 분석</li>
+  </ul>
+
+  <h2>3. 개인정보 보유 및 이용 기간</h2>
+  <table>
+    <tr>
+      <th>항목</th>
+      <th>보유 기간</th>
+    </tr>
+    <tr>
+      <td>회원 정보 (이름, 이메일, Google 식별자)</td>
+      <td>회원 탈퇴 시까지 (탈퇴 후 즉시 삭제)</td>
+    </tr>
+    <tr>
+      <td>등록된 맛집 정보 (주소, 좌표 등)</td>
+      <td>서비스 운영 기간 동안 (삭제 요청 시 즉시 처리)</td>
+    </tr>
+    <tr>
+      <td>로그인 세션 쿠키 (JWT)</td>
+      <td>발급일로부터 30일</td>
+    </tr>
+  </table>
+
+  <h2>4. 위치정보 수집에 관한 안내</h2>
+  <p>맛집 등록 시 주소를 입력하면 카카오 또는 Google 지오코딩 API를 통해 위도·경도 좌표가 자동 변환되어 저장됩니다. 이 좌표는 지도 표시 목적으로만 사용되며, 이용자의 현재 위치를 수집하지 않습니다.</p>
+
+  <h2>5. 개인정보의 제3자 제공</h2>
+  <p>서비스는 이용자의 개인정보를 원칙적으로 제3자에게 제공하지 않습니다. 단, 서비스 운영을 위해 아래 외부 서비스를 활용하며, 해당 서비스의 개인정보처리방침을 따릅니다.</p>
+  <table>
+    <tr>
+      <th>외부 서비스</th>
+      <th>용도</th>
+      <th>개인정보처리방침</th>
+    </tr>
+    <tr>
+      <td>Supabase</td>
+      <td>데이터베이스 저장·관리</td>
+      <td>supabase.com/privacy</td>
+    </tr>
+    <tr>
+      <td>Google (로그인·지도·지오코딩)</td>
+      <td>소셜 로그인, 지도 표시, 주소 변환</td>
+      <td>policies.google.com/privacy</td>
+    </tr>
+    <tr>
+      <td>Kakao (지도·지오코딩·장소 검증)</td>
+      <td>지도 표시, 주소 변환, 맛집 존재 확인</td>
+      <td>kakao.com/policy/privacy</td>
+    </tr>
+  </table>
+
+  <h2>6. 이용자의 권리 및 행사 방법</h2>
+  <p>이용자는 언제든지 다음 권리를 행사할 수 있습니다.</p>
+  <ul>
+    <li>본인 개인정보 열람 요청</li>
+    <li>개인정보 수정·삭제 요청</li>
+    <li>개인정보 처리 정지 요청</li>
+    <li>회원 탈퇴 및 데이터 삭제 요청</li>
+  </ul>
+  <div class="highlight">
+    권리 행사는 아래 이메일로 요청해 주시면 <strong>5영업일 이내</strong>에 처리합니다.<br>
+    문의 이메일: <strong>mat.map.kr@gmail.com</strong>
+  </div>
+  <p>※ 이메일 주소는 실제 운영 이메일로 변경해서 사용하세요.</p>
+
+  <h2>7. 개인정보 보호책임자</h2>
+  <table>
+    <tr>
+      <th>항목</th>
+      <th>내용</th>
+    </tr>
+    <tr>
+      <td>서비스명</td>
+      <td>찐맛집 (mat-map)</td>
+    </tr>
+    <tr>
+      <td>개인정보 보호책임자</td>
+      <td>개발자 (재훈)</td>
+    </tr>
+    <tr>
+      <td>문의 이메일</td>
+      <td>mat.map.kr@gmail.com</td>
+    </tr>
+  </table>
+
+  <h2>8. 개인정보처리방침 변경</h2>
+  <p>본 방침은 법령·서비스 변경에 따라 수정될 수 있으며, 변경 시 서비스 내 공지를 통해 안내합니다. 변경된 방침은 공지일로부터 7일 후 효력이 발생합니다.</p>
+
+  <a href="/" class="back-btn">← 찐맛집으로 돌아가기</a>
+</div>
+
+</body>
+</html>
