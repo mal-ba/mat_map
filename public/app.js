@@ -104,6 +104,11 @@ function setPickedLocation(lat, lng) {
   if (!modal.open) return;
   document.querySelector('input[name=lat]').value = lat.toFixed(6);
   document.querySelector('input[name=lng]').value = lng.toFixed(6);
+  const hint = document.getElementById('locationHint');
+  if (hint) {
+    hint.style.color = '#22c55e';
+    hint.textContent = `✅ 위치 지정 완료 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  }
 }
 
 // ---------- 마커 렌더링 (제공자별) ----------
@@ -300,6 +305,7 @@ function setupRegisterModal() {
   });
   document.getElementById('cancelBtn').addEventListener('click', () => {
     modal.close();
+    resetLocationHint();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -327,6 +333,7 @@ function setupRegisterModal() {
       const result = await res.json();
       overlay.classList.add('hidden');
       form.reset();
+      resetLocationHint();
 
       if (result.status === 'verified') {
         alert('검증 완료! 지도에 공개되었습니다.');
@@ -349,3 +356,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupRegisterModal();
   loadPlaces();
 });
+
+// 위치 힌트 초기화 (모달 닫힐 때 호출)
+function resetLocationHint() {
+  const hint = document.getElementById('locationHint');
+  if (hint) {
+    hint.style.color = '#f59e0b';
+    hint.textContent = '📍 지도를 클릭해서 위치를 지정해주세요';
+  }
+}
