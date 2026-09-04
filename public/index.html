@@ -56,14 +56,18 @@
     <label>가게 이름
       <input name="name" required placeholder="예: 왕십리곱창골목" />
     </label>
+
     <label>주소
-      <input name="address" required placeholder="지번 또는 도로명 주소" />
+      <div style="position:relative;">
+        <input name="address" id="addressInput" required placeholder="도로명 또는 지번 주소 입력" autocomplete="off" />
+        <span id="geocodeStatus" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;"></span>
+      </div>
+      <span id="geocodeResult" style="font-size:12px;margin-top:4px;display:block;min-height:16px;color:#888;"></span>
     </label>
 
-    <!-- 위도/경도: 지도 클릭으로만 입력, UI에서 숨김 -->
-    <input type="hidden" name="lat" />
-    <input type="hidden" name="lng" />
-    <p class="hint" id="locationHint" style="color:#f59e0b;">📍 지도를 클릭해서 위치를 지정해주세요</p>
+    <!-- 좌표: 주소 검색으로 자동 입력 -->
+    <input type="hidden" name="lat" id="latInput" />
+    <input type="hidden" name="lng" id="lngInput" />
 
     <label>카테고리
       <input name="category" placeholder="예: 분식 / 곱창 / 카페" />

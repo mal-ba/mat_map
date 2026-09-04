@@ -4,10 +4,10 @@ let placesCache = [];
 
 const maps = { kakao: null, naver: null, google: null };
 const markers = { kakao: [], naver: [], google: [] };
-const tempMarkers = { kakao: null, naver: null, google: null };
+const previewMarkers = { kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
 
-// ---------- SDK 지연 로드 (탭 클릭 시에만 불러옴) ----------
+// ---------- SDK 지연 로드 ----------
 function loadScriptOnce(key, src, onReady) {
   if (sdkPromises[key]) return sdkPromises[key];
   sdkPromises[key] = new Promise((resolve) => {
@@ -46,22 +46,12 @@ function loadGoogleMapsSDK() {
   );
 }
 
-// ---------- 지도별 초기화 ----------
+// ---------- 지도 초기화 ----------
 async function initKakaoMap() {
   if (maps.kakao) return;
   await loadKakaoSDK();
   const center = new kakao.maps.LatLng(37.5665, 126.978);
   maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
-
-  kakao.maps.event.addListener(maps.kakao, 'click', (mouseEvent) => {
-    if (currentProvider !== 'kakao') return;
-    const latlng = mouseEvent.latLng;
-    setPickedLocation(latlng.getLat(), latlng.getLng());
-
-    if (tempMarkers.kakao) tempMarkers.kakao.setMap(null);
-    tempMarkers.kakao = new kakao.maps.Marker({ position: latlng, map: maps.kakao });
-  });
-
   renderKakaoMarkers(placesCache);
 }
 
@@ -70,15 +60,6 @@ async function initNaverMap() {
   await loadNaverSDK();
   const center = new naver.maps.LatLng(37.5665, 126.978);
   maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
-
-  naver.maps.Event.addListener(maps.naver, 'click', (e) => {
-    if (currentProvider !== 'naver') return;
-    setPickedLocation(e.coord.lat(), e.coord.lng());
-
-    if (tempMarkers.naver) tempMarkers.naver.setMap(null);
-    tempMarkers.naver = new naver.maps.Marker({ position: e.coord, map: maps.naver });
-  });
-
   renderNaverMarkers(placesCache);
 }
 
@@ -87,31 +68,41 @@ async function initGoogleMap() {
   await loadGoogleMapsSDK();
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), { center, zoom: 12 });
-
-  maps.google.addListener('click', (e) => {
-    if (currentProvider !== 'google') return;
-    setPickedLocation(e.latLng.lat(), e.latLng.lng());
-
-    if (tempMarkers.google) tempMarkers.google.setMap(null);
-    tempMarkers.google = new google.maps.Marker({ position: e.latLng, map: maps.google });
-  });
-
   renderGoogleMarkers(placesCache);
 }
 
-function setPickedLocation(lat, lng) {
-  const modal = document.getElementById('registerModal');
-  if (!modal.open) return;
-  document.querySelector('input[name=lat]').value = lat.toFixed(6);
-  document.querySelector('input[name=lng]').value = lng.toFixed(6);
-  const hint = document.getElementById('locationHint');
-  if (hint) {
-    hint.style.color = '#22c55e';
-    hint.textContent = `✅ 위치 지정 완료 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+// ---------- 미리보기 마커 (주소 검색 결과) ----------
+function showPreviewMarker(lat, lng) {
+  // 카카오
+  if (maps.kakao) {
+    if (previewMarkers.kakao) previewMarkers.kakao.setMap(null);
+    const pos = new kakao.maps.LatLng(lat, lng);
+    previewMarkers.kakao = new kakao.maps.Marker({ position: pos, map: maps.kakao });
+    maps.kakao.panTo(pos);
+  }
+  // 네이버
+  if (maps.naver) {
+    if (previewMarkers.naver) previewMarkers.naver.setMap(null);
+    const pos = new naver.maps.LatLng(lat, lng);
+    previewMarkers.naver = new naver.maps.Marker({ position: pos, map: maps.naver });
+    maps.naver.panTo(pos);
+  }
+  // 구글
+  if (maps.google) {
+    if (previewMarkers.google) previewMarkers.google.setMap(null);
+    const pos = { lat, lng };
+    previewMarkers.google = new google.maps.Marker({ position: pos, map: maps.google });
+    maps.google.panTo(pos);
   }
 }
 
-// ---------- 마커 렌더링 (제공자별) ----------
+function clearPreviewMarkers() {
+  if (previewMarkers.kakao) { previewMarkers.kakao.setMap(null); previewMarkers.kakao = null; }
+  if (previewMarkers.naver) { previewMarkers.naver.setMap(null); previewMarkers.naver = null; }
+  if (previewMarkers.google) { previewMarkers.google.setMap(null); previewMarkers.google = null; }
+}
+
+// ---------- 마커 렌더링 ----------
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
   markers.kakao.forEach((m) => m.setMap(null));
@@ -177,6 +168,55 @@ function panActiveMapTo(lat, lng) {
     maps.naver.panTo(new naver.maps.LatLng(lat, lng));
   } else if (currentProvider === 'google' && maps.google) {
     maps.google.panTo({ lat, lng });
+  }
+}
+
+// ---------- 주소 → 좌표 자동 변환 ----------
+let geocodeTimer = null;
+
+async function geocodeAddress(address) {
+  const statusEl = document.getElementById('geocodeStatus');
+  const resultEl = document.getElementById('geocodeResult');
+  const latInput = document.getElementById('latInput');
+  const lngInput = document.getElementById('lngInput');
+
+  if (!address.trim()) {
+    statusEl.textContent = '';
+    resultEl.textContent = '';
+    latInput.value = '';
+    lngInput.value = '';
+    clearPreviewMarkers();
+    return;
+  }
+
+  statusEl.textContent = '🔍';
+  resultEl.textContent = '주소 검색 중...';
+  resultEl.style.color = '#888';
+
+  try {
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
+    if (!res.ok) {
+      const err = await res.json();
+      statusEl.textContent = '❌';
+      resultEl.textContent = err.error || '주소를 찾을 수 없어요';
+      resultEl.style.color = '#ef4444';
+      latInput.value = '';
+      lngInput.value = '';
+      clearPreviewMarkers();
+      return;
+    }
+
+    const { lat, lng, address_name } = await res.json();
+    latInput.value = lat;
+    lngInput.value = lng;
+    statusEl.textContent = '✅';
+    resultEl.textContent = `📍 ${address_name}`;
+    resultEl.style.color = '#22c55e';
+    showPreviewMarker(lat, lng);
+  } catch (err) {
+    statusEl.textContent = '❌';
+    resultEl.textContent = '주소 검색 중 오류가 발생했어요';
+    resultEl.style.color = '#ef4444';
   }
 }
 
@@ -299,13 +339,23 @@ function setupRegisterModal() {
   const modal = document.getElementById('registerModal');
   const form = document.getElementById('registerForm');
   const overlay = document.getElementById('verifyOverlay');
+  const addressInput = document.getElementById('addressInput');
+
+  // 주소 입력 시 디바운스 후 자동 지오코딩
+  addressInput.addEventListener('input', () => {
+    clearTimeout(geocodeTimer);
+    geocodeTimer = setTimeout(() => {
+      geocodeAddress(addressInput.value);
+    }, 600); // 0.6초 후 자동 검색
+  });
 
   document.getElementById('addBtn').addEventListener('click', () => {
     modal.showModal();
   });
+
   document.getElementById('cancelBtn').addEventListener('click', () => {
     modal.close();
-    resetLocationHint();
+    resetForm();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -316,7 +366,7 @@ function setupRegisterModal() {
     body.lng = parseFloat(body.lng);
 
     if (isNaN(body.lat) || isNaN(body.lng)) {
-      alert('지도를 클릭해서 위치를 지정해주세요.');
+      alert('주소를 입력하면 자동으로 위치가 검색됩니다.\n주소를 다시 확인해주세요.');
       return;
     }
 
@@ -332,8 +382,7 @@ function setupRegisterModal() {
       });
       const result = await res.json();
       overlay.classList.add('hidden');
-      form.reset();
-      resetLocationHint();
+      resetForm();
 
       if (result.status === 'verified') {
         alert('검증 완료! 지도에 공개되었습니다.');
@@ -348,20 +397,20 @@ function setupRegisterModal() {
   });
 }
 
+function resetForm() {
+  document.getElementById('registerForm').reset();
+  document.getElementById('geocodeStatus').textContent = '';
+  document.getElementById('geocodeResult').textContent = '';
+  document.getElementById('latInput').value = '';
+  document.getElementById('lngInput').value = '';
+  clearPreviewMarkers();
+}
+
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
-  await initKakaoMap(); // 기본 탭만 먼저 로드, 나머지는 탭 클릭 시 지연 로드
+  await initKakaoMap();
   initGoogleLogin();
   setupRegisterModal();
   loadPlaces();
 });
-
-// 위치 힌트 초기화 (모달 닫힐 때 호출)
-function resetLocationHint() {
-  const hint = document.getElementById('locationHint');
-  if (hint) {
-    hint.style.color = '#f59e0b';
-    hint.textContent = '📍 지도를 클릭해서 위치를 지정해주세요';
-  }
-}
