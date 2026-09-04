@@ -6,7 +6,7 @@ const supabase = require('../services/supabase');
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// 프론트에서 Google Identity Services로 받은 id_token을 여기로 보냄
+// 구글 로그인
 router.post('/google', async (req, res) => {
   const { credential } = req.body;
   if (!credential) return res.status(400).json({ error: 'credential 누락' });
@@ -62,12 +62,34 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// JWT만 검증 (userId, email 반환)
 router.get('/me', (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     res.json({ userId: decoded.userId, email: decoded.email });
+  } catch {
+    res.status(401).json({ error: '토큰 만료/무효' });
+  }
+});
+
+// 세션 복원용 - JWT 검증 후 Supabase에서 전체 프로필 반환
+router.get('/profile', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, name, email, picture')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (error || !user) return res.status(401).json({ error: '유저 없음' });
+
+    res.json({ id: user.id, name: user.name, email: user.email, picture: user.picture });
   } catch {
     res.status(401).json({ error: '토큰 만료/무효' });
   }

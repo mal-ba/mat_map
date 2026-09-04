@@ -419,5 +419,29 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
   await initKakaoMap();
   setupRegisterModal();
+  await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });
+
+// 페이지 로드 시 기존 로그인 세션 복원
+async function restoreSession() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!res.ok) return; // 로그인 안 된 상태면 그냥 패스
+    const data = await res.json();
+    if (data.userId) {
+      // me 엔드포인트는 userId/email만 줌 → 이름/사진은 Supabase에서 추가로 가져옴
+      const profileRes = await fetch('/api/auth/profile', { credentials: 'include' });
+      if (profileRes.ok) {
+        const profile = await profileRes.json();
+        currentUser = profile;
+      } else {
+        currentUser = { name: data.email.split('@')[0], email: data.email };
+      }
+      renderAuthArea();
+    }
+  } catch (err) {
+    // 세션 복원 실패는 조용히 무시 (비로그인 상태로 시작)
+    console.log('[restoreSession] 로그인 세션 없음');
+  }
+}
