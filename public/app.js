@@ -282,18 +282,32 @@ function escapeHtml(str) {
 }
 
 // ---------- 구글 로그인 ----------
+// GSI 스크립트 onload 후 호출됨 (DOMContentLoaded가 아님)
 function initGoogleLogin() {
-  if (!window.google || !window.__CONFIG__.GOOGLE_CLIENT_ID) return;
+  if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
 
   google.accounts.id.initialize({
     client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
     callback: onGoogleCredential,
   });
-
-  document.getElementById('loginBtn').addEventListener('click', () => {
-    google.accounts.id.prompt();
-  });
 }
+
+// 전역 함수로 노출 — innerHTML로 버튼을 새로 만들 때도 onclick으로 항상 호출 가능
+window.triggerGoogleLogin = function () {
+  if (!window.google?.accounts?.id) {
+    alert('Google 로그인 준비 중입니다. 잠시 후 다시 눌러주세요.');
+    return;
+  }
+  google.accounts.id.prompt((notification) => {
+    // FedCM이 조용히 거부되면 팝업 방식으로 fallback
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      google.accounts.id.renderButton(
+        document.getElementById('authArea'),
+        { theme: 'outline', size: 'medium', text: 'signin_with', locale: 'ko' }
+      );
+    }
+  });
+};
 
 async function onGoogleCredential(response) {
   const res = await fetch('/api/auth/google', {
@@ -321,16 +335,10 @@ function renderAuthArea() {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       currentUser = null;
       addBtn.disabled = true;
-      area.innerHTML = `<button id="loginBtn" class="btn-ghost">Google로 시작하기</button>`;
-      document.getElementById('loginBtn').addEventListener('click', () => {
-        google.accounts.id.prompt();
-      });
+      area.innerHTML = `<button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>`;
     });
   } else {
-    area.innerHTML = `<button id="loginBtn" class="btn-ghost">Google로 시작하기</button>`;
-    document.getElementById('loginBtn').addEventListener('click', () => {
-      google.accounts.id.prompt();
-    });
+    area.innerHTML = `<button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>`;
   }
 }
 
@@ -410,7 +418,6 @@ function resetForm() {
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
   await initKakaoMap();
-  initGoogleLogin();
   setupRegisterModal();
   loadPlaces();
 });

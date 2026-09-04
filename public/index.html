@@ -20,7 +20,7 @@
     </div>
   </div>
   <div class="auth-area" id="authArea">
-    <button id="loginBtn" class="btn-ghost">Google로 시작하기</button>
+    <button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>
   </div>
 </header>
 
@@ -89,7 +89,7 @@
   <p>실존 여부와 신뢰도를 확인하고 있어요...</p>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()"></script>
 <script src="/app.js"></script>
 </body>
 </html>
