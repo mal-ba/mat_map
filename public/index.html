@@ -59,14 +59,12 @@
     <label>주소
       <input name="address" required placeholder="지번 또는 도로명 주소" />
     </label>
-    <div class="row">
-      <label>위도(lat)
-        <input name="lat" required placeholder="지도를 클릭하면 자동 입력" readonly />
-      </label>
-      <label>경도(lng)
-        <input name="lng" required placeholder="지도를 클릭하면 자동 입력" readonly />
-      </label>
-    </div>
+
+    <!-- 위도/경도: 지도 클릭으로만 입력, UI에서 숨김 -->
+    <input type="hidden" name="lat" />
+    <input type="hidden" name="lng" />
+    <p class="hint" id="locationHint" style="color:#f59e0b;">📍 지도를 클릭해서 위치를 지정해주세요</p>
+
     <label>카테고리
       <input name="category" placeholder="예: 분식 / 곱창 / 카페" />
     </label>
