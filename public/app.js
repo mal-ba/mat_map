@@ -267,8 +267,25 @@ function renderAuthArea() {
   const area = document.getElementById('authArea');
   const addBtn = document.getElementById('addBtn');
   if (currentUser) {
-    area.innerHTML = `<span style="font-size:13px;font-weight:700">${escapeHtml(currentUser.name)}님 환영해요</span>`;
+    area.innerHTML = `
+      <span style="font-size:13px;font-weight:700">${escapeHtml(currentUser.name)}님 환영해요</span>
+      <button id="logoutBtn" class="btn-ghost" style="margin-left:8px;font-size:12px;">로그아웃</button>
+    `;
     addBtn.disabled = false;
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      currentUser = null;
+      addBtn.disabled = true;
+      area.innerHTML = `<button id="loginBtn" class="btn-ghost">Google로 시작하기</button>`;
+      document.getElementById('loginBtn').addEventListener('click', () => {
+        google.accounts.id.prompt();
+      });
+    });
+  } else {
+    area.innerHTML = `<button id="loginBtn" class="btn-ghost">Google로 시작하기</button>`;
+    document.getElementById('loginBtn').addEventListener('click', () => {
+      google.accounts.id.prompt();
+    });
   }
 }
 
