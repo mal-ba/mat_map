@@ -13,8 +13,11 @@ router.get('/', async (req, res) => {
     .eq('status', 'verified')
     .order('created_at', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) {
+    console.error('[places GET] Supabase 에러:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data ?? []);
 });
 
 // 내가 등록한 목록 (대기중/반려 포함, 마이페이지용)
@@ -25,8 +28,11 @@ router.get('/mine', requireAuth, async (req, res) => {
     .eq('submitted_by', req.user.userId)
     .order('created_at', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  if (error) {
+    console.error('[places GET /mine] Supabase 에러:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data ?? []);
 });
 
 // 새 맛집 등록 -> 즉시 공개 X, 자동 검증 로직 통과해야 지도에 뜸
@@ -56,7 +62,10 @@ router.post('/', requireAuth, async (req, res) => {
     .select()
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('[places POST] Supabase 에러:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
   res.json(data);
 });
 

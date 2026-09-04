@@ -177,34 +177,57 @@ function panActiveMapTo(lat, lng) {
 
 // ---------- 목록 ----------
 async function loadPlaces() {
-  const res = await fetch('/api/places');
-  placesCache = await res.json();
+  try {
+    const res = await fetch('/api/places');
 
-  const list = document.getElementById('placeList');
-  if (!placesCache.length) {
-    list.innerHTML = '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
-  } else {
-    list.innerHTML = placesCache
-      .map(
-        (p) => `
-      <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
-        <div class="verified-badge">인증</div>
-        <h3>${escapeHtml(p.name)}</h3>
-        <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
-        ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
-        ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
-      </li>`
-      )
-      .join('');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[loadPlaces] 서버 에러:', res.status, err.error || '');
+      placesCache = [];
+      renderAllMarkers([]);
+      showEmptyState();
+      return;
+    }
 
-    list.querySelectorAll('.place-card').forEach((card) => {
-      card.addEventListener('click', () => {
-        panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
+    const data = await res.json();
+    placesCache = Array.isArray(data) ? data : [];
+
+    const list = document.getElementById('placeList');
+    if (!placesCache.length) {
+      showEmptyState();
+    } else {
+      list.innerHTML = placesCache
+        .map(
+          (p) => `
+        <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
+          <div class="verified-badge">인증</div>
+          <h3>${escapeHtml(p.name)}</h3>
+          <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
+          ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
+          ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
+        </li>`
+        )
+        .join('');
+
+      list.querySelectorAll('.place-card').forEach((card) => {
+        card.addEventListener('click', () => {
+          panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
+        });
       });
-    });
-  }
+    }
 
-  renderAllMarkers(placesCache);
+    renderAllMarkers(placesCache);
+  } catch (err) {
+    console.error('[loadPlaces] fetch 실패:', err);
+    placesCache = [];
+    renderAllMarkers([]);
+    showEmptyState();
+  }
+}
+
+function showEmptyState() {
+  const list = document.getElementById('placeList');
+  list.innerHTML = '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
 }
 
 function escapeHtml(str) {
