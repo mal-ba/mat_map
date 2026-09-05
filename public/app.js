@@ -69,7 +69,8 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
-    streetViewControl: false, // 기본 페그맨 숨기고 직접 제어
+    streetViewControl: false,
+    mapTypeControl: false,
   });
 
   // 스트리트뷰 파노라마 초기화 (한 번만)
