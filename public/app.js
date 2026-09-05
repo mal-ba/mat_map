@@ -67,7 +67,18 @@ async function initGoogleMap() {
   if (maps.google) return;
   await loadGoogleMapsSDK();
   const center = { lat: 37.5665, lng: 126.978 };
-  maps.google = new google.maps.Map(document.getElementById('map-google'), { center, zoom: 12 });
+  maps.google = new google.maps.Map(document.getElementById('map-google'), {
+    center, zoom: 12,
+    streetViewControl: false, // 기본 페그맨 숨기고 직접 제어
+  });
+
+  // 스트리트뷰 파노라마 초기화 (한 번만)
+  maps.streetview = new google.maps.StreetViewPanorama(
+    document.getElementById('streetview-map'),
+    { visible: false, addressControl: true, fullscreenControl: false }
+  );
+  maps.google.setStreetView(maps.streetview);
+
   renderGoogleMarkers(placesCache);
 }
 
@@ -130,9 +141,44 @@ function renderGoogleMarkers(places) {
   markers.google = places.map((p) => {
     const position = { lat: p.lat, lng: p.lng };
     const marker = new google.maps.Marker({ position, map: maps.google });
-    marker.addListener('click', () => maps.google.panTo(position));
+    marker.addListener('click', () => {
+      maps.google.panTo(position);
+      openStreetView(p.lat, p.lng, p.name);
+    });
     return marker;
   });
+}
+
+function openStreetView(lat, lng, name) {
+  const sv = new google.maps.StreetViewService();
+  sv.getPanorama({ location: { lat, lng }, radius: 100 }, (data, status) => {
+    const pane = document.getElementById('streetview-pane');
+    const label = document.getElementById('streetview-label');
+
+    if (status === google.maps.StreetViewStatus.OK) {
+      maps.streetview.setPosition({ lat, lng });
+      maps.streetview.setVisible(true);
+      pane.classList.remove('hidden');
+      if (label) label.textContent = name || '';
+    } else {
+      // 100m 안에 스트리트뷰 없으면 반경 늘려서 재시도
+      sv.getPanorama({ location: { lat, lng }, radius: 500 }, (data2, status2) => {
+        if (status2 === google.maps.StreetViewStatus.OK) {
+          maps.streetview.setPosition(data2.location.latLng);
+          maps.streetview.setVisible(true);
+          pane.classList.remove('hidden');
+          if (label) label.textContent = `${name || ''} (근처)`;
+        } else {
+          alert(`"${name}" 주변에 스트리트뷰가 없어요.`);
+        }
+      });
+    }
+  });
+}
+
+function closeStreetView() {
+  if (maps.streetview) maps.streetview.setVisible(false);
+  document.getElementById('streetview-pane').classList.add('hidden');
 }
 
 function renderAllMarkers(places) {
