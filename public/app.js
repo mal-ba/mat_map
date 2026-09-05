@@ -57,10 +57,20 @@ async function initKakaoMap() {
 
 async function initNaverMap() {
   if (maps.naver) return;
-  await loadNaverSDK();
-  const center = new naver.maps.LatLng(37.5665, 126.978);
-  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
-  renderNaverMarkers(placesCache);
+  try {
+    await loadNaverSDK();
+    if (typeof naver === 'undefined' || !naver.maps) throw new Error('naver not loaded');
+    const center = new naver.maps.LatLng(37.5665, 126.978);
+    maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
+    renderNaverMarkers(placesCache);
+  } catch (e) {
+    document.getElementById('map-naver').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:#5A4F3F;font-family:Noto Sans KR,sans-serif;">' +
+      '<div style="font-size:32px;">🗺️</div>' +
+      '<div style="font-size:14px;font-weight:700;">네이버 지도 준비 중</div>' +
+      '<div style="font-size:12px;">API 인증 반영까지 최대 30분 소요됩니다.<br>잠시 후 다시 시도해주세요.</div>' +
+      '</div>';
+  }
 }
 
 async function initGoogleMap() {
@@ -69,7 +79,8 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
-    streetViewControl: false, // 기본 페그맨 숨기고 직접 제어
+    streetViewControl: false,
+    mapTypeControl: false,
   });
 
   // 스트리트뷰 파노라마 초기화 (한 번만)
