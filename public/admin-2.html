@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>관리자 — 찐맛집 일괄 등록</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#E7DCC3;--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--mustard:#D9A441;--green:#22c55e;--radius:4px;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;
+  background-image:radial-gradient(rgba(36,30,23,0.035) 1px,transparent 1px);background-size:4px 4px;}
+.topbar{display:flex;align-items:center;gap:12px;padding:16px 28px;border-bottom:3px solid var(--ink);}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:24px;width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);color:var(--paper);
+  border-radius:50%;border:2px solid var(--ink);transform:rotate(-6deg);}
+.topbar h1{font-family:'Black Han Sans',sans-serif;font-size:20px;}
+.topbar a{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;}
+.topbar a:hover{text-decoration:underline;}
+
+.container{max-width:900px;margin:0 auto;padding:32px 24px;}
+
+.section{margin-bottom:32px;}
+.section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:16px;
+  padding-bottom:8px;border-bottom:2px solid var(--ink);}
+
+.place-list{display:flex;flex-direction:column;gap:10px;}
+.place-row{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:14px 16px;
+  display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start;position:relative;}
+.place-row.success{border-color:var(--green);background:#f0fdf4;}
+.place-row.fail{border-color:var(--stamp);background:#fef2f2;}
+.place-row.pending-status{border-color:var(--mustard);background:#fffbeb;}
+
+.row-fields{display:contents;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:11px;font-weight:700;color:var(--ink-soft);}
+.field input,.field textarea,.field select{
+  font-family:'Noto Sans KR',sans-serif;font-size:13px;
+  border:1.5px solid var(--ink);border-radius:var(--radius);
+  padding:6px 8px;background:transparent;color:var(--ink);}
+.field textarea{resize:vertical;min-height:52px;}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--stamp);}
+
+.row-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+.btn-del{background:none;border:1.5px solid var(--ink-soft);border-radius:var(--radius);
+  padding:4px 10px;font-size:12px;cursor:pointer;color:var(--ink-soft);}
+.btn-del:hover{background:var(--stamp);color:white;border-color:var(--stamp);}
+.row-status{font-size:12px;font-weight:700;white-space:nowrap;}
+
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px;}
+.btn{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:14px;
+  padding:11px 22px;border-radius:var(--radius);cursor:pointer;border:2px solid var(--ink);}
+.btn-primary{background:var(--stamp);color:var(--paper);}
+.btn-primary:hover{background:#8C2C22;}
+.btn-primary:disabled{background:#bbb;border-color:#999;cursor:not-allowed;}
+.btn-ghost{background:transparent;color:var(--ink);}
+.btn-ghost:hover{background:var(--ink);color:var(--paper);}
+
+.progress-bar{flex:1;height:12px;background:#ddd;border-radius:99px;border:1.5px solid var(--ink);overflow:hidden;min-width:120px;}
+.progress-fill{height:100%;background:var(--green);transition:width 0.3s;}
+.progress-text{font-size:13px;font-weight:700;white-space:nowrap;}
+
+.summary{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:16px 20px;margin-top:20px;display:none;}
+.summary.show{display:block;}
+.summary h3{font-family:'Black Han Sans',sans-serif;font-size:16px;margin-bottom:10px;}
+.summary-stats{display:flex;gap:20px;font-size:14px;}
+.stat{display:flex;flex-direction:column;gap:2px;}
+.stat span{font-size:22px;font-weight:900;}
+.stat.ok span{color:var(--green);}
+.stat.pend span{color:var(--mustard);}
+.stat.fail span{color:var(--stamp);}
+
+.auth-warning{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);
+  padding:14px 18px;font-size:14px;margin-bottom:20px;display:none;}
+.auth-warning.show{display:block;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-mark">찐</div>
+  <h1>관리자 — 일괄 등록</h1>
+  <a href="/">← 사이트로</a>
+</header>
+
+<div class="container">
+  <div id="authWarning" class="auth-warning">
+    ⚠️ 로그인이 필요합니다. <a href="/">메인으로 이동해서 Google 로그인 후 다시 접속하세요.</a>
+  </div>
+
+  <div class="section">
+    <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;"></span></div>
+
+    <div id="placeList" class="place-list"></div>
+
+    <div style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="addRow()">+ 직접 추가</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="startBtn" class="btn btn-primary" onclick="startBatch()">▶ 일괄 검증 등록 시작</button>
+    <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <span class="progress-text" id="progressText"></span>
+  </div>
+
+  <div class="summary" id="summary">
+    <h3>등록 완료</h3>
+    <div class="summary-stats">
+      <div class="stat ok"><span id="statOk">0</span>검증 완료</div>
+      <div class="stat pend"><span id="statPend">0</span>검토 대기</div>
+      <div class="stat fail"><span id="statFail">0</span>반려</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 초기 데이터 (서울 카페/디저트 핫플) ──────────────────────
+const INITIAL = [
+  { name: 'Shoto', address: '서울 강남구 압구정로18길 14-6', category: '카페/디저트', comment: '신라호텔 출신 파티시에 부부 운영. 계절 과일 쇼트케이크 2시간이면 매진. 압구정 최고 핫플' },
+  { name: '달마시안', address: '서울 강남구 압구정로42길 42', category: '카페', comment: '야외 테라스 분수 포토존. 도산공원 인스타 핫플. 웨이팅 필수' },
+  { name: '랑콩트레', address: '서울 강남구 도산대로51길 7', category: '카페/디저트', comment: '프랑스 파티시에 출신 운영. 매일 아침 굽는 생크림 크루아상과 라즈베리 타르트' },
+  { name: '르몽블랑', address: '서울 용산구 신흥로 20길 28', category: '카페/디저트', comment: '20년 편직공장을 카페로 개조. 털실 무스케이크·니트 티셔츠 케이크 시그니처. 루프탑 있음' },
+  { name: '펠트커피 도산공원점', address: '서울 강남구 도산대로 13길 15', category: '카페', comment: '강남 스페셜티 커피 대표 카페. 패션 브랜드 준지와 협업한 감각적인 인테리어' },
+  { name: '리와인드 서울', address: '서울 종로구 율곡로3길 4', category: '카페', comment: '서울 공예박물관 뷰. 말차 베리에이션 맛집. 말차 코코넛·백운 시그니처' },
+  { name: '수연산방', address: '서울 성북구 성북로26길 8', category: '카페/전통찻집', comment: '성북동 한옥 전통찻집. 단호박빙수가 유명. 고즈넉한 정원이 힐링 공간' },
+  { name: '관훈갤러리카페', address: '서울 종로구 인사동길 52', category: '카페', comment: '인사동 유서 깊은 갤러리 부속 카페. 예술가들이 모이는 공간. 소규모 전시 상시 진행' },
+  { name: '매일카페 연남점', address: '서울 마포구 연남로 51', category: '카페', comment: '부담 없는 가격의 바닐라 라떼·아이스크림 라떼. 집처럼 아늑한 분위기. 매일 가고 싶은 동네 카페' },
+  { name: '코너스톤', address: '서울 성동구 서울숲2길 44-13', category: '카페', comment: '성수동 대표 스페셜티 카페. 루프탑에서 서울숲 뷰. 계절 한정 시그니처 음료' },
+];
+
+let rows = INITIAL.map((p, i) => ({ id: i, ...p, status: 'idle' }));
+
+function render() {
+  const list = document.getElementById('placeList');
+  document.getElementById('totalCount').textContent = `(${rows.length}개)`;
+  list.innerHTML = rows.map((r) => `
+    <div class="place-row ${r.status === 'success' ? 'success' : r.status === 'pending-status' ? 'pending-status' : r.status === 'fail' ? 'fail' : ''}" id="row-${r.id}">
+      <div class="field" style="grid-column:1">
+        <label>가게 이름</label>
+        <input value="${esc(r.name)}" oninput="update(${r.id},'name',this.value)" ${r.status!=='idle'?'disabled':''} />
+      </div>
+      <div class="field" style="grid-column:2">
+        <label>주소</label>
+        <input value="${esc(r.address)}" oninput="update(${r.id},'address',this.value)" ${r.status!=='idle'?'disabled':''}/>
+      </div>
+      <div class="row-actions" style="grid-column:3;grid-row:1/3">
+        <button class="btn-del" onclick="removeRow(${r.id})" ${r.status!=='idle'?'disabled':''}>삭제</button>
+        <div class="row-status">${statusIcon(r.status)}</div>
+      </div>
+      <div class="field" style="grid-column:1">
+        <label>카테고리</label>
+        <input value="${esc(r.category)}" oninput="update(${r.id},'category',this.value)" ${r.status!=='idle'?'disabled':''}/>
+      </div>
+      <div class="field" style="grid-column:2">
+        <label>한줄평</label>
+        <input value="${esc(r.comment)}" oninput="update(${r.id},'comment',this.value)" ${r.status!=='idle'?'disabled':''}/>
+      </div>
+    </div>
+  `).join('');
+}
+
+function statusIcon(s) {
+  if (s === 'idle') return '';
+  if (s === 'running') return '⏳ 검증 중...';
+  if (s === 'success') return '✅ 등록 완료';
+  if (s === 'pending-status') return '🕐 검토 대기';
+  if (s === 'fail') return '❌ 반려';
+  return '';
+}
+
+function esc(str) { return (str||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function update(id, key, val) { const r = rows.find(r=>r.id===id); if(r) r[key] = val; }
+function removeRow(id) { rows = rows.filter(r=>r.id!==id); render(); }
+function addRow() { rows.push({id:Date.now(),name:'',address:'',category:'카페',comment:'',status:'idle'}); render(); }
+
+async function startBatch() {
+  // 로그인 확인
+  const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+  if (!meRes.ok) {
+    document.getElementById('authWarning').classList.add('show');
+    return;
+  }
+
+  const idle = rows.filter(r => r.status === 'idle');
+  if (!idle.length) { alert('등록할 항목이 없어요.'); return; }
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('progressBar').style.display = 'block';
+  document.getElementById('summary').classList.remove('show');
+
+  let done = 0, ok = 0, pend = 0, fail = 0;
+
+  for (const row of idle) {
+    row.status = 'running';
+    render();
+    document.getElementById('progressText').textContent = `${done+1}/${idle.length} 처리 중...`;
+
+    try {
+      // 1. 주소 → 좌표
+      const geoRes = await fetch(`/api/geocode?address=${encodeURIComponent(row.address)}`);
+      if (!geoRes.ok) { row.status = 'fail'; fail++; done++; updateProgress(done, idle.length); render(); continue; }
+      const { lat, lng } = await geoRes.json();
+
+      // 2. 등록
+      const regRes = await fetch('/api/places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: row.name, address: row.address, lat, lng, category: row.category, comment: row.comment }),
+      });
+      const result = await regRes.json();
+
+      if (result.status === 'verified') { row.status = 'success'; ok++; }
+      else if (result.status === 'pending') { row.status = 'pending-status'; pend++; }
+      else { row.status = 'fail'; fail++; }
+    } catch(e) {
+      row.status = 'fail'; fail++;
+    }
+
+    done++;
+    updateProgress(done, idle.length);
+    render();
+    await sleep(800); // API 과호출 방지
+  }
+
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('progressText').textContent = `완료!`;
+  document.getElementById('statOk').textContent = ok;
+  document.getElementById('statPend').textContent = pend;
+  document.getElementById('statFail').textContent = fail;
+  document.getElementById('summary').classList.add('show');
+}
+
+function updateProgress(done, total) {
+  document.getElementById('progressFill').style.width = `${Math.round(done/total*100)}%`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+render();
+</script>
+</body>
+</html>
