@@ -17,86 +17,77 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 .topbar h1{font-family:'Black Han Sans',sans-serif;font-size:20px;}
 .topbar a{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;}
 .topbar a:hover{text-decoration:underline;}
-
-.container{max-width:900px;margin:0 auto;padding:32px 24px;}
-
-.section{margin-bottom:32px;}
-.section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:16px;
-  padding-bottom:8px;border-bottom:2px solid var(--ink);}
-
-.place-list{display:flex;flex-direction:column;gap:10px;}
-.place-row{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:14px 16px;
-  display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start;position:relative;}
+.container{max-width:960px;margin:0 auto;padding:32px 24px;}
+.section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--ink);}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.filter-btn{padding:6px 14px;border:2px solid var(--ink);border-radius:99px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;}
+.filter-btn.active{background:var(--ink);color:var(--paper);}
+.place-list{display:flex;flex-direction:column;gap:8px;}
+.place-row{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:12px 14px;
+  display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:start;}
 .place-row.success{border-color:var(--green);background:#f0fdf4;}
 .place-row.fail{border-color:var(--stamp);background:#fef2f2;}
 .place-row.pending-status{border-color:var(--mustard);background:#fffbeb;}
-
-.row-fields{display:contents;}
-.field{display:flex;flex-direction:column;gap:4px;}
-.field label{font-size:11px;font-weight:700;color:var(--ink-soft);}
-.field input,.field textarea,.field select{
-  font-family:'Noto Sans KR',sans-serif;font-size:13px;
-  border:1.5px solid var(--ink);border-radius:var(--radius);
-  padding:6px 8px;background:transparent;color:var(--ink);}
-.field textarea{resize:vertical;min-height:52px;}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(--stamp);}
-
-.row-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
-.btn-del{background:none;border:1.5px solid var(--ink-soft);border-radius:var(--radius);
-  padding:4px 10px;font-size:12px;cursor:pointer;color:var(--ink-soft);}
-.btn-del:hover{background:var(--stamp);color:white;border-color:var(--stamp);}
-.row-status{font-size:12px;font-weight:700;white-space:nowrap;}
-
-.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px;}
-.btn{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:14px;
-  padding:11px 22px;border-radius:var(--radius);cursor:pointer;border:2px solid var(--ink);}
+.place-row.running{opacity:.7;}
+.field{display:flex;flex-direction:column;gap:3px;}
+.field label{font-size:10px;font-weight:700;color:var(--ink-soft);}
+.field input{font-family:'Noto Sans KR',sans-serif;font-size:12px;border:1.5px solid var(--ink);
+  border-radius:var(--radius);padding:5px 7px;background:transparent;color:var(--ink);}
+.field input:focus{outline:none;border-color:var(--stamp);}
+.field input:disabled{opacity:.6;}
+.row-actions{display:flex;flex-direction:column;gap:4px;align-items:flex-end;}
+.btn-del{background:none;border:1.5px solid #ccc;border-radius:var(--radius);padding:3px 8px;font-size:11px;cursor:pointer;}
+.btn-del:hover:not(:disabled){background:var(--stamp);color:white;border-color:var(--stamp);}
+.row-status{font-size:11px;font-weight:700;white-space:nowrap;text-align:right;}
+.cat-badge{font-size:10px;padding:2px 7px;border-radius:99px;border:1.5px solid var(--ink);background:var(--paper-deep,#DCCEA9);white-space:nowrap;}
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:20px 0;}
+.btn{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:14px;padding:10px 20px;border-radius:var(--radius);cursor:pointer;border:2px solid var(--ink);}
 .btn-primary{background:var(--stamp);color:var(--paper);}
-.btn-primary:hover{background:#8C2C22;}
+.btn-primary:hover:not(:disabled){background:#8C2C22;}
 .btn-primary:disabled{background:#bbb;border-color:#999;cursor:not-allowed;}
 .btn-ghost{background:transparent;color:var(--ink);}
 .btn-ghost:hover{background:var(--ink);color:var(--paper);}
-
-.progress-bar{flex:1;height:12px;background:#ddd;border-radius:99px;border:1.5px solid var(--ink);overflow:hidden;min-width:120px;}
-.progress-fill{height:100%;background:var(--green);transition:width 0.3s;}
-.progress-text{font-size:13px;font-weight:700;white-space:nowrap;}
-
-.summary{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:16px 20px;margin-top:20px;display:none;}
+.progress-bar{flex:1;height:10px;background:#ddd;border-radius:99px;border:1.5px solid var(--ink);overflow:hidden;min-width:100px;}
+.progress-fill{height:100%;background:var(--green);transition:width .3s;}
+.progress-text{font-size:12px;font-weight:700;white-space:nowrap;}
+.summary{background:white;border:2px solid var(--ink);border-radius:var(--radius);padding:16px 20px;margin-top:16px;display:none;}
 .summary.show{display:block;}
 .summary h3{font-family:'Black Han Sans',sans-serif;font-size:16px;margin-bottom:10px;}
-.summary-stats{display:flex;gap:20px;font-size:14px;}
+.summary-stats{display:flex;gap:24px;font-size:13px;}
 .stat{display:flex;flex-direction:column;gap:2px;}
-.stat span{font-size:22px;font-weight:900;}
+.stat span{font-size:24px;font-weight:900;}
 .stat.ok span{color:var(--green);}
 .stat.pend span{color:var(--mustard);}
 .stat.fail span{color:var(--stamp);}
-
-.auth-warning{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);
-  padding:14px 18px;font-size:14px;margin-bottom:20px;display:none;}
+.auth-warning{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);padding:12px 16px;font-size:13px;margin-bottom:16px;display:none;}
 .auth-warning.show{display:block;}
 </style>
 </head>
 <body>
-
 <header class="topbar">
   <div class="brand-mark">찐</div>
   <h1>관리자 — 일괄 등록</h1>
   <a href="/">← 사이트로</a>
 </header>
-
 <div class="container">
   <div id="authWarning" class="auth-warning">
-    ⚠️ 로그인이 필요합니다. <a href="/">메인으로 이동해서 Google 로그인 후 다시 접속하세요.</a>
+    ⚠️ 로그인이 필요합니다. <a href="/">메인에서 Google 로그인 후 다시 접속하세요.</a>
+  </div>
+  <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span></div>
+
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterCat('전체')">전체</button>
+    <button class="filter-btn" onclick="filterCat('카페/디저트')">카페/디저트</button>
+    <button class="filter-btn" onclick="filterCat('한식')">한식</button>
+    <button class="filter-btn" onclick="filterCat('고기/구이')">고기/구이</button>
+    <button class="filter-btn" onclick="filterCat('분식/간식')">분식/간식</button>
+    <button class="filter-btn" onclick="filterCat('일식')">일식</button>
+    <button class="filter-btn" onclick="filterCat('양식')">양식</button>
+    <button class="filter-btn" onclick="filterCat('중식')">중식</button>
   </div>
 
-  <div class="section">
-    <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;"></span></div>
-
-    <div id="placeList" class="place-list"></div>
-
-    <div style="margin-top:14px;">
-      <button class="btn btn-ghost" onclick="addRow()">+ 직접 추가</button>
-    </div>
-  </div>
+  <div id="placeList" class="place-list"></div>
+  <div style="margin-top:12px;"><button class="btn btn-ghost" onclick="addRow()">+ 직접 추가</button></div>
 
   <div class="actions">
     <button id="startBtn" class="btn btn-primary" onclick="startBatch()">▶ 일괄 검증 등록 시작</button>
@@ -115,44 +106,112 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 </div>
 
 <script>
-// ── 초기 데이터 (서울 카페/디저트 핫플) ──────────────────────
-const INITIAL = [
-  { name: 'Shoto', address: '서울 강남구 압구정로18길 14-6', category: '카페/디저트', comment: '신라호텔 출신 파티시에 부부 운영. 계절 과일 쇼트케이크 2시간이면 매진. 압구정 최고 핫플' },
-  { name: '달마시안', address: '서울 강남구 압구정로42길 42', category: '카페', comment: '야외 테라스 분수 포토존. 도산공원 인스타 핫플. 웨이팅 필수' },
-  { name: '랑콩트레', address: '서울 강남구 도산대로51길 7', category: '카페/디저트', comment: '프랑스 파티시에 출신 운영. 매일 아침 굽는 생크림 크루아상과 라즈베리 타르트' },
-  { name: '르몽블랑', address: '서울 용산구 신흥로 20길 28', category: '카페/디저트', comment: '20년 편직공장을 카페로 개조. 털실 무스케이크·니트 티셔츠 케이크 시그니처. 루프탑 있음' },
-  { name: '펠트커피 도산공원점', address: '서울 강남구 도산대로 13길 15', category: '카페', comment: '강남 스페셜티 커피 대표 카페. 패션 브랜드 준지와 협업한 감각적인 인테리어' },
-  { name: '리와인드 서울', address: '서울 종로구 율곡로3길 4', category: '카페', comment: '서울 공예박물관 뷰. 말차 베리에이션 맛집. 말차 코코넛·백운 시그니처' },
-  { name: '수연산방', address: '서울 성북구 성북로26길 8', category: '카페/전통찻집', comment: '성북동 한옥 전통찻집. 단호박빙수가 유명. 고즈넉한 정원이 힐링 공간' },
-  { name: '관훈갤러리카페', address: '서울 종로구 인사동길 52', category: '카페', comment: '인사동 유서 깊은 갤러리 부속 카페. 예술가들이 모이는 공간. 소규모 전시 상시 진행' },
-  { name: '매일카페 연남점', address: '서울 마포구 연남로 51', category: '카페', comment: '부담 없는 가격의 바닐라 라떼·아이스크림 라떼. 집처럼 아늑한 분위기. 매일 가고 싶은 동네 카페' },
-  { name: '코너스톤', address: '서울 성동구 서울숲2길 44-13', category: '카페', comment: '성수동 대표 스페셜티 카페. 루프탑에서 서울숲 뷰. 계절 한정 시그니처 음료' },
+const ALL = [
+  // ── 카페/디저트 ─────────────────────────────────────
+  {name:'Shoto',address:'서울 강남구 압구정로18길 14-6',category:'카페/디저트',comment:'신라호텔 출신 파티시에 부부 운영. 계절 과일 쇼트케이크가 2시간이면 매진. 압구정 최고 핫플'},
+  {name:'달마시안',address:'서울 강남구 압구정로42길 42',category:'카페/디저트',comment:'도산공원 인스타 핫플. 야외 테라스 분수 포토존. 웨이팅 필수'},
+  {name:'랑콩트레',address:'서울 강남구 도산대로51길 7',category:'카페/디저트',comment:'프랑스 파티시에 출신 셰프 운영. 매일 아침 굽는 생크림 크루아상과 라즈베리 타르트'},
+  {name:'르몽블랑',address:'서울 용산구 신흥로20길 28',category:'카페/디저트',comment:'해방촌 편직공장 개조 카페. 털실 무스케이크·니트 티셔츠 케이크 시그니처. 루프탑 3층'},
+  {name:'펠트커피 도산공원점',address:'서울 강남구 도산대로13길 15',category:'카페',comment:'강남 스페셜티 커피 대표주자. 패션 브랜드 준지 협업 인테리어'},
+  {name:'리와인드 서울',address:'서울 종로구 율곡로3길 4',category:'카페',comment:'서울 공예박물관 뷰. 말차 코코넛·백운 시그니처 음료. 힐링 공간'},
+  {name:'수연산방',address:'서울 성북구 성북로26길 8',category:'카페/전통찻집',comment:'성북동 한옥 전통찻집. 단호박빙수로 유명. 고즈넉한 정원'},
+  {name:'관훈갤러리카페',address:'서울 종로구 인사동길 52',category:'카페',comment:'인사동 유서 깊은 갤러리 부속 카페. 예술가들의 아지트. 소규모 전시 상시 진행'},
+  {name:'매일카페 연남점',address:'서울 마포구 연남로 51',category:'카페',comment:'바닐라 라떼·아이스크림 라떼 유명. 매일 가고 싶은 아늑한 동네 카페'},
+  {name:'코너스톤 성수',address:'서울 성동구 서울숲2길 44-13',category:'카페',comment:'성수동 대표 스페셜티 카페. 루프탑에서 서울숲 뷰. 계절 한정 시그니처 음료'},
+  // ── 한식 ────────────────────────────────────────────
+  {name:'우래옥',address:'서울 종로구 청계천로 71',category:'한식',comment:'1946년 개업 평양냉면 명가. 한우 불고기도 필수. 예약 없이 줄 서야 하는 곳'},
+  {name:'하동관',address:'서울 중구 명동10길 29',category:'한식',comment:'60년 전통 곰탕 노포. 진하고 깔끔한 국물. 일찍 가야 먹을 수 있음'},
+  {name:'청진옥',address:'서울 종로구 종로1길 22',category:'한식',comment:'해장국 명가. 선지해장국이 시그니처. 새벽부터 영업하는 종로 터줏대감'},
+  {name:'토속촌 삼계탕',address:'서울 종로구 자하문로5길 5',category:'한식',comment:'경복궁 옆 삼계탕 성지. 외국인 관광객도 줄 서는 곳. 인삼·대추 듬뿍'},
+  {name:'진옥화할매원조닭한마리',address:'서울 종로구 종로40가길 18',category:'한식',comment:'동대문 닭한마리 원조. 칼국수 사리 필수. 60년 넘은 역사'},
+  {name:'이문설농탕',address:'서울 종로구 우정국로 38',category:'한식',comment:'1907년 창업 서울 최고령 음식점. 진한 설렁탕 한 그릇. 역사를 맛보는 경험'},
+  {name:'삼청동수제비',address:'서울 종로구 삼청로 101-1',category:'한식',comment:'삼청동 대표 수제비집. 쫄깃한 면발과 깔끔한 국물. 경복궁 나들이 후 들르기 좋음'},
+  {name:'명동교자',address:'서울 중구 명동10길 29',category:'한식',comment:'칼국수·만두 명가. 1966년 오픈. 명동 필수 코스. 항상 줄 서는 곳'},
+  {name:'을밀대',address:'서울 마포구 증산로 45',category:'한식',comment:'평양냉면 맛집. 자연산 메밀 면 사용. 냉면 마니아들의 성지'},
+  {name:'고려삼계탕',address:'서울 마포구 백범로 78-1',category:'한식',comment:'마포 삼계탕 명가. 흑삼계탕이 시그니처. 든든하고 진한 국물'},
+  {name:'목멱산방',address:'서울 중구 남산공원길 60',category:'한식',comment:'남산 위 비빔밥 맛집. 전통 고즈넉한 한옥 분위기. 뷰 맛집이기도 함'},
+  {name:'삼원가든',address:'서울 강남구 언주로157길 42',category:'한식',comment:'강남 3대 갈비집 중 하나. 1976년 개업. 숯불 양념갈비가 시그니처'},
+  {name:'밍글스',address:'서울 강남구 도산대로46길 19',category:'한식',comment:'미쉐린 2스타 한식 파인다이닝. 강민구 셰프의 감각적인 한국 요리. 예약 필수'},
+  {name:'정식당',address:'서울 강남구 선릉로158길 11',category:'한식',comment:'뉴욕에도 지점 있는 모던 한식. 임정식 셰프. 한국 식재료의 재해석'},
+  {name:'광화문 미진',address:'서울 종로구 세종대로 149',category:'한식',comment:'메밀국수 전문점. 50년 전통. 광화문 직장인 단골 성지. 열무국수도 유명'},
+  // ── 고기/구이 ────────────────────────────────────────
+  {name:'정대포',address:'서울 마포구 마포대로 34',category:'고기/구이',comment:'마포 두꺼운 삼겹살 원조. 형태 유지되는 두께가 핵심. 숯불 석쇠 직화'},
+  {name:'대성갈비',address:'서울 성동구 성수이로 32',category:'고기/구이',comment:'성수동 갈비 맛집. 부드러운 소갈비에 독특한 소스. 숯불 화덕 직화'},
+  {name:'황소곱창',address:'서울 마포구 월드컵북로 12',category:'고기/구이',comment:'마포 곱창 맛집. 신선한 국내산 곱창. 소주 한 잔과 환상 조합'},
+  {name:'연남동집',address:'서울 마포구 연남로 77',category:'고기/구이',comment:'연남동 삼겹살 맛집. 두꺼운 목살이 시그니처. 연남동 나들이 후 필수 코스'},
+  {name:'이화정 왕갈비',address:'서울 강남구 봉은사로30길 16',category:'고기/구이',comment:'압구정 왕갈비 명가. 뼈째 큼직한 갈비가 시그니처. 외국 손님 데려오기 좋은 곳'},
+  {name:'망원동 주막갈비',address:'서울 마포구 망원로 57',category:'고기/구이',comment:'망원동 동네 갈비집. 가성비 좋고 인심 넉넉. 현지인이 사랑하는 노포'},
+  {name:'마포갈매기',address:'서울 마포구 포은로 109',category:'고기/구이',comment:'갈매기살 전문점. 쫄깃하고 고소한 부위. 상추쌈에 싸먹으면 최고'},
+  {name:'오제제',address:'서울 중구 서울역로 127',category:'고기/구이',comment:'서울역 근처 돼지갈비 전문. 진하게 재운 양념갈비가 시그니처. 직장인 단골'},
+  {name:'홍대 두꺼비',address:'서울 마포구 어울마당로 35',category:'고기/구이',comment:'홍대 삼겹살 맛집. 24시간 운영. 늦은 밤 허기질 때 가는 곳'},
+  {name:'성수 돼지족발',address:'서울 성동구 성수이로22길 17',category:'고기/구이',comment:'서울 3대 족발 중 하나. 부드럽고 두꺼운 족발. 막국수 사리 함께 추천'},
+  // ── 분식/간식 ────────────────────────────────────────
+  {name:'마복림할머니떡볶이',address:'서울 중구 다산로 33길 5',category:'분식/간식',comment:'신당동 즉석떡볶이 원조. 1953년 창업. 달콤매콤한 특제 소스가 비법'},
+  {name:'광장시장 빈대떡',address:'서울 종로구 창경궁로 88',category:'분식/간식',comment:'광장시장 대표 먹거리. 기름에 지진 바삭한 빈대떡. 막걸리 한 잔 곁들이기'},
+  {name:'홍대 조폭떡볶이',address:'서울 마포구 어울마당로 35',category:'분식/간식',comment:'홍대 대표 떡볶이집. 매콤한 소스에 다양한 토핑. 10년 넘은 단골 맛집'},
+  {name:'엽기떡볶이 왕십리점',address:'서울 성동구 왕십리광장로 5',category:'분식/간식',comment:'치즈떡볶이 원조 체인 직영점. 핵불닭 도전하는 사람들의 성지. 모든 맵기 도전 가능'},
+  {name:'동대문 왕돈까스',address:'서울 동대문구 장안로 271',category:'분식/간식',comment:'동대문 분식 명가. 쫄면·순대볶음이 더 유명한 곳. 매콤한 양념이 일품'},
+  {name:'강남 유가네닭갈비',address:'서울 강남구 강남대로 162길 20',category:'분식/간식',comment:'닭갈비 프랜차이즈 대표 메뉴. 고추장 양념 닭갈비에 볶음밥 추가가 정석'},
+  {name:'신촌 이모네 순대',address:'서울 서대문구 연세로 8길 7',category:'분식/간식',comment:'신촌 대학가 순대볶음 맛집. 학생들 주머니 사정 맞는 가성비. 새벽까지 영업'},
+  {name:'종로 피순대',address:'서울 종로구 사직로 66',category:'분식/간식',comment:'종로 피순대 맛집. 속이 꽉 찬 피순대. 해장으로도 좋고 야식으로도 최고'},
+  // ── 일식 ────────────────────────────────────────────
+  {name:'스시노칸도',address:'서울 마포구 잔다리로6길 30',category:'일식',comment:'홍대 가성비 스시 맛집. 구운 새우 초밥이 시그니처. 오마카세 느낌을 합리적 가격에'},
+  {name:'스시로운생활',address:'서울 마포구 양화로 72',category:'일식',comment:'합정 숙성회 초밥 맛집. 깔끔하고 정갈한 스시. 혼밥하기도 좋은 카운터석'},
+  {name:'홍대 오늘은',address:'서울 마포구 와우산로 162-10',category:'일식',comment:'홍대 감성 일식집. 혼술·같이 술마시기 딱 좋은 분위기. 안주 퀄리티 높음'},
+  {name:'진성스시',address:'서울 종로구 삼청로 22',category:'일식',comment:'삼청동 스시 맛집. 신선한 재료와 장인 정신. 조용한 분위기에서 즐기는 코스'},
+  {name:'이자카야 쿠시야',address:'서울 용산구 이태원로 161',category:'일식',comment:'이태원 일본 꼬치구이 맛집. 다양한 꼬치 메뉴. 퇴근 후 맥주 한 잔과 찰떡'},
+  {name:'아오이 토리',address:'서울 강남구 강남대로 158길 22',category:'일식',comment:'강남 라멘 맛집. 진한 돈코츠 베이스. 줄 서서 먹는 맛집'},
+  // ── 양식 ────────────────────────────────────────────
+  {name:'해옫 합정',address:'서울 마포구 독막로8길 30',category:'양식',comment:'합정 커플 양식 맛집. 파스타·리조또·오므라이스 등 28가지 메뉴. 100일 기념 데이트 코스'},
+  {name:'모수 서울',address:'서울 강남구 도산대로 45길 14',category:'양식',comment:'미쉐린 스타 파인다이닝. 안성재 셰프의 감각적인 코스 요리. 예약 필수'},
+  {name:'보나세라',address:'서울 마포구 홍익로5길 29',category:'양식',comment:'홍대 이탈리안 맛집. 화덕 피자가 시그니처. 분위기 좋고 가성비도 훌륭'},
+  {name:'트리버 성수',address:'서울 성동구 연무장길 33',category:'양식',comment:'성수 브런치 맛집. 에그베네딕트가 시그니처. 주말 웨이팅 필수'},
+  {name:'이태원 앤써',address:'서울 용산구 이태원로27나길 12',category:'양식',comment:'이태원 분위기 레스토랑. 스테이크·파스타 수준급. 창문 너머 이태원 뷰'},
+  {name:'논현 오스테리아',address:'서울 강남구 논현로175길 20',category:'양식',comment:'강남 정통 이탈리안. 홈메이드 파스타와 와인 페어링. 저녁 데이트 코스로 완벽'},
+  // ── 중식 ────────────────────────────────────────────
+  {name:'홍보각',address:'서울 중구 퇴계로20길 37',category:'중식',comment:'서울 3대 중국집 중 하나. 북경오리가 시그니처. 특별한 날 가는 고급 중식당'},
+  {name:'금룡',address:'서울 중구 충무로3길 15',category:'중식',comment:'을지로 오래된 중국집. 짜장면과 탕수육이 시그니처. 점심시간 직장인들의 단골'},
+  {name:'이화원',address:'서울 종로구 인사동5길 43',category:'중식',comment:'인사동 고급 중식당. 딤섬 코스가 유명. 외국 손님 접대 장소로 인기'},
+  {name:'팔선',address:'서울 강남구 언주로151길 3',category:'중식',comment:'강남 중식 맛집. 마라탕이 아닌 정통 광동식 요리. 현지인 입맛 맞춘 진짜 맛'},
+  {name:'미향',address:'서울 마포구 독막로 331',category:'중식',comment:'합정 중식 맛집. 마라샹궈가 시그니처. 마라 마니아들의 성지. 매운맛 조절 가능'},
 ];
 
-let rows = INITIAL.map((p, i) => ({ id: i, ...p, status: 'idle' }));
+let rows = ALL.map((p, i) => ({ id: i, ...p, status: 'idle' }));
+let currentFilter = '전체';
+
+function filterCat(cat) {
+  currentFilter = cat;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === cat);
+  });
+  render();
+}
+
+function getFiltered() {
+  if (currentFilter === '전체') return rows;
+  return rows.filter(r => r.category && r.category.includes(currentFilter));
+}
 
 function render() {
+  const filtered = getFiltered();
+  document.getElementById('totalCount').textContent = `(전체 ${rows.length}개 / 표시 ${filtered.length}개)`;
   const list = document.getElementById('placeList');
-  document.getElementById('totalCount').textContent = `(${rows.length}개)`;
-  list.innerHTML = rows.map((r) => `
-    <div class="place-row ${r.status === 'success' ? 'success' : r.status === 'pending-status' ? 'pending-status' : r.status === 'fail' ? 'fail' : ''}" id="row-${r.id}">
+  list.innerHTML = filtered.map((r) => `
+    <div class="place-row ${r.status === 'success' ? 'success' : r.status === 'pending-status' ? 'pending-status' : r.status === 'fail' ? 'fail' : r.status === 'running' ? 'running' : ''}" id="row-${r.id}">
       <div class="field" style="grid-column:1">
         <label>가게 이름</label>
-        <input value="${esc(r.name)}" oninput="update(${r.id},'name',this.value)" ${r.status!=='idle'?'disabled':''} />
+        <input value="${esc(r.name)}" oninput="update(${r.id},'name',this.value)" ${r.status!=='idle'?'disabled':''}/>
       </div>
       <div class="field" style="grid-column:2">
         <label>주소</label>
         <input value="${esc(r.address)}" oninput="update(${r.id},'address',this.value)" ${r.status!=='idle'?'disabled':''}/>
       </div>
       <div class="row-actions" style="grid-column:3;grid-row:1/3">
+        <span class="cat-badge">${esc(r.category)}</span>
         <button class="btn-del" onclick="removeRow(${r.id})" ${r.status!=='idle'?'disabled':''}>삭제</button>
         <div class="row-status">${statusIcon(r.status)}</div>
       </div>
-      <div class="field" style="grid-column:1">
-        <label>카테고리</label>
-        <input value="${esc(r.category)}" oninput="update(${r.id},'category',this.value)" ${r.status!=='idle'?'disabled':''}/>
-      </div>
-      <div class="field" style="grid-column:2">
+      <div class="field" style="grid-column:1/3">
         <label>한줄평</label>
         <input value="${esc(r.comment)}" oninput="update(${r.id},'comment',this.value)" ${r.status!=='idle'?'disabled':''}/>
       </div>
@@ -161,26 +220,27 @@ function render() {
 }
 
 function statusIcon(s) {
-  if (s === 'idle') return '';
-  if (s === 'running') return '⏳ 검증 중...';
-  if (s === 'success') return '✅ 등록 완료';
-  if (s === 'pending-status') return '🕐 검토 대기';
-  if (s === 'fail') return '❌ 반려';
+  if (s==='idle') return '';
+  if (s==='running') return '⏳';
+  if (s==='success') return '✅ 완료';
+  if (s==='pending-status') return '🕐 검토';
+  if (s==='fail') return '❌ 반려';
   return '';
 }
 
 function esc(str) { return (str||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
-function update(id, key, val) { const r = rows.find(r=>r.id===id); if(r) r[key] = val; }
-function removeRow(id) { rows = rows.filter(r=>r.id!==id); render(); }
-function addRow() { rows.push({id:Date.now(),name:'',address:'',category:'카페',comment:'',status:'idle'}); render(); }
+function update(id, key, val) { const r = rows.find(r=>r.id===id); if(r) r[key]=val; }
+function removeRow(id) { rows=rows.filter(r=>r.id!==id); render(); }
+function addRow() {
+  rows.push({id:Date.now(),name:'',address:'',category:'카페',comment:'',status:'idle'});
+  currentFilter='전체';
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.textContent==='전체'));
+  render();
+}
 
 async function startBatch() {
-  // 로그인 확인
-  const meRes = await fetch('/api/auth/me', { credentials: 'include' });
-  if (!meRes.ok) {
-    document.getElementById('authWarning').classList.add('show');
-    return;
-  }
+  const meRes = await fetch('/api/auth/me', {credentials:'include'});
+  if (!meRes.ok) { document.getElementById('authWarning').classList.add('show'); return; }
 
   const idle = rows.filter(r => r.status === 'idle');
   if (!idle.length) { alert('등록할 항목이 없어요.'); return; }
@@ -188,44 +248,37 @@ async function startBatch() {
   document.getElementById('startBtn').disabled = true;
   document.getElementById('progressBar').style.display = 'block';
   document.getElementById('summary').classList.remove('show');
+  currentFilter = '전체';
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.toggle('active',b.textContent==='전체'));
 
-  let done = 0, ok = 0, pend = 0, fail = 0;
+  let done=0, ok=0, pend=0, fail=0;
 
   for (const row of idle) {
-    row.status = 'running';
-    render();
-    document.getElementById('progressText').textContent = `${done+1}/${idle.length} 처리 중...`;
+    row.status = 'running'; render();
+    document.getElementById('progressText').textContent = `${done+1}/${idle.length}`;
 
     try {
-      // 1. 주소 → 좌표
       const geoRes = await fetch(`/api/geocode?address=${encodeURIComponent(row.address)}`);
-      if (!geoRes.ok) { row.status = 'fail'; fail++; done++; updateProgress(done, idle.length); render(); continue; }
-      const { lat, lng } = await geoRes.json();
+      if (!geoRes.ok) { row.status='fail'; fail++; done++; updateProgress(done,idle.length); render(); continue; }
+      const {lat, lng} = await geoRes.json();
 
-      // 2. 등록
       const regRes = await fetch('/api/places', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ name: row.name, address: row.address, lat, lng, category: row.category, comment: row.comment }),
+        method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+        body: JSON.stringify({name:row.name, address:row.address, lat, lng, category:row.category, comment:row.comment}),
       });
       const result = await regRes.json();
 
-      if (result.status === 'verified') { row.status = 'success'; ok++; }
-      else if (result.status === 'pending') { row.status = 'pending-status'; pend++; }
-      else { row.status = 'fail'; fail++; }
-    } catch(e) {
-      row.status = 'fail'; fail++;
-    }
+      if (result.status==='verified') { row.status='success'; ok++; }
+      else if (result.status==='pending') { row.status='pending-status'; pend++; }
+      else { row.status='fail'; fail++; }
+    } catch(e) { row.status='fail'; fail++; }
 
-    done++;
-    updateProgress(done, idle.length);
-    render();
-    await sleep(800); // API 과호출 방지
+    done++; updateProgress(done, idle.length); render();
+    await new Promise(r=>setTimeout(r,900));
   }
 
   document.getElementById('startBtn').disabled = false;
-  document.getElementById('progressText').textContent = `완료!`;
+  document.getElementById('progressText').textContent = '완료!';
   document.getElementById('statOk').textContent = ok;
   document.getElementById('statPend').textContent = pend;
   document.getElementById('statFail').textContent = fail;
@@ -235,8 +288,6 @@ async function startBatch() {
 function updateProgress(done, total) {
   document.getElementById('progressFill').style.width = `${Math.round(done/total*100)}%`;
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 render();
 </script>
