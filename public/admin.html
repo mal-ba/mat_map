@@ -269,9 +269,13 @@ async function startBatch(force = false) {
         method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
         body: JSON.stringify({name:row.name, address:row.address, lat, lng, category:row.category, comment:row.comment}),
       });
-      const result = await regRes.json();
 
-      if (force || result.status==='verified') { row.status='success'; ok++; }
+      // 응답 파싱 실패해도 force면 성공 처리
+      let result = {};
+      try { result = await regRes.json(); } catch(_) {}
+
+      if (!regRes.ok) { row.status='fail'; fail++; }
+      else if (force || result.status==='verified') { row.status='success'; ok++; }
       else if (result.status==='pending') { row.status='pending-status'; pend++; }
       else { row.status='fail'; fail++; }
     } catch(e) { row.status='fail'; fail++; }
