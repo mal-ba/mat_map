@@ -90,7 +90,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   <div style="margin-top:12px;"><button class="btn btn-ghost" onclick="addRow()">+ 직접 추가</button></div>
 
   <div class="actions">
-    <button id="startBtn" class="btn btn-primary" onclick="startBatch()">▶ 일괄 검증 등록 시작</button>
+    <button id="startBtn" class="btn btn-primary" onclick="startBatch(false)">▶ 일괄 검증 등록</button>
+    <button id="forceBtn" class="btn btn-ghost" onclick="startBatch(true)" style="border-color:#B23A2E;color:#B23A2E;">⚡ 강제 등록 (검증 생략)</button>
     <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <span class="progress-text" id="progressText"></span>
   </div>
@@ -238,7 +239,7 @@ function addRow() {
   render();
 }
 
-async function startBatch() {
+async function startBatch(force = false) {
   const meRes = await fetch('/api/auth/me', {credentials:'include'});
   if (!meRes.ok) { document.getElementById('authWarning').classList.add('show'); return; }
 
@@ -246,6 +247,7 @@ async function startBatch() {
   if (!idle.length) { alert('등록할 항목이 없어요.'); return; }
 
   document.getElementById('startBtn').disabled = true;
+  document.getElementById('forceBtn').disabled = true;
   document.getElementById('progressBar').style.display = 'block';
   document.getElementById('summary').classList.remove('show');
   currentFilter = '전체';
@@ -262,13 +264,14 @@ async function startBatch() {
       if (!geoRes.ok) { row.status='fail'; fail++; done++; updateProgress(done,idle.length); render(); continue; }
       const {lat, lng} = await geoRes.json();
 
-      const regRes = await fetch('/api/places', {
+      const endpoint = force ? '/api/admin/force-place' : '/api/places';
+      const regRes = await fetch(endpoint, {
         method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
         body: JSON.stringify({name:row.name, address:row.address, lat, lng, category:row.category, comment:row.comment}),
       });
       const result = await regRes.json();
 
-      if (result.status==='verified') { row.status='success'; ok++; }
+      if (force || result.status==='verified') { row.status='success'; ok++; }
       else if (result.status==='pending') { row.status='pending-status'; pend++; }
       else { row.status='fail'; fail++; }
     } catch(e) { row.status='fail'; fail++; }
@@ -278,6 +281,7 @@ async function startBatch() {
   }
 
   document.getElementById('startBtn').disabled = false;
+  document.getElementById('forceBtn').disabled = false;
   document.getElementById('progressText').textContent = '완료!';
   document.getElementById('statOk').textContent = ok;
   document.getElementById('statPend').textContent = pend;
