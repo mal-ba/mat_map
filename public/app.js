@@ -59,16 +59,23 @@ async function initNaverMap() {
   if (maps.naver) return;
   try {
     await loadNaverSDK();
-    if (typeof naver === 'undefined' || !naver.maps) throw new Error('naver not loaded');
+    if (typeof naver === 'undefined' || !naver.maps) throw new Error('naver.maps 객체 없음 — SDK 로드 실패');
     const center = new naver.maps.LatLng(37.5665, 126.978);
     maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
     renderNaverMarkers(placesCache);
   } catch (e) {
+    const errMsg = e?.message || String(e);
+    const clientId = window.__CONFIG__?.NAVER_MAP_CLIENT_ID || '(없음)';
     document.getElementById('map-naver').innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:#5A4F3F;font-family:Noto Sans KR,sans-serif;">' +
-      '<div style="font-size:32px;">🗺️</div>' +
-      '<div style="font-size:14px;font-weight:700;">네이버 지도 준비 중</div>' +
-      '<div style="font-size:12px;">API 인증 반영까지 최대 30분 소요됩니다.<br>잠시 후 다시 시도해주세요.</div>' +
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:10px;color:#5A4F3F;font-family:Noto Sans KR,sans-serif;padding:24px;text-align:center;">' +
+      '<div style="font-size:28px;">⚠️</div>' +
+      '<div style="font-size:14px;font-weight:700;color:#B23A2E;">네이버 지도 인증 실패</div>' +
+      '<div style="font-size:11px;background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:10px 14px;text-align:left;max-width:320px;word-break:break-all;line-height:1.7;">' +
+      '<b>Client ID:</b> ' + clientId.slice(0,8) + '...<br>' +
+      '<b>URI:</b> ' + location.origin + '/<br>' +
+      '<b>에러:</b> ' + errMsg +
+      '</div>' +
+      '<div style="font-size:11px;color:#888;">NCP 콘솔에서 Web 서비스 URL 확인<br>반영까지 최대 30분 소요</div>' +
       '</div>';
   }
 }
