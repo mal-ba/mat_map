@@ -60,6 +60,12 @@ window.addEventListener('DOMContentLoaded', () => {
       });
       document.getElementById('status').textContent = '✅ 지도 로드 성공!';
       log('지도 생성 성공!');
+      // 컨테이너 크기 재계산
+      setTimeout(() => {
+        naver.maps.Event.trigger(map, 'resize');
+        map.setCenter(new naver.maps.LatLng(37.5665, 126.978));
+        log('resize 트리거 완료');
+      }, 200);
     } catch(e) {
       document.getElementById('status').textContent = '❌ 지도 생성 실패: ' + e.message;
       log('지도 생성 에러: ' + e.message);
