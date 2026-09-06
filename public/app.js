@@ -93,6 +93,13 @@ async function initNaverMap() {
 
   const center = new naver.maps.LatLng(37.5665, 126.978);
   maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
+
+  // 탭 전환 후 컨테이너 크기 재계산
+  setTimeout(() => {
+    naver.maps.Event.trigger(maps.naver, 'resize');
+    maps.naver.setCenter(center);
+  }, 100);
+
   renderNaverMarkers(placesCache);
 }
 
@@ -235,7 +242,13 @@ function setupMapTabs() {
       currentProvider = provider;
 
       if (provider === 'kakao') await initKakaoMap();
-      if (provider === 'naver') await initNaverMap();
+      if (provider === 'naver') {
+        await initNaverMap();
+        if (maps.naver) {
+          naver.maps.Event.trigger(maps.naver, 'resize');
+          maps.naver.setCenter(new naver.maps.LatLng(37.5665, 126.978));
+        }
+      }
       if (provider === 'google') {
         await initGoogleMap();
         // 탭 전환 후 컨테이너 크기 재계산 (없으면 타일 안 뜸)
