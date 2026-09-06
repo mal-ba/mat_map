@@ -32,7 +32,7 @@ function loadNaverSDK() {
   const clientId = window.__CONFIG__.NAVER_MAP_CLIENT_ID;
   return loadScriptOnce(
     'naver',
-    `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`,
+    `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`,
     (resolve) => resolve()
   );
 }
