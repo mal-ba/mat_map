@@ -1,3 +1,16 @@
+// ---------- 콘솔 에러 수집 (진단 패널용) ----------
+const _consoleLogs = [];
+const _origConsoleError = console.error;
+const _origConsoleWarn = console.warn;
+console.error = function(...args) {
+  _consoleLogs.push({ type: 'error', msg: args.join(' '), time: new Date().toLocaleTimeString() });
+  _origConsoleError.apply(console, args);
+};
+console.warn = function(...args) {
+  _consoleLogs.push({ type: 'warn', msg: args.join(' '), time: new Date().toLocaleTimeString() });
+  _origConsoleWarn.apply(console, args);
+};
+
 let currentUser = null;
 let currentProvider = 'kakao';
 let placesCache = [];
@@ -428,7 +441,8 @@ function renderAuthArea() {
   if (currentUser) {
     area.innerHTML = `
       <span style="font-size:13px;font-weight:700">${escapeHtml(currentUser.name)}님 환영해요</span>
-      <button id="logoutBtn" class="btn-ghost" style="margin-left:8px;font-size:12px;">로그아웃</button>
+      ${isAdmin() ? '<button onclick="openDiagPanel()" style="margin-left:6px;background:none;border:1.5px solid #5A4F3F;border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer;" title="진단 패널">🛠️</button>' : ''}
+      <button id="logoutBtn" class="btn-ghost" style="margin-left:6px;font-size:12px;">로그아웃</button>
     `;
     addBtn.disabled = false;
     document.getElementById('logoutBtn').addEventListener('click', async () => {
@@ -545,3 +559,87 @@ async function restoreSession() {
     console.log('[restoreSession] 로그인 세션 없음');
   }
 }
+
+
+// ---------- 관리자 체크 ----------
+const ADMIN_EMAILS = [
+  'jehoon100703@gmail.com',
+];
+
+function isAdmin() {
+  return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
+// ---------- 진단 패널 ----------
+window.openDiagPanel = function() {
+  const cfg = window.__CONFIG__ || {};
+  const errors = _consoleLogs.filter(l => l.type === 'error');
+  const warns = _consoleLogs.filter(l => l.type === 'warn');
+
+  const existing = document.getElementById('diagPanel');
+  if (existing) { existing.remove(); return; }
+
+  const panel = document.createElement('div');
+  panel.id = 'diagPanel';
+  panel.style.cssText = `
+    position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);
+    overflow-y:auto;font-family:monospace;font-size:12px;color:#0f0;padding:16px;
+  `;
+
+  const cfg_rows = Object.entries(cfg).map(([k,v]) => {
+    const display = v ? (v.length > 12 ? v.slice(0,10)+'...' : v) : '❌ 없음';
+    const ok = v ? '✅' : '❌';
+    return `<tr><td style="color:#aaa;padding:2px 8px 2px 0">${k}</td><td>${ok} ${display}</td></tr>`;
+  }).join('');
+
+  const map_rows = [
+    ['카카오맵', maps.kakao ? '✅ 로드됨' : '❌ 미로드'],
+    ['네이버지도', maps.naver ? '✅ 로드됨' : '❌ 미로드'],
+    ['구글맵', maps.google ? '✅ 로드됨' : '❌ 미로드'],
+  ].map(([k,v]) => `<tr><td style="color:#aaa;padding:2px 8px 2px 0">${k}</td><td>${v}</td></tr>`).join('');
+
+  const err_rows = errors.length
+    ? errors.map(e => `<div style="color:#f66;margin:2px 0">[${e.time}] ${e.msg.slice(0,120)}</div>`).join('')
+    : '<div style="color:#888">에러 없음</div>';
+
+  panel.innerHTML = `
+    <div style="max-width:600px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <b style="font-size:16px;color:#fff">🛠️ 찐맛집 진단 패널</b>
+        <button onclick="document.getElementById('diagPanel').remove()" style="background:#B23A2E;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">✕ 닫기</button>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="color:#ff0;margin-bottom:6px">📋 환경변수 (config.js)</div>
+        <table>${cfg_rows}</table>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="color:#ff0;margin-bottom:6px">🗺️ 지도 상태</div>
+        <table>${map_rows}</table>
+        <div style="color:#aaa;margin-top:4px">현재 탭: ${currentProvider}</div>
+        <div style="color:#aaa">등록된 맛집: ${placesCache.length}개</div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="color:#ff0;margin-bottom:6px">🔴 에러 로그 (${errors.length}개)</div>
+        ${err_rows}
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="color:#ff0;margin-bottom:6px">🔗 빠른 링크</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <a href="/config.js" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">config.js</a>
+          <a href="/naver-test.html" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">네이버 테스트</a>
+          <a href="/admin.html" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">관리자 페이지</a>
+          <a href="/api/places" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">API 확인</a>
+        </div>
+      </div>
+
+      <div style="color:#555;font-size:11px;margin-top:16px">
+        ${new Date().toLocaleString()} | ${navigator.userAgent.slice(0,60)}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(panel);
+};
