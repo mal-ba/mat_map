@@ -82,6 +82,20 @@
     <input type="hidden" name="lat" id="latInput" />
     <input type="hidden" name="lng" id="lngInput" />
 
+    <label>표시할 지도 선택
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="checkbox" name="map_kakao" value="kakao" checked style="width:16px;height:16px;"> 카카오맵
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="checkbox" name="map_naver" value="naver" checked style="width:16px;height:16px;"> 네이버지도
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="checkbox" name="map_google" value="google" checked style="width:16px;height:16px;"> 구글맵
+        </label>
+      </div>
+    </label>
+
     <label>카테고리
       <input name="category" placeholder="예: 분식 / 곱창 / 카페" />
     </label>

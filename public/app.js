@@ -181,10 +181,15 @@ function clearPreviewMarkers() {
 }
 
 // ---------- 마커 렌더링 ----------
+function shouldShow(place, mapName) {
+  if (!place.show_on_maps) return true; // 기존 데이터는 모두 표시
+  return place.show_on_maps.includes(mapName);
+}
+
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
   markers.kakao.forEach((m) => m.setMap(null));
-  markers.kakao = places.map((p) => {
+  markers.kakao = places.filter(p => shouldShow(p, 'kakao')).map((p) => {
     const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
     kakao.maps.event.addListener(marker, 'click', () => maps.kakao.panTo(marker.getPosition()));
     return marker;
@@ -194,7 +199,7 @@ function renderKakaoMarkers(places) {
 function renderNaverMarkers(places) {
   if (!maps.naver) return;
   markers.naver.forEach((m) => m.setMap(null));
-  markers.naver = places.map((p) => {
+  markers.naver = places.filter(p => shouldShow(p, 'naver')).map((p) => {
     const position = new naver.maps.LatLng(p.lat, p.lng);
     const marker = new naver.maps.Marker({ position, map: maps.naver });
     naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
@@ -205,7 +210,7 @@ function renderNaverMarkers(places) {
 function renderGoogleMarkers(places) {
   if (!maps.google) return;
   markers.google.forEach((m) => m.setMap(null));
-  markers.google = places.map((p) => {
+  markers.google = places.filter(p => shouldShow(p, 'google')).map((p) => {
     const position = { lat: p.lat, lng: p.lng };
     const marker = new google.maps.Marker({ position, map: maps.google });
     marker.addListener('click', () => {
@@ -499,6 +504,17 @@ function setupRegisterModal() {
     const body = Object.fromEntries(fd.entries());
     body.lat = parseFloat(body.lat);
     body.lng = parseFloat(body.lng);
+
+    // 선택된 지도 수집
+    const selectedMaps = ['kakao','naver','google'].filter(m =>
+      form.querySelector(`input[name="map_${m}"]`)?.checked
+    );
+    if (!selectedMaps.length) {
+      alert('최소 하나의 지도를 선택해주세요.');
+      return;
+    }
+    body.show_on_maps = selectedMaps.join(',');
+    delete body.map_kakao; delete body.map_naver; delete body.map_google;
 
     if (isNaN(body.lat) || isNaN(body.lng)) {
       alert('주소를 입력하면 자동으로 위치가 검색됩니다.\n주소를 다시 확인해주세요.');
