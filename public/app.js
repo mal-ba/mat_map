@@ -264,10 +264,12 @@ function setupMapTabs() {
       }
       if (provider === 'google') {
         await initGoogleMap();
-        // 탭 전환 후 컨테이너 크기 재계산 (없으면 타일 안 뜸)
         if (maps.google) {
-          google.maps.event.trigger(maps.google, 'resize');
-          maps.google.setCenter({ lat: 37.5665, lng: 126.978 });
+          // CSS 전환 완료 후 크기 재계산 (타이밍이 너무 빠르면 타일 안 뜸)
+          setTimeout(() => {
+            google.maps.event.trigger(maps.google, 'resize');
+            maps.google.setCenter({ lat: 37.5665, lng: 126.978 });
+          }, 350);
         }
       }
     });
