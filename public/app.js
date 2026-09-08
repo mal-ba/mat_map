@@ -16,6 +16,8 @@ let currentProvider = 'kakao';
 let placesCache = [];
 
 const maps = { kakao: null, naver: null, google: null };
+let searchMarkers = [];
+let searchOverlay = null;
 const markers = { kakao: [], naver: [], google: [] };
 const previewMarkers = { kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
@@ -36,7 +38,7 @@ function loadKakaoSDK() {
   const key = window.__CONFIG__.KAKAO_JS_KEY;
   return loadScriptOnce(
     'kakao',
-    `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false`,
+    `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services`,
     (resolve) => window.kakao.maps.load(resolve)
   );
 }
@@ -565,6 +567,116 @@ window.addEventListener('DOMContentLoaded', async () => {
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });
+
+
+
+// ---------- 카카오 장소 검색 ----------
+function searchKakaoPlaces(keyword) {
+  if (!keyword.trim() || !maps.kakao) return;
+  clearSearchMarkers();
+
+  const ps = new kakao.maps.services.Places();
+  ps.keywordSearch(keyword, (data, status) => {
+    if (status !== kakao.maps.services.Status.OK) {
+      showSearchMsg('검색 결과가 없어요.');
+      return;
+    }
+    showSearchMsg('');
+
+    // 검색 범위에 맞게 지도 이동
+    const bounds = new kakao.maps.LatLngBounds();
+
+    data.forEach((place) => {
+      const pos = new kakao.maps.LatLng(place.y, place.x);
+      bounds.extend(pos);
+
+      // 검색 결과 마커 (파란색 구분)
+      const marker = new kakao.maps.Marker({
+        position: pos,
+        map: maps.kakao,
+        image: new kakao.maps.MarkerImage(
+          'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+          new kakao.maps.Size(24, 35)
+        ),
+      });
+
+      kakao.maps.event.addListener(marker, 'click', () => {
+        showPlaceOverlay(place, pos, marker);
+      });
+
+      searchMarkers.push(marker);
+    });
+
+    maps.kakao.setBounds(bounds);
+  }, {
+    location: maps.kakao.getCenter(),
+    radius: 10000,
+    sort: kakao.maps.services.SortBy.DISTANCE,
+  });
+}
+
+function showPlaceOverlay(place, pos, marker) {
+  if (searchOverlay) searchOverlay.setMap(null);
+
+  const content = `
+    <div style="background:#fff;border:2px solid #241E17;border-radius:6px;padding:12px 14px;
+                min-width:200px;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,0.2);
+                font-family:'Noto Sans KR',sans-serif;">
+      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${escapeHtml(place.place_name)}</div>
+      <div style="font-size:12px;color:#5A4F3F;margin-bottom:8px;">${escapeHtml(place.address_name)}</div>
+      ${place.category_name ? `<div style="font-size:11px;color:#888;margin-bottom:8px;">${escapeHtml(place.category_name)}</div>` : ''}
+      <button onclick="registerFromSearch(${JSON.stringify(place.place_name).replace(/"/g,'&quot;')}, ${JSON.stringify(place.address_name).replace(/"/g,'&quot;')}, ${place.y}, ${place.x})"
+        style="width:100%;background:#B23A2E;color:#E7DCC3;border:none;border-radius:4px;
+               padding:8px;font-size:13px;font-weight:700;cursor:pointer;">
+        ✅ 찐맛집으로 등록
+      </button>
+      <button onclick="if(searchOverlay)searchOverlay.setMap(null)"
+        style="width:100%;background:none;border:1.5px solid #ccc;border-radius:4px;
+               padding:6px;font-size:12px;cursor:pointer;margin-top:4px;">
+        닫기
+      </button>
+    </div>
+  `;
+
+  searchOverlay = new kakao.maps.CustomOverlay({
+    position: pos,
+    content,
+    yAnchor: 1.3,
+    map: maps.kakao,
+  });
+}
+
+window.registerFromSearch = function(name, address, lat, lng) {
+  if (searchOverlay) searchOverlay.setMap(null);
+
+  // 등록 모달 열고 값 채우기
+  const modal = document.getElementById('registerModal');
+  modal.querySelector('input[name="name"]').value = name;
+  modal.querySelector('input[name="address"]').value = address;
+  document.getElementById('latInput').value = lat;
+  document.getElementById('lngInput').value = lng;
+
+  // 주소 검색 결과 표시
+  document.getElementById('geocodeStatus').textContent = '✅';
+  document.getElementById('geocodeResult').textContent = `📍 ${address}`;
+  document.getElementById('geocodeResult').style.color = '#22c55e';
+
+  // 지도에 미리보기 마커
+  showPreviewMarker(parseFloat(lat), parseFloat(lng));
+
+  modal.showModal();
+};
+
+function clearSearchMarkers() {
+  searchMarkers.forEach(m => m.setMap(null));
+  searchMarkers = [];
+  if (searchOverlay) { searchOverlay.setMap(null); searchOverlay = null; }
+}
+
+function showSearchMsg(msg) {
+  const el = document.getElementById('searchMsg');
+  if (el) el.textContent = msg;
+}
 
 // 페이지 로드 시 기존 로그인 세션 복원
 async function restoreSession() {

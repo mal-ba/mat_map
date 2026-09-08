@@ -54,6 +54,22 @@
       <button class="map-tab" data-provider="naver">네이버지도</button>
       <button class="map-tab" data-provider="google">구글맵</button>
     </div>
+    <!-- 장소 검색창 (카카오맵 탭일 때만 활성) -->
+    <div id="mapSearchBar" style="position:absolute;top:56px;left:50%;transform:translateX(-50%);
+         z-index:10;display:flex;gap:0;width:min(360px,90%);box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+      <input id="mapSearchInput" type="text" placeholder="🔍 가게 이름으로 검색"
+        style="flex:1;padding:10px 14px;border:2px solid #241E17;border-right:none;
+               border-radius:4px 0 0 4px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;"
+        onkeydown="if(event.key==='Enter') searchKakaoPlaces(this.value)" />
+      <button onclick="searchKakaoPlaces(document.getElementById('mapSearchInput').value)"
+        style="padding:10px 16px;background:#B23A2E;color:#E7DCC3;border:2px solid #241E17;
+               border-left:none;border-radius:0 4px 4px 0;font-weight:700;font-size:14px;cursor:pointer;">
+        검색
+      </button>
+    </div>
+    <div id="searchMsg" style="position:absolute;top:104px;left:50%;transform:translateX(-50%);
+         z-index:10;font-size:12px;color:#B23A2E;"></div>
+
     <div id="map-kakao" class="map-instance active"></div>
     <div id="map-naver" class="map-instance"></div>
     <div id="map-google" class="map-instance"></div>
