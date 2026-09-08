@@ -37,7 +37,7 @@ router.get('/mine', requireAuth, async (req, res) => {
 
 // 새 맛집 등록 -> 즉시 공개 X, 자동 검증 로직 통과해야 지도에 뜸
 router.post('/', requireAuth, async (req, res) => {
-  const { name, address, lat, lng, category, comment, image_url } = req.body;
+  const { name, address, lat, lng, category, comment, image_url, show_on_maps } = req.body;
   if (!name || !address || lat == null || lng == null) {
     return res.status(400).json({ error: '이름/주소/좌표는 필수입니다' });
   }
@@ -58,6 +58,7 @@ router.post('/', requireAuth, async (req, res) => {
       status: verdict.status,
       verify_reason: verdict.reason,
       kakao_place_id: verdict.kakao_place_id,
+      show_on_maps: show_on_maps || 'kakao,naver,google',
     })
     .select()
     .single();
