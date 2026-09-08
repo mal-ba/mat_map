@@ -116,6 +116,19 @@ async function initNaverMap() {
   renderNaverMarkers(placesCache);
 }
 
+// 컨테이너에 실제 크기가 생길 때까지 대기
+function waitForSize(el, maxMs = 2000) {
+  return new Promise((resolve) => {
+    const t0 = Date.now();
+    const tick = () => {
+      if (el.offsetWidth > 0 && el.offsetHeight > 0) return resolve();
+      if (Date.now() - t0 > maxMs) return resolve();
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
 async function initGoogleMap() {
   if (maps.google) return;
   await loadGoogleMapsSDK();
@@ -265,11 +278,9 @@ function setupMapTabs() {
       if (provider === 'google') {
         await initGoogleMap();
         if (maps.google) {
-          // CSS 전환 완료 후 크기 재계산 (타이밍이 너무 빠르면 타일 안 뜸)
-          setTimeout(() => {
-            google.maps.event.trigger(maps.google, 'resize');
-            maps.google.setCenter({ lat: 37.5665, lng: 126.978 });
-          }, 350);
+          await waitForSize(document.getElementById('map-google'));
+          google.maps.event.trigger(maps.google, 'resize');
+          maps.google.setCenter({ lat: 37.5665, lng: 126.978 });
         }
       }
     });
