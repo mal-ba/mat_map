@@ -83,11 +83,10 @@ function initJjinMap() {
     zoomControl: false,
   });
 
-  // CartoDB Positron 타일 (깔끔한 한국 지도)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© OpenStreetMap contributors © CARTO',
-    subdomains: 'abcd',
-    maxZoom: 20,
+  // OpenStreetMap 타일 (한국어 지명 표시, 네이버 지도 스타일)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
   }).addTo(maps.jjin);
 
   // 기본 줌 컨트롤 제거하고 커스텀으로
@@ -135,7 +134,9 @@ function renderJjinMarkers(places) {
 
   // 클러스터 그룹 생성
   jjinCluster = L.markerClusterGroup({
-    maxClusterRadius: 60,
+    maxClusterRadius: 40,
+    disableClusteringAtZoom: 10, // 줌 10 이상(30km 이내)이면 개별 마커로 표시
+    spiderfyOnMaxZoom: true,
     iconCreateFunction: (cluster) => {
       const count = cluster.getChildCount();
       return L.divIcon({
@@ -368,7 +369,7 @@ function renderKakaoMarkers(places) {
     kakaoCluster = new kakao.maps.MarkerClusterer({
       map: maps.kakao,
       averageCenter: true,
-      minLevel: 5,
+      minLevel: 9, // 레벨 9 이상(약 30km+ 뷰)에서만 묶음
       styles: [{
         width: '40px', height: '40px',
         background: '#B23A2E',
