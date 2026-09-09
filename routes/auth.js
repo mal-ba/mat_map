@@ -121,4 +121,45 @@ router.post('/visit', async (req, res) => {
   } catch { res.status(401).json({ error: '토큰 오류' }); }
 });
 
+// 프로필 업데이트
+router.put('/profile', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+  try {
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { display_name, bio } = req.body;
+    const { data, error } = await supabase
+      .from('users')
+      .update({ display_name, bio })
+      .eq('id', decoded.userId)
+      .select('id, name, email, picture, display_name, bio, badge_level, registered_count')
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch { res.status(401).json({ error: '토큰 오류' }); }
+});
+
+// 공개 프로필 조회
+router.get('/public-profile/:userId', async (req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, name, display_name, picture, bio, badge_level, registered_count')
+    .eq('id', req.params.userId)
+    .single();
+  if (error || !data) return res.status(404).json({ error: '유저 없음' });
+  res.json(data);
+});
+
+// 유저의 등록 맛집 목록
+router.get('/public-places/:userId', async (req, res) => {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, name, address, category, comment, status, created_at')
+    .eq('submitted_by', req.params.userId)
+    .eq('status', 'verified')
+    .order('created_at', { ascending: false });
+  res.json(data || []);
+});
+
 module.exports = router;

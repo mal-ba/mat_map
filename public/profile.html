@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>프로필 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--paper:#E7DCC3;--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--mustard:#D9A441;--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f5;color:var(--ink);min-height:100vh;}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--paper);
+  border-bottom:3px solid var(--ink);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:22px;width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:var(--paper);border-radius:50%;border:2px solid var(--ink);transform:rotate(-6deg);}
+.back-btn{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;
+  border:1.5px solid var(--ink);padding:6px 14px;border-radius:4px;}
+
+.container{max-width:600px;margin:0 auto;padding:24px 16px;}
+
+/* 프로필 카드 */
+.profile-card{background:#fff;border-radius:var(--radius);border:2px solid var(--ink);
+  padding:24px;margin-bottom:20px;}
+
+.profile-top{display:flex;align-items:center;gap:20px;margin-bottom:20px;}
+.avatar-wrap{position:relative;flex-shrink:0;}
+.avatar{width:80px;height:80px;border-radius:50%;border:3px solid var(--ink);object-fit:cover;background:#ddd;}
+.avatar-placeholder{width:80px;height:80px;border-radius:50%;border:3px solid var(--ink);
+  background:var(--paper);display:flex;align-items:center;justify-content:center;font-size:32px;}
+
+.profile-info{flex:1;}
+.profile-name{font-weight:900;font-size:20px;margin-bottom:4px;}
+.profile-email{font-size:12px;color:var(--ink-soft);margin-bottom:8px;}
+.badge-row{display:flex;align-items:center;gap:8px;}
+.badge-chip{padding:4px 12px;border-radius:99px;background:var(--stamp);color:var(--paper);
+  font-size:13px;font-weight:700;}
+.badge-next{font-size:11px;color:var(--ink-soft);}
+
+.profile-bio{font-size:14px;color:var(--ink-soft);line-height:1.7;margin-bottom:16px;
+  padding:12px;background:var(--paper);border-radius:4px;min-height:48px;}
+.profile-bio.empty{color:#aaa;font-style:italic;}
+
+.stats-row{display:flex;gap:0;border-top:1.5px solid rgba(36,30,23,.12);}
+.stat-item{flex:1;text-align:center;padding:14px 0;}
+.stat-item+.stat-item{border-left:1.5px solid rgba(36,30,23,.12);}
+.stat-num{font-size:22px;font-weight:900;display:block;}
+.stat-label{font-size:11px;color:var(--ink-soft);}
+
+/* 편집 버튼 */
+.edit-btn{width:100%;padding:11px;border:2px solid var(--ink);border-radius:4px;
+  background:transparent;font-family:inherit;font-size:14px;font-weight:700;
+  cursor:pointer;margin-top:16px;}
+.edit-btn:hover{background:var(--ink);color:var(--paper);}
+
+/* 편집 폼 */
+.edit-form{display:none;margin-top:16px;border-top:1.5px solid rgba(36,30,23,.12);padding-top:16px;}
+.edit-form.open{display:block;}
+.form-label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:var(--ink-soft);}
+.form-input{width:100%;padding:9px 12px;border:2px solid var(--ink);border-radius:4px;
+  font-family:inherit;font-size:14px;background:transparent;margin-bottom:12px;}
+.form-input:focus{outline:none;border-color:var(--stamp);}
+.save-btn{width:100%;padding:11px;background:var(--stamp);color:var(--paper);
+  border:2px solid var(--ink);border-radius:4px;font-family:inherit;font-size:14px;
+  font-weight:700;cursor:pointer;}
+
+/* 맛집 목록 */
+.section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:14px;
+  padding-bottom:8px;border-bottom:2px solid var(--ink);}
+.places-grid{display:flex;flex-direction:column;gap:10px;}
+.place-card{background:#fff;border:2px solid var(--ink);border-radius:var(--radius);padding:14px 16px;}
+.place-name{font-weight:700;font-size:14px;margin-bottom:4px;}
+.place-meta{font-size:12px;color:var(--ink-soft);}
+.place-comment{font-size:13px;margin-top:6px;color:var(--ink-soft);}
+.empty-places{text-align:center;padding:40px;color:#aaa;font-size:14px;}
+
+.loading{text-align:center;padding:40px;color:#aaa;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand">
+    <span class="brand-mark">찐</span>
+  </a>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">프로필</span>
+  <a href="/" class="back-btn">← 지도로</a>
+</header>
+
+<div class="container">
+  <div id="loading" class="loading">로딩 중...</div>
+
+  <div id="profileWrap" style="display:none;">
+    <!-- 프로필 카드 -->
+    <div class="profile-card">
+      <div class="profile-top">
+        <div class="avatar-wrap">
+          <img id="avatarImg" class="avatar" style="display:none;" />
+          <div id="avatarPlaceholder" class="avatar-placeholder">👤</div>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name" id="profileName">—</div>
+          <div class="profile-email" id="profileEmail"></div>
+          <div class="badge-row">
+            <span class="badge-chip" id="badgeChip">탐험 시작</span>
+            <span class="badge-next" id="badgeNext"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-bio" id="profileBio">소개를 입력해보세요.</div>
+
+      <div class="stats-row">
+        <div class="stat-item">
+          <span class="stat-num" id="statPlaces">0</span>
+          <span class="stat-label">등록 맛집</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" id="statBadge">–</span>
+          <span class="stat-label">뱃지 등급</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num" id="statVisit">0</span>
+          <span class="stat-label">방문 횟수</span>
+        </div>
+      </div>
+
+      <!-- 내 프로필일 때만 편집 버튼 표시 -->
+      <div id="editSection" style="display:none;">
+        <button class="edit-btn" onclick="toggleEdit()">✏️ 프로필 편집</button>
+        <div class="edit-form" id="editForm">
+          <label class="form-label">표시 이름</label>
+          <input class="form-input" id="editName" placeholder="표시할 이름 입력" maxlength="20"/>
+          <label class="form-label">소개</label>
+          <textarea class="form-input" id="editBio" rows="3" placeholder="나를 소개해보세요 (100자 이내)" maxlength="100"></textarea>
+          <button class="save-btn" onclick="saveProfile()">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 등록 맛집 목록 -->
+    <div class="section-title">🍽️ 등록한 맛집</div>
+    <div class="places-grid" id="placesList">
+      <div class="empty-places">등록한 맛집이 없어요.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BADGE_INFO = [
+  { level:0, emoji:'',   name:'탐험 시작',   required:0   },
+  { level:1, emoji:'🌱', name:'새싹 탐험가', required:15  },
+  { level:2, emoji:'🌿', name:'풋내기 맛집러',required:30  },
+  { level:3, emoji:'🌲', name:'맛집 탐험가', required:60  },
+  { level:4, emoji:'⭐', name:'맛집 마스터', required:120 },
+  { level:5, emoji:'🌟', name:'맛집 전설',   required:240 },
+  { level:6, emoji:'👑', name:'찐맛집 레전드',required:480 },
+];
+
+let isMyProfile = false;
+let currentUser = null;
+
+function getBadge(level) { return BADGE_INFO[Math.min(level||0, BADGE_INFO.length-1)]; }
+function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+async function init() {
+  // 내 프로필인지 URL에서 확인
+  const params = new URLSearchParams(location.search);
+  const targetId = params.get('id');
+
+  // 로그인 확인
+  const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+  const me = meRes.ok ? await meRes.json() : null;
+
+  // 프로필 데이터 로드
+  let profileData;
+  if (!targetId || (me && targetId === me.userId)) {
+    // 내 프로필
+    const profileRes = await fetch('/api/auth/profile', { credentials: 'include' });
+    if (!profileRes.ok) { location.href = '/'; return; }
+    profileData = await profileRes.json();
+    isMyProfile = true;
+    currentUser = profileData;
+  } else {
+    // 타인 프로필
+    const profileRes = await fetch(`/api/auth/public-profile/${targetId}`);
+    if (!profileRes.ok) { document.getElementById('loading').textContent = '프로필을 찾을 수 없어요.'; return; }
+    profileData = await profileRes.json();
+  }
+
+  renderProfile(profileData);
+
+  // 맛집 목록
+  const userId = profileData.id;
+  const placesRes = await fetch(`/api/auth/public-places/${userId}`);
+  const places = placesRes.ok ? await placesRes.json() : [];
+  renderPlaces(places);
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('profileWrap').style.display = 'block';
+}
+
+function renderProfile(u) {
+  const displayName = u.display_name || u.name || '익명';
+  document.title = `${displayName} — 찐맛집`;
+  document.getElementById('profileName').textContent = displayName;
+  document.getElementById('profileEmail').textContent = u.email || '';
+
+  if (u.picture) {
+    const img = document.getElementById('avatarImg');
+    img.src = u.picture;
+    img.style.display = 'block';
+    document.getElementById('avatarPlaceholder').style.display = 'none';
+  }
+
+  const bio = u.bio?.trim();
+  const bioEl = document.getElementById('profileBio');
+  if (bio) { bioEl.textContent = bio; bioEl.classList.remove('empty'); }
+  else { bioEl.textContent = '소개가 없어요.'; bioEl.classList.add('empty'); }
+
+  const badge = getBadge(u.badge_level);
+  const nextBadge = getBadge((u.badge_level||0)+1);
+  document.getElementById('badgeChip').textContent = `${badge.emoji} ${badge.name}`;
+  if (nextBadge.required > 0) {
+    const remaining = Math.max(0, nextBadge.required - (u.registered_count||0));
+    document.getElementById('badgeNext').textContent = remaining > 0 ? `다음 등급까지 ${remaining}개` : '';
+  }
+
+  document.getElementById('statPlaces').textContent = u.registered_count || 0;
+  document.getElementById('statBadge').textContent = badge.emoji || u.badge_level || 0;
+  document.getElementById('statVisit').textContent = u.visit_count || 0;
+
+  if (isMyProfile) {
+    document.getElementById('editSection').style.display = 'block';
+    document.getElementById('editName').value = u.display_name || '';
+    document.getElementById('editBio').value = u.bio || '';
+  }
+}
+
+function renderPlaces(places) {
+  const list = document.getElementById('placesList');
+  if (!places.length) {
+    list.innerHTML = '<div class="empty-places">아직 등록한 맛집이 없어요.</div>';
+    return;
+  }
+  list.innerHTML = places.map(p => `
+    <div class="place-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="place-name">${escapeHtml(p.name)}</div>
+        <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#B23A2E;color:#E7DCC3;font-weight:700;">인증</span>
+      </div>
+      <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
+      ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function toggleEdit() {
+  const form = document.getElementById('editForm');
+  form.classList.toggle('open');
+}
+
+async function saveProfile() {
+  const display_name = document.getElementById('editName').value.trim();
+  const bio = document.getElementById('editBio').value.trim();
+  const res = await fetch('/api/auth/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ display_name, bio }),
+  });
+  if (!res.ok) { alert('저장 실패했어요.'); return; }
+  const updated = await res.json();
+  renderProfile(updated);
+  document.getElementById('editForm').classList.remove('open');
+  alert('프로필이 저장됐어요!');
+}
+
+init();
+</script>
+</body>
+</html>
