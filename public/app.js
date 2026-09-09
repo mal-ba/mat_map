@@ -82,8 +82,6 @@ function initJjinMap() {
     zoom: 12,
     minZoom: 7,
     zoomControl: false,
-    maxBounds: [[33.0, 124.5], [38.6, 130.0]],
-    maxBoundsViscosity: 0.8,
   });
 
   // OpenStreetMap 타일 (한국어 지명 표시, 네이버 지도 스타일)
@@ -232,7 +230,7 @@ async function initKakaoMap() {
   if (maps.kakao) return;
   await loadKakaoSDK();
   const center = new kakao.maps.LatLng(37.5665, 126.978);
-  maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
+  maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6, maxLevel: 12 });
   renderKakaoMarkers(placesCache);
 }
 
@@ -273,7 +271,7 @@ async function initNaverMap() {
   }
 
   const center = new naver.maps.LatLng(37.5665, 126.978);
-  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
+  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13, minZoom: 6 });
 
   // 탭 전환 후 컨테이너 크기 재계산
   setTimeout(() => {
@@ -303,8 +301,13 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
+    minZoom: 7,
     streetViewControl: false,
     mapTypeControl: false,
+    restriction: {
+      latLngBounds: { north: 38.6, south: 33.0, west: 124.5, east: 131.0 },
+      strictBounds: false,
+    },
   });
 
   // 스트리트뷰 파노라마 초기화 (한 번만)
