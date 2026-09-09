@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="/config.js"></script>
 <style>.hidden { display: none !important; }</style>
 </head>
@@ -70,7 +71,8 @@
     <div id="searchMsg" style="position:absolute;top:104px;left:50%;transform:translateX(-50%);
          z-index:10;font-size:12px;color:#B23A2E;"></div>
 
-    <div id="map-kakao" class="map-instance active"></div>
+    <div id="map-jjin" class="map-instance active"></div>
+    <div id="map-kakao" class="map-instance"></div>
     <div id="map-naver" class="map-instance"></div>
     <div id="map-google" class="map-instance"></div>
   </section>
@@ -132,6 +134,7 @@
   <p>실존 여부와 신뢰도를 확인하고 있어요...</p>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()"></script>
 <script src="/app.js"></script>
 <footer style="text-align:center;padding:20px;font-size:12px;color:#5A4F3F;border-top:2px solid rgba(36,30,23,0.16);margin-top:auto;">

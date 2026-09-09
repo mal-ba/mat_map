@@ -12,15 +12,95 @@ console.warn = function(...args) {
 };
 
 let currentUser = null;
-let currentProvider = 'kakao';
+let currentProvider = 'jjin';
 let placesCache = [];
 
-const maps = { kakao: null, naver: null, google: null };
+const maps = { jjin: null, kakao: null, naver: null, google: null };
 let searchMarkers = [];
 let searchOverlay = null;
-const markers = { kakao: [], naver: [], google: [] };
-const previewMarkers = { kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
+const markers = { jjin: [], kakao: [], naver: [], google: [] };
+const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
+
+// ---------- 찐지도 (Leaflet + OpenStreetMap) ----------
+function getCategoryColor(cat) {
+  if (!cat) return '#241E17';
+  if (cat.includes('한식')) return '#B23A2E';
+  if (cat.includes('카페') || cat.includes('디저트')) return '#D9A441';
+  if (cat.includes('고기') || cat.includes('구이')) return '#8B4513';
+  if (cat.includes('분식') || cat.includes('간식')) return '#4A90D9';
+  if (cat.includes('일식')) return '#6B4E9B';
+  if (cat.includes('양식')) return '#2E7D32';
+  if (cat.includes('중식')) return '#C62828';
+  return '#241E17';
+}
+
+function initJjinMap() {
+  if (maps.jjin) return;
+  if (!window.L) { console.error('[JjinMap] Leaflet 미로드'); return; }
+
+  const L = window.L;
+  maps.jjin = L.map('map-jjin', {
+    center: [37.5665, 126.978],
+    zoom: 12,
+    zoomControl: false,
+  });
+
+  // CartoDB Positron 타일 (깔끔한 한국 지도)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(maps.jjin);
+
+  L.control.zoom({ position: 'bottomright' }).addTo(maps.jjin);
+
+  // 지도 클릭 → 등록 모달
+  maps.jjin.on('click', (e) => {
+    const modal = document.getElementById('registerModal');
+    document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
+    document.getElementById('lngInput').value = e.latlng.lng.toFixed(6);
+    document.getElementById('geocodeStatus').textContent = '✅';
+    document.getElementById('geocodeResult').textContent = `📍 ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+    document.getElementById('geocodeResult').style.color = '#22c55e';
+    modal.showModal();
+  });
+
+  renderJjinMarkers(placesCache);
+  setTimeout(() => maps.jjin.invalidateSize(), 200);
+}
+
+function renderJjinMarkers(places) {
+  if (!maps.jjin || !window.L) return;
+  const L = window.L;
+
+  markers.jjin.forEach(m => maps.jjin.removeLayer(m));
+  markers.jjin = [];
+
+  places.filter(p => !p.show_on_maps || p.show_on_maps.includes('jjin') || true).forEach(p => {
+    const color = getCategoryColor(p.category);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
+        background:${color};border:2.5px solid #fff;
+        box-shadow:0 2px 6px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    });
+
+    const marker = L.marker([p.lat, p.lng], { icon });
+    marker.addTo(maps.jjin);
+    marker.bindPopup(`
+      <div style="font-family:'Noto Sans KR',sans-serif;min-width:160px;">
+        <b style="font-size:14px;">${escapeHtml(p.name)}</b>
+        <div style="font-size:11px;color:#5A4F3F;margin:3px 0;">${escapeHtml(p.address || '')}</div>
+        ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
+        ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+      </div>
+    `, { maxWidth: 240 });
+    markers.jjin.push(marker);
+  });
+}
 
 // ---------- SDK 지연 로드 ----------
 function loadScriptOnce(key, src, onReady) {
@@ -153,6 +233,12 @@ async function initGoogleMap() {
 
 // ---------- 미리보기 마커 (주소 검색 결과) ----------
 function showPreviewMarker(lat, lng) {
+  // 찐지도
+  if (maps.jjin && window.L) {
+    if (previewMarkers.jjin) maps.jjin.removeLayer(previewMarkers.jjin);
+    previewMarkers.jjin = window.L.marker([lat, lng]).addTo(maps.jjin);
+    maps.jjin.setView([lat, lng], 15);
+  }
   // 카카오
   if (maps.kakao) {
     if (previewMarkers.kakao) previewMarkers.kakao.setMap(null);
@@ -177,6 +263,7 @@ function showPreviewMarker(lat, lng) {
 }
 
 function clearPreviewMarkers() {
+  if (previewMarkers.jjin && maps.jjin) { maps.jjin.removeLayer(previewMarkers.jjin); previewMarkers.jjin = null; }
   if (previewMarkers.kakao) { previewMarkers.kakao.setMap(null); previewMarkers.kakao = null; }
   if (previewMarkers.naver) { previewMarkers.naver.setMap(null); previewMarkers.naver = null; }
   if (previewMarkers.google) { previewMarkers.google.setMap(null); previewMarkers.google = null; }
@@ -256,6 +343,7 @@ function closeStreetView() {
 }
 
 function renderAllMarkers(places) {
+  renderJjinMarkers(places);
   renderKakaoMarkers(places);
   renderNaverMarkers(places);
   renderGoogleMarkers(places);
@@ -274,6 +362,10 @@ function setupMapTabs() {
       document.getElementById(`map-${provider}`).classList.add('active');
       currentProvider = provider;
 
+      if (provider === 'jjin') {
+        initJjinMap();
+        if (maps.jjin) setTimeout(() => maps.jjin.invalidateSize(), 200);
+      }
       if (provider === 'kakao') await initKakaoMap();
       if (provider === 'naver') {
         await initNaverMap();
@@ -295,7 +387,9 @@ function setupMapTabs() {
 }
 
 function panActiveMapTo(lat, lng) {
-  if (currentProvider === 'kakao' && maps.kakao) {
+  if (currentProvider === 'jjin' && maps.jjin) {
+    maps.jjin.setView([lat, lng], 16);
+  } else if (currentProvider === 'kakao' && maps.kakao) {
     maps.kakao.panTo(new kakao.maps.LatLng(lat, lng));
   } else if (currentProvider === 'naver' && maps.naver) {
     maps.naver.panTo(new naver.maps.LatLng(lat, lng));
@@ -562,7 +656,7 @@ function resetForm() {
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
-  await initKakaoMap();
+  initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
