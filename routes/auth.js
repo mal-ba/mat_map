@@ -195,7 +195,10 @@ router.get('/naver/callback', async (req, res) => {
       `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${process.env.NAVER_LOGIN_CLIENT_ID}&client_secret=${process.env.NAVER_LOGIN_CLIENT_SECRET}&code=${code}&state=${state}`
     );
     const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) throw new Error('네이버 토큰 발급 실패');
+    if (!tokenData.access_token) {
+      console.error('[naver/callback] 토큰 응답 상세:', JSON.stringify(tokenData));
+      throw new Error('네이버 토큰 발급 실패');
+    }
 
     const meRes = await fetch('https://openapi.naver.com/v1/nid/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
