@@ -111,9 +111,11 @@ router.post('/visit', async (req, res) => {
   try {
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // visit_count 현재값 가져와서 +1
+    const { data: u } = await supabase.from('users').select('visit_count').eq('id', decoded.userId).single();
     await supabase.from('users').update({
       last_visited_at: new Date().toISOString(),
-      visit_count: supabase.raw('visit_count + 1'),
+      visit_count: (u?.visit_count || 0) + 1,
     }).eq('id', decoded.userId);
     res.json({ ok: true });
   } catch { res.status(401).json({ error: '토큰 오류' }); }
