@@ -124,7 +124,7 @@ body{
   border-bottom:3px solid var(--stamp);
   margin-bottom:-3px;
 }
-.map-instance{width:100%; flex:1; min-height:0; display:none}
+.map-instance{width:100%; flex:1; min-height:0; display:none; background:#aad3df;}
 .map-instance.active{display:block}
 
 dialog{
@@ -171,3 +171,8 @@ dialog::backdrop{background:rgba(36,30,23,0.55)}
   .layout{grid-template-columns:1fr; grid-template-rows:auto 1fr}
   .panel{border-right:none; border-bottom:3px solid var(--ink); max-height:40vh}
 }
+
+/* 지도 빈 배경 처리 */
+.leaflet-container { background: #aad3df !important; }
+#map-google { background: #aad3df !important; }
+#map-kakao, #map-naver { background: #aad3df !important; }
