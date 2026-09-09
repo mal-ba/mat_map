@@ -80,7 +80,10 @@ function initJjinMap() {
   maps.jjin = L.map('map-jjin', {
     center: [37.5665, 126.978],
     zoom: 12,
+    minZoom: 7,
     zoomControl: false,
+    maxBounds: [[33.0, 124.5], [38.6, 130.0]],
+    maxBoundsViscosity: 0.8,
   });
 
   // OpenStreetMap 타일 (한국어 지명 표시, 네이버 지도 스타일)

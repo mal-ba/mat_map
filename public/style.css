@@ -99,7 +99,7 @@ body{
   opacity:.85;
 }
 
-.map-wrap{position:relative; display:flex; flex-direction:column}
+.map-wrap{position:relative; display:flex; flex-direction:column; overflow:hidden}
 .map-tabs{
   display:flex; gap:0;
   border-bottom:3px solid var(--ink);
@@ -124,7 +124,7 @@ body{
   border-bottom:3px solid var(--stamp);
   margin-bottom:-3px;
 }
-.map-instance{width:100%; flex:1; display:none}
+.map-instance{width:100%; flex:1; min-height:0; display:none}
 .map-instance.active{display:block}
 
 dialog{
