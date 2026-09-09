@@ -48,7 +48,30 @@ async function findOrCreateSocialUser({ provider, providerId, email, name, pictu
     .select('*')
     .eq(providerCol, providerId)
     .maybeSingle();
-  if (byProvider) return byProvider;
+  if (byProvider) {
+    const nameChanged = name && name !== byProvider.name;
+    const pictureChanged = picture && picture !== byProvider.picture;
+    if (nameChanged || pictureChanged) {
+      const updates = {};
+      if (nameChanged) {
+        updates.name = name;
+        // 표시이름을 따로 커스텀한 적 없다면(예전 name과 같다면) 표시이름도 같이 갱신
+        if (!byProvider.display_name || byProvider.display_name === byProvider.name) {
+          updates.display_name = name;
+        }
+      }
+      if (pictureChanged) updates.picture = picture;
+      const { data: updated, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', byProvider.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return updated;
+    }
+    return byProvider;
+  }
 
   if (email) {
     const { data: byEmail } = await supabase
