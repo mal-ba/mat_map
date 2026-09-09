@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>프로필 설정 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--line:#e7e2d8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+
+.topbar{width:100%;padding:16px 20px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);width:fit-content;}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:20px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:#fff;border-radius:50%;border:2px solid var(--ink);}
+
+.wrap{width:100%;max-width:380px;padding:40px 20px 60px;margin:0 auto;}
+h1{font-family:'Black Han Sans',sans-serif;font-size:22px;text-align:center;margin-bottom:6px;}
+.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:32px;}
+
+.section-label{font-size:12px;font-weight:900;color:var(--stamp);letter-spacing:.5px;
+  margin:28px 0 14px;text-transform:uppercase;}
+.section-label:first-of-type{margin-top:0;}
+.section-hint{font-size:12px;color:#aaa;font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px;}
+
+.avatar-row{display:flex;align-items:center;gap:16px;margin-bottom:6px;}
+.avatar-preview{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#f0ede6;
+  border:2px solid var(--line);flex-shrink:0;}
+.avatar-placeholder{width:64px;height:64px;border-radius:50%;background:#f0ede6;
+  border:2px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-size:26px;flex-shrink:0;}
+.avatar-btn{padding:9px 16px;border:1.5px solid var(--line);border-radius:8px;background:#fff;
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px;}
+.field .req{color:var(--stamp);}
+.field input, .field textarea{width:100%;padding:11px 12px;border:1.5px solid var(--line);
+  border-radius:8px;font-family:inherit;font-size:14px;}
+.field textarea{resize:vertical;min-height:70px;}
+.field input:focus, .field textarea:focus{outline:none;border-color:var(--stamp);}
+
+.submit-btn{width:100%;padding:13px;background:var(--stamp);color:#fff;border:none;
+  border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;}
+.submit-btn:hover{opacity:.9;}
+.submit-btn:disabled{background:#ccc;cursor:not-allowed;}
+
+.error-msg{color:var(--stamp);font-size:13px;min-height:18px;margin-top:10px;text-align:center;}
+.loading{text-align:center;padding:60px 20px;color:#aaa;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand"><span class="brand-mark">찐</span></a>
+</header>
+
+<div id="loading" class="loading">불러오는 중...</div>
+
+<div class="wrap" id="formWrap" style="display:none;">
+  <h1>프로필을 완성해주세요</h1>
+  <p class="sub">몇 가지만 더 알려주시면 바로 시작할 수 있어요</p>
+
+  <form id="onboardingForm">
+    <div class="field">
+      <label>별명 <span class="req">*</span></label>
+      <input type="text" id="nicknameInput" required placeholder="다른 사람에게 보일 이름" maxlength="20" />
+    </div>
+
+    <div class="field">
+      <label>생년월일 <span class="req">*</span></label>
+      <input type="date" id="birthdateInput" required />
+    </div>
+
+    <div class="section-label">프로필 꾸미기 <span class="section-hint">(선택)</span></div>
+
+    <div class="avatar-row">
+      <img id="avatarPreview" class="avatar-preview" style="display:none;" />
+      <div id="avatarPlaceholder" class="avatar-placeholder">👤</div>
+      <label class="avatar-btn" for="avatarFileInput">사진 선택</label>
+      <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
+    </div>
+
+    <div class="field" style="margin-top:20px;">
+      <label>소개글</label>
+      <textarea id="bioInput" placeholder="나를 한 줄로 소개해보세요 (100자 이내)" maxlength="100"></textarea>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">완료하고 시작하기</button>
+    <p class="error-msg" id="errorMsg"></p>
+  </form>
+</div>
+
+<script>
+let pendingAvatarFile = null;
+
+async function init() {
+  const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+  if (!meRes.ok) { location.href = '/login.html'; return; }
+
+  const profileRes = await fetch('/api/auth/profile', { credentials: 'include' });
+  if (!profileRes.ok) { location.href = '/login.html'; return; }
+  const profile = await profileRes.json();
+
+  if (profile.onboarding_completed) { location.href = '/'; return; }
+
+  // 소셜 로그인으로 이미 받아온 이름/사진이 있으면 미리 채워줌
+  if (profile.display_name || profile.name) {
+    document.getElementById('nicknameInput').value = profile.display_name || profile.name;
+  }
+  const existingPic = profile.avatar_url || profile.picture;
+  if (existingPic) {
+    const img = document.getElementById('avatarPreview');
+    img.src = existingPic;
+    img.style.display = 'block';
+    document.getElementById('avatarPlaceholder').style.display = 'none';
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('formWrap').style.display = 'block';
+}
+
+document.getElementById('avatarFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('5MB 이하 이미지만 선택할 수 있어요.'); return; }
+  pendingAvatarFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = document.getElementById('avatarPreview');
+    img.src = ev.target.result;
+    img.style.display = 'block';
+    document.getElementById('avatarPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('onboardingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+  errEl.textContent = '';
+
+  const display_name = document.getElementById('nicknameInput').value.trim();
+  const birthdate = document.getElementById('birthdateInput').value;
+  const bio = document.getElementById('bioInput').value.trim();
+
+  if (!display_name) { errEl.textContent = '별명을 입력해주세요'; return; }
+  if (!birthdate) { errEl.textContent = '생년월일을 입력해주세요'; return; }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = '저장 중...';
+
+  try {
+    const res = await fetch('/api/auth/onboarding', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ display_name, birthdate, bio }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || '저장에 실패했어요'; submitBtn.disabled = false; submitBtn.textContent = '완료하고 시작하기'; return; }
+
+    if (pendingAvatarFile) {
+      const fd = new FormData();
+      fd.append('avatar', pendingAvatarFile);
+      await fetch('/api/auth/profile/avatar', { method: 'POST', credentials: 'include', body: fd }).catch(() => {});
+    }
+
+    location.href = '/';
+  } catch {
+    errEl.textContent = '저장 중 오류가 발생했어요';
+    submitBtn.disabled = false;
+    submitBtn.textContent = '완료하고 시작하기';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

@@ -918,6 +918,7 @@ async function restoreSession() {
       if (profileRes.ok) {
         const profile = await profileRes.json();
         currentUser = profile;
+        if (!profile.onboarding_completed) { location.href = '/onboarding.html'; return; }
       } else {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }

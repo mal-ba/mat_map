@@ -106,7 +106,8 @@ async function onGoogleCredential(response) {
     body: JSON.stringify({ credential: response.credential }),
   });
   if (!res.ok) { document.getElementById('errorMsg').textContent = 'Google 로그인에 실패했어요.'; return; }
-  location.href = '/';
+  const data = await res.json();
+  location.href = data.user?.onboarding_completed ? '/' : '/onboarding.html';
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -122,7 +123,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   });
   const data = await res.json();
   if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요'; return; }
-  location.href = '/';
+  location.href = data.user?.onboarding_completed ? '/' : '/onboarding.html';
 });
 </script>
 </body>
