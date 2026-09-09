@@ -132,6 +132,7 @@ router.post('/google', async (req, res) => {
         name: user.display_name || user.name,
         picture: user.avatar_url || user.picture,
         email: user.email,
+        onboarding_completed: user.onboarding_completed,
       },
     });
   } catch (err) {
@@ -188,7 +189,7 @@ router.get('/kakao/callback', async (req, res) => {
     });
 
     issueToken(res, user);
-    res.redirect(base);
+    res.redirect(user.onboarding_completed ? base : `${base}/onboarding.html`);
   } catch (err) {
     console.error('[kakao/callback]', err.message);
     res.redirect(`${base}/login.html?error=kakao`);
@@ -242,7 +243,7 @@ router.get('/naver/callback', async (req, res) => {
     });
 
     issueToken(res, user);
-    res.redirect(base);
+    res.redirect(user.onboarding_completed ? base : `${base}/onboarding.html`);
   } catch (err) {
     console.error('[naver/callback]', err.message);
     res.redirect(`${base}/login.html?error=naver`);
@@ -353,7 +354,7 @@ router.post('/signup', async (req, res) => {
     await supabase.from('email_verifications').delete().eq('email', email);
 
     issueToken(res, user);
-    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || null, email: user.email } });
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || null, email: user.email, onboarding_completed: user.onboarding_completed } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '회원가입 중 오류가 발생했어요' });
@@ -379,7 +380,7 @@ router.post('/login', async (req, res) => {
     if (!ok) return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않아요' });
 
     issueToken(res, user);
-    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || user.picture, email: user.email } });
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || user.picture, email: user.email, onboarding_completed: user.onboarding_completed } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '로그인 중 오류가 발생했어요' });
@@ -412,7 +413,7 @@ router.get('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .eq('id', decoded.userId)
       .single();
 
@@ -462,14 +463,40 @@ router.put('/profile', async (req, res) => {
       .from('users')
       .update({ display_name, bio })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch { res.status(401).json({ error: '토큰 오류' }); }
 });
 
-// 프로필 사진 업로드
+// 온보딩 완료 처리 (가입 직후 생년월일/별명 필수, 소개글은 선택)
+router.put('/onboarding', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { display_name, birthdate, bio } = req.body;
+
+    if (!display_name?.trim()) return res.status(400).json({ error: '별명을 입력해주세요' });
+    if (!birthdate) return res.status(400).json({ error: '생년월일을 입력해주세요' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) return res.status(400).json({ error: '생년월일 형식이 올바르지 않아요' });
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        display_name: display_name.trim(),
+        birthdate,
+        bio: bio?.trim() || null,
+        onboarding_completed: true,
+      })
+      .eq('id', decoded.userId)
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch { res.status(401).json({ error: '토큰 오류' }); }
+});
 router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
@@ -495,7 +522,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
       .from('users')
       .update({ avatar_url })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .single();
     if (error) throw error;
 
