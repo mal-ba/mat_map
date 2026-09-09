@@ -219,7 +219,7 @@ function loadGoogleMapsSDK() {
   const key = window.__CONFIG__.GOOGLE_MAPS_JS_KEY;
   return loadScriptOnce(
     'google',
-    `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&v=weekly`,
+    `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly`,
     (resolve) => resolve()
   );
 }
@@ -950,8 +950,8 @@ async function restoreSession() {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }
       renderAuthArea();
-      // 접속 기록 업데이트 (비동기, 결과 무시)
-      fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
+      // 접속 기록 업데이트 (로그인 확인 후 비동기 호출)
+      if (currentUser) fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
   } catch (err) {
     // 세션 복원 실패는 조용히 무시 (비로그인 상태로 시작)
