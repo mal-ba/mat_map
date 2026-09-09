@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>로그인 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--line:#e7e2d8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+
+.topbar{width:100%;padding:16px 20px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);width:fit-content;}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:20px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:#fff;border-radius:50%;border:2px solid var(--ink);}
+
+.wrap{width:100%;max-width:360px;padding:48px 20px;margin:0 auto;}
+h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;margin-bottom:6px;}
+.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:32px;}
+
+.social-btn{width:100%;padding:13px;border-radius:8px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;
+  display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--ink);}
+.social-btn.kakao{background:#FEE500;border-color:#FEE500;}
+.social-btn.naver{background:#03C75A;border-color:#03C75A;color:#fff;}
+.social-btn.google{background:#fff;}
+
+.divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#bbb;font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line);}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;}
+.field input{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
+  font-family:inherit;font-size:14px;}
+.field input:focus{outline:none;border-color:var(--stamp);}
+
+.submit-btn{width:100%;padding:13px;background:var(--stamp);color:#fff;border:none;
+  border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;}
+.submit-btn:hover{opacity:.9;}
+
+.error-msg{color:var(--stamp);font-size:13px;min-height:18px;margin-top:8px;text-align:center;}
+.bottom-link{text-align:center;margin-top:24px;font-size:13px;color:var(--ink-soft);}
+.bottom-link a{color:var(--stamp);font-weight:700;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand"><span class="brand-mark">찐</span></a>
+</header>
+
+<div class="wrap">
+  <h1>로그인</h1>
+  <p class="sub">찐맛집에 로그인하고 맛집을 등록해보세요</p>
+
+  <button class="social-btn kakao" onclick="location.href='/api/auth/kakao'">카카오로 로그인</button>
+  <button class="social-btn naver" onclick="location.href='/api/auth/naver'">네이버로 로그인</button>
+  <div id="googleBtnWrap"></div>
+
+  <div class="divider">또는</div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label>이메일</label>
+      <input type="email" name="email" required placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label>비밀번호</label>
+      <input type="password" name="password" required placeholder="비밀번호" />
+    </div>
+    <button type="submit" class="submit-btn">이메일로 로그인</button>
+    <p class="error-msg" id="errorMsg"></p>
+  </form>
+
+  <p class="bottom-link">아직 계정이 없나요? <a href="/signup.html">회원가입</a></p>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
+<script>
+const params = new URLSearchParams(location.search);
+if (params.get('error')) {
+  document.getElementById('errorMsg').textContent = '소셜 로그인에 실패했어요. 다시 시도해주세요.';
+}
+
+function initGoogle() {
+  if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
+  google.accounts.id.initialize({
+    client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
+    callback: onGoogleCredential,
+  });
+  google.accounts.id.renderButton(document.getElementById('googleBtnWrap'), {
+    theme: 'outline', size: 'large', width: 320, text: 'signin_with', locale: 'ko',
+  });
+}
+
+async function onGoogleCredential(response) {
+  const res = await fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ credential: response.credential }),
+  });
+  if (!res.ok) { document.getElementById('errorMsg').textContent = 'Google 로그인에 실패했어요.'; return; }
+  location.href = '/';
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('errorMsg');
+  errEl.textContent = '';
+  const fd = new FormData(e.target);
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
+  });
+  const data = await res.json();
+  if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요'; return; }
+  location.href = '/';
+});
+</script>
+</body>
+</html>

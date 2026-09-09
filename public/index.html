@@ -24,8 +24,8 @@
     </div>
   </div>
   <div class="auth-area" id="authArea">
-    <button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>
-    <button class="btn-ghost" onclick="openAuthModal()" style="margin-left:6px;">이메일로 시작하기</button>
+    <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
+    <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
   </div>
 </header>
 
@@ -139,47 +139,6 @@
   </form>
 </dialog>
 
-<!-- 이메일 로그인/회원가입 모달 -->
-<dialog id="authModal">
-  <div class="register-form" style="min-width:280px;">
-    <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #241E17;">
-      <button type="button" id="authTabLogin" class="auth-tab active" style="flex:1;padding:10px;background:none;border:none;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;border-bottom:3px solid #B23A2E;">로그인</button>
-      <button type="button" id="authTabSignup" class="auth-tab" style="flex:1;padding:10px;background:none;border:none;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#5A4F3F;">회원가입</button>
-    </div>
-
-    <form id="loginForm">
-      <label>이메일
-        <input type="email" name="email" required placeholder="you@example.com" />
-      </label>
-      <label>비밀번호
-        <input type="password" name="password" required placeholder="비밀번호" />
-      </label>
-      <p id="loginError" style="color:#B23A2E;font-size:13px;min-height:18px;"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn-ghost" onclick="document.getElementById('authModal').close()">취소</button>
-        <button type="submit" class="btn-primary">로그인</button>
-      </div>
-    </form>
-
-    <form id="signupForm" style="display:none;">
-      <label>이름
-        <input type="text" name="name" required placeholder="닉네임" maxlength="20" />
-      </label>
-      <label>이메일
-        <input type="email" name="email" required placeholder="you@example.com" />
-      </label>
-      <label>비밀번호
-        <input type="password" name="password" required placeholder="6자 이상" minlength="6" />
-      </label>
-      <p id="signupError" style="color:#B23A2E;font-size:13px;min-height:18px;"></p>
-      <div class="modal-actions">
-        <button type="button" class="btn-ghost" onclick="document.getElementById('authModal').close()">취소</button>
-        <button type="submit" class="btn-primary">가입하기</button>
-      </div>
-    </form>
-  </div>
-</dialog>
-
 <!-- 검증 진행 스탬프 오버레이 -->
 <div id="verifyOverlay" class="verify-overlay hidden">
   <div class="stamp-spin">확인중</div>
@@ -189,7 +148,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <script src="/app.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleLogin()"></script>
 <footer style="text-align:center;padding:20px;font-size:12px;color:#5A4F3F;border-top:2px solid rgba(36,30,23,0.16);margin-top:auto;">
   <a href="/privacy.html" style="color:#5A4F3F;text-decoration:underline;">개인정보처리방침</a>
   &nbsp;|&nbsp; © 2026 찐맛집

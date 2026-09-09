@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>회원가입 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--line:#e7e2d8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+
+.topbar{width:100%;padding:16px 20px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);width:fit-content;}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:20px;width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:#fff;border-radius:50%;border:2px solid var(--ink);}
+
+.wrap{width:100%;max-width:360px;padding:48px 20px;margin:0 auto;}
+h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;margin-bottom:6px;}
+.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:32px;}
+
+.social-btn{width:100%;padding:13px;border-radius:8px;border:1.5px solid var(--line);
+  font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;
+  display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--ink);}
+.social-btn.kakao{background:#FEE500;border-color:#FEE500;}
+.social-btn.naver{background:#03C75A;border-color:#03C75A;color:#fff;}
+
+.divider{display:flex;align-items:center;gap:12px;margin:24px 0;color:#bbb;font-size:12px;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line);}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;}
+.field-row{display:flex;gap:8px;align-items:flex-start;}
+.field-row input{flex:1;}
+.field input{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
+  font-family:inherit;font-size:14px;}
+.field input:focus{outline:none;border-color:var(--stamp);}
+.field input:disabled{background:#f5f5f5;color:#999;}
+
+.small-btn{padding:0 14px;background:var(--ink);color:#fff;border:none;border-radius:8px;
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;height:44px;}
+.small-btn:disabled{background:#ccc;cursor:not-allowed;}
+
+.submit-btn{width:100%;padding:13px;background:var(--stamp);color:#fff;border:none;
+  border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;}
+.submit-btn:hover{opacity:.9;}
+.submit-btn:disabled{background:#ccc;cursor:not-allowed;}
+
+.hint{font-size:12px;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px;}
+.hint.ok{color:#1a8a4a;}
+.error-msg{color:var(--stamp);font-size:13px;min-height:18px;margin-top:8px;text-align:center;}
+.bottom-link{text-align:center;margin-top:24px;font-size:13px;color:var(--ink-soft);}
+.bottom-link a{color:var(--stamp);font-weight:700;text-decoration:none;}
+.step-hidden{display:none;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand"><span class="brand-mark">찐</span></a>
+</header>
+
+<div class="wrap">
+  <h1>회원가입</h1>
+  <p class="sub">찐맛집 계정을 만들어보세요</p>
+
+  <button class="social-btn kakao" onclick="location.href='/api/auth/kakao'">카카오로 시작하기</button>
+  <button class="social-btn naver" onclick="location.href='/api/auth/naver'">네이버로 시작하기</button>
+  <div id="googleBtnWrap"></div>
+
+  <div class="divider">또는 이메일로 가입</div>
+
+  <form id="signupForm">
+    <div class="field">
+      <label>이름</label>
+      <input type="text" name="name" id="nameInput" required placeholder="닉네임" maxlength="20" />
+    </div>
+
+    <div class="field">
+      <label>이메일</label>
+      <div class="field-row">
+        <input type="email" name="email" id="emailInput" required placeholder="you@example.com" />
+        <button type="button" class="small-btn" id="sendCodeBtn">인증코드 받기</button>
+      </div>
+      <p class="hint" id="emailHint"></p>
+    </div>
+
+    <div class="field" id="codeField" style="display:none;">
+      <label>인증코드</label>
+      <div class="field-row">
+        <input type="text" name="code" id="codeInput" placeholder="6자리 숫자" maxlength="6" inputmode="numeric" />
+        <button type="button" class="small-btn" id="verifyCodeBtn">확인</button>
+      </div>
+      <p class="hint" id="codeHint"></p>
+    </div>
+
+    <div class="field" id="passwordField" style="display:none;">
+      <label>비밀번호</label>
+      <input type="password" name="password" id="passwordInput" placeholder="6자 이상" minlength="6" />
+    </div>
+
+    <button type="submit" class="submit-btn" id="signupBtn" disabled>가입하기</button>
+    <p class="error-msg" id="errorMsg"></p>
+  </form>
+
+  <p class="bottom-link">이미 계정이 있나요? <a href="/login.html">로그인</a></p>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
+<script>
+function initGoogle() {
+  if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
+  google.accounts.id.initialize({
+    client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
+    callback: onGoogleCredential,
+  });
+  google.accounts.id.renderButton(document.getElementById('googleBtnWrap'), {
+    theme: 'outline', size: 'large', width: 320, text: 'signup_with', locale: 'ko',
+  });
+}
+
+async function onGoogleCredential(response) {
+  const res = await fetch('/api/auth/google', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ credential: response.credential }),
+  });
+  if (!res.ok) { document.getElementById('errorMsg').textContent = 'Google 가입에 실패했어요.'; return; }
+  location.href = '/';
+}
+
+let emailVerified = false;
+
+const emailInput = document.getElementById('emailInput');
+const sendCodeBtn = document.getElementById('sendCodeBtn');
+const emailHint = document.getElementById('emailHint');
+const codeField = document.getElementById('codeField');
+const codeInput = document.getElementById('codeInput');
+const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+const codeHint = document.getElementById('codeHint');
+const passwordField = document.getElementById('passwordField');
+const signupBtn = document.getElementById('signupBtn');
+const errorMsg = document.getElementById('errorMsg');
+
+sendCodeBtn.addEventListener('click', async () => {
+  errorMsg.textContent = '';
+  const email = emailInput.value.trim();
+  if (!email) { emailHint.textContent = '이메일을 입력해주세요'; return; }
+
+  sendCodeBtn.disabled = true;
+  sendCodeBtn.textContent = '전송 중...';
+  try {
+    const res = await fetch('/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      emailHint.textContent = data.error || '인증코드 발송에 실패했어요';
+      emailHint.classList.remove('ok');
+      return;
+    }
+    emailHint.textContent = '인증코드를 보냈어요. 메일함을 확인해주세요.';
+    emailHint.classList.add('ok');
+    codeField.style.display = 'block';
+    emailInput.disabled = true;
+  } catch {
+    emailHint.textContent = '인증코드 발송 중 오류가 발생했어요';
+  } finally {
+    sendCodeBtn.disabled = false;
+    sendCodeBtn.textContent = '재전송';
+  }
+});
+
+verifyCodeBtn.addEventListener('click', async () => {
+  errorMsg.textContent = '';
+  const email = emailInput.value.trim();
+  const code = codeInput.value.trim();
+  if (!code) { codeHint.textContent = '인증코드를 입력해주세요'; return; }
+
+  const res = await fetch('/api/auth/verify-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    codeHint.textContent = data.error || '인증코드가 올바르지 않아요';
+    codeHint.classList.remove('ok');
+    return;
+  }
+  codeHint.textContent = '이메일 인증 완료!';
+  codeHint.classList.add('ok');
+  emailVerified = true;
+  codeInput.disabled = true;
+  verifyCodeBtn.disabled = true;
+  passwordField.style.display = 'block';
+  signupBtn.disabled = false;
+});
+
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorMsg.textContent = '';
+  if (!emailVerified) { errorMsg.textContent = '이메일 인증을 먼저 완료해주세요'; return; }
+
+  const res = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      name: document.getElementById('nameInput').value.trim(),
+      email: emailInput.value.trim(),
+      code: codeInput.value.trim(),
+      password: document.getElementById('passwordInput').value,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) { errorMsg.textContent = data.error || '회원가입에 실패했어요'; return; }
+  location.href = '/';
+});
+</script>
+</body>
+</html>

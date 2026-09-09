@@ -669,50 +669,9 @@ function getNextBadge(level) {
   return BADGE_INFO[Math.min(level + 1, BADGE_INFO.length - 1)];
 }
 
-// ---------- 구글 로그인 ----------
-// GSI 스크립트 onload 후 호출됨 (DOMContentLoaded가 아님)
-function initGoogleLogin() {
-  if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
-
-  google.accounts.id.initialize({
-    client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
-    callback: onGoogleCredential,
-  });
-}
-
-// 전역 함수로 노출 — innerHTML로 버튼을 새로 만들 때도 onclick으로 항상 호출 가능
-window.triggerGoogleLogin = function () {
-  if (!window.google?.accounts?.id) {
-    alert('Google 로그인 준비 중입니다. 잠시 후 다시 눌러주세요.');
-    return;
-  }
-  google.accounts.id.prompt((notification) => {
-    // FedCM이 조용히 거부되면 팝업 방식으로 fallback
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      google.accounts.id.renderButton(
-        document.getElementById('authArea'),
-        { theme: 'outline', size: 'medium', text: 'signin_with', locale: 'ko' }
-      );
-    }
-  });
-};
-
-async function onGoogleCredential(response) {
-  const res = await fetch('/api/auth/google', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ credential: response.credential }),
-  });
-  if (!res.ok) return alert('로그인에 실패했어요.');
-  const data = await res.json();
-  currentUser = data.user;
-  renderAuthArea();
-}
-
 const LOGGED_OUT_AREA_HTML = `
-  <button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>
-  <button class="btn-ghost" onclick="openAuthModal()" style="margin-left:6px;">이메일로 시작하기</button>
+  <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
+  <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
 `;
 
 function renderAuthArea() {
@@ -741,69 +700,6 @@ function renderAuthArea() {
   } else {
     area.innerHTML = LOGGED_OUT_AREA_HTML;
   }
-}
-
-// ---------- 이메일 로그인/회원가입 모달 ----------
-window.openAuthModal = function () {
-  document.getElementById('authModal').showModal();
-};
-
-function setupAuthModal() {
-  const modal = document.getElementById('authModal');
-  const tabLogin = document.getElementById('authTabLogin');
-  const tabSignup = document.getElementById('authTabSignup');
-  const loginForm = document.getElementById('loginForm');
-  const signupForm = document.getElementById('signupForm');
-
-  function showTab(which) {
-    const isLogin = which === 'login';
-    loginForm.style.display = isLogin ? 'block' : 'none';
-    signupForm.style.display = isLogin ? 'none' : 'block';
-    tabLogin.style.borderBottom = isLogin ? '3px solid #B23A2E' : 'none';
-    tabLogin.style.color = isLogin ? 'inherit' : '#5A4F3F';
-    tabSignup.style.borderBottom = isLogin ? 'none' : '3px solid #B23A2E';
-    tabSignup.style.color = isLogin ? '#5A4F3F' : 'inherit';
-  }
-  tabLogin.addEventListener('click', () => showTab('login'));
-  tabSignup.addEventListener('click', () => showTab('signup'));
-
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById('loginError');
-    errEl.textContent = '';
-    const fd = new FormData(loginForm);
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
-    });
-    const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요'; return; }
-    currentUser = data.user;
-    renderAuthArea();
-    modal.close();
-    loginForm.reset();
-  });
-
-  signupForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const errEl = document.getElementById('signupError');
-    errEl.textContent = '';
-    const fd = new FormData(signupForm);
-    const res = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ name: fd.get('name'), email: fd.get('email'), password: fd.get('password') }),
-    });
-    const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.error || '회원가입에 실패했어요'; return; }
-    currentUser = data.user;
-    renderAuthArea();
-    modal.close();
-    signupForm.reset();
-  });
 }
 
 // ---------- 등록 모달 ----------
@@ -896,7 +792,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
   initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
-  setupAuthModal();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });
