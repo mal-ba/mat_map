@@ -300,10 +300,7 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
-<<<<<<< HEAD
     backgroundColor: '#aad3df',
-=======
->>>>>>> c67a9626c0e06f994ee4fa007799feb4e57eb0f5
     streetViewControl: false,
     mapTypeControl: false,
   });
