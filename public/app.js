@@ -18,6 +18,7 @@ let placesCache = [];
 const maps = { jjin: null, kakao: null, naver: null, google: null };
 let searchMarkers = [];
 let jjinCluster = null;
+let kakaoCluster = null;
 let searchOverlay = null;
 const markers = { jjin: [], kakao: [], naver: [], google: [] };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
@@ -46,6 +47,18 @@ window.jjinFitAll = function() {
   const bounds = jjinCluster.getBounds();
   if (bounds.isValid()) maps.jjin.fitBounds(bounds.pad(0.1));
 };
+
+function getCategoryEmoji(cat) {
+  if (!cat) return '🍽️';
+  if (cat.includes('한식')) return '🍚';
+  if (cat.includes('카페') || cat.includes('디저트')) return '☕';
+  if (cat.includes('고기') || cat.includes('구이')) return '🥩';
+  if (cat.includes('분식') || cat.includes('간식')) return '🍢';
+  if (cat.includes('일식')) return '🍱';
+  if (cat.includes('양식')) return '🍝';
+  if (cat.includes('중식')) return '🥢';
+  return '🍽️';
+}
 
 function getCategoryColor(cat) {
   if (!cat) return '#241E17';
@@ -151,8 +164,12 @@ function renderJjinMarkers(places) {
     });
 
     const marker = L.marker([p.lat, p.lng], { icon });
+    const imgHtml = p.image_url
+      ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
+      : `<div style="width:100%;height:60px;background:${getCategoryColor(p.category)}22;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">${getCategoryEmoji(p.category)}</div>`;
     marker.bindPopup(`
-      <div style="font-family:'Noto Sans KR',sans-serif;min-width:160px;">
+      <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
+        ${imgHtml}
         <b style="font-size:14px;">${escapeHtml(p.name)}</b>
         <div style="font-size:11px;color:#5A4F3F;margin:3px 0;">${escapeHtml(p.address || '')}</div>
         ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
@@ -183,7 +200,7 @@ function loadKakaoSDK() {
   const key = window.__CONFIG__.KAKAO_JS_KEY;
   return loadScriptOnce(
     'kakao',
-    `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services`,
+    `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services,clusterer`,
     (resolve) => window.kakao.maps.load(resolve)
   );
 }
@@ -343,11 +360,49 @@ function shouldShow(place, mapName) {
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
   markers.kakao.forEach((m) => m.setMap(null));
-  markers.kakao = places.filter(p => shouldShow(p, 'kakao')).map((p) => {
-    const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
-    kakao.maps.event.addListener(marker, 'click', () => maps.kakao.panTo(marker.getPosition()));
+  if (kakaoCluster) kakaoCluster.clear();
+
+  const filtered = places.filter(p => shouldShow(p, 'kakao'));
+
+  if (!kakaoCluster) {
+    kakaoCluster = new kakao.maps.MarkerClusterer({
+      map: maps.kakao,
+      averageCenter: true,
+      minLevel: 5,
+      styles: [{
+        width: '40px', height: '40px',
+        background: '#B23A2E',
+        color: '#E7DCC3',
+        borderRadius: '50%',
+        border: '3px solid #fff',
+        textAlign: 'center',
+        lineHeight: '34px',
+        fontWeight: '900',
+        fontSize: '14px',
+        fontFamily: "'Noto Sans KR', sans-serif",
+        boxShadow: '0 2px 8px rgba(0,0,0,.35)',
+      }],
+    });
+  }
+
+  markers.kakao = filtered.map((p) => {
+    const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng) });
+    const infowindow = new kakao.maps.InfoWindow({
+      content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
+        <b style="font-size:13px;">${escapeHtml(p.name)}</b>
+        <div style="font-size:11px;color:#5A4F3F;margin-top:2px;">${escapeHtml(p.category||'')}</div>
+        ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
+      </div>`,
+      removable: true,
+    });
+    kakao.maps.event.addListener(marker, 'click', () => {
+      infowindow.open(maps.kakao, marker);
+      maps.kakao.panTo(marker.getPosition());
+    });
     return marker;
   });
+
+  kakaoCluster.addMarkers(markers.kakao);
 }
 
 function renderNaverMarkers(places) {
@@ -413,6 +468,26 @@ function renderAllMarkers(places) {
   renderNaverMarkers(places);
   renderGoogleMarkers(places);
 }
+
+
+// ---------- 지도 검색창 토글 ----------
+window.toggleMapSearch = function() {
+  const bar = document.getElementById('mapSearchBar');
+  const btn = document.getElementById('searchToggleBtn');
+  const isHidden = bar.style.display === 'none' || !bar.style.display || bar.classList.contains('search-hidden');
+  if (isHidden) {
+    bar.style.display = 'flex';
+    bar.classList.remove('search-hidden');
+    btn.style.background = '#B23A2E';
+    btn.style.color = '#E7DCC3';
+    document.getElementById('mapSearchInput').focus();
+  } else {
+    bar.style.display = 'none';
+    bar.classList.add('search-hidden');
+    btn.style.background = '#fff';
+    btn.style.color = '#241E17';
+  }
+};
 
 // ---------- 지도 탭 전환 ----------
 function setupMapTabs() {

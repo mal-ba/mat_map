@@ -100,6 +100,23 @@ app.post('/api/admin/force-place', async (req, res) => {
   res.json(data);
 });
 
+// 카카오 장소 대표사진 프록시 (CORS 우회)
+app.get('/api/place-image', async (req, res) => {
+  const { place_id } = req.query;
+  if (!place_id) return res.status(400).json({ error: 'place_id 필요' });
+  try {
+    const r = await fetch(
+      `https://place.map.kakao.com/main/v/${place_id}`,
+      { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://map.kakao.com/' } }
+    );
+    const json = await r.json();
+    const img = json?.basicInfo?.mainphotourl || json?.basicInfo?.photoList?.[0]?.orgurl || null;
+    res.json({ image_url: img });
+  } catch {
+    res.json({ image_url: null });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/places', placesRoutes);
 
