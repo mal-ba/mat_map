@@ -7,16 +7,16 @@ const axios = require('axios');
  * → 셋 다 못 찾으면 → pending (수동 검토)
  */
 async function verifyPlace({ name, address, lat, lng }) {
-  // 세 곳 병렬 검색
-  const [kakaoResult, naverResult, googleResult] = await Promise.all([
-    searchKakaoPlace(name, lat, lng),
+  // 네이버 우선, 카카오·구글 병렬 fallback
+  const [naverResult, kakaoResult, googleResult] = await Promise.all([
     searchNaverPlace(name, lat, lng),
+    searchKakaoPlace(name, lat, lng),
     searchGooglePlace(name, lat, lng),
   ]);
 
   const sources = [
-    kakaoResult && '카카오',
     naverResult && '네이버',
+    kakaoResult && '카카오',
     googleResult && '구글',
   ].filter(Boolean);
 
@@ -31,13 +31,14 @@ async function verifyPlace({ name, address, lat, lng }) {
   }
 
   // 거리 체크: 찾은 것 중 가장 가까운 결과 기준
-  const found = [kakaoResult, naverResult, googleResult].find(r => r && r.distanceMeters <= 500);
-  const tooFar = [kakaoResult, naverResult, googleResult].find(r => r);
+  const found = [naverResult, kakaoResult, googleResult].find(r => r && r.distanceMeters <= 500);
+  const tooFar = [naverResult, kakaoResult, googleResult].find(r => r);
 
   if (!found) {
     return {
       status: 'rejected',
       reason: `등록 위치와 실제 업체 사이 거리가 ${Math.round(tooFar.distanceMeters)}m로 너무 멉니다. (${sources.join('·')} 발견)`,
+      naver_place_id: naverResult?.id,
       kakao_place_id: kakaoResult?.id,
     };
   }
@@ -53,7 +54,8 @@ async function verifyPlace({ name, address, lat, lng }) {
   return {
     status: aiVerdict.approve ? 'verified' : 'rejected',
     reason: `${sources.join('·')} 확인 / ${aiVerdict.reason}`,
-    kakao_place_id: kakaoResult?.id,
+    naver_place_id: naverResult?.id,
+      kakao_place_id: kakaoResult?.id,
   };
 }
 
@@ -93,26 +95,25 @@ async function searchNaverPlace(name, lat, lng) {
       params: { query: name, display: 5 },
     });
 
-    const items = res.data?.items;
-    if (!items?.length) return null;
-
-    // mapx/mapy → WGS84 변환 (네이버는 1e7 곱해진 정수로 줌)
-    for (const item of items) {
-      const placeLat = item.mapy / 1e7;
-      const placeLng = item.mapx / 1e7;
-      const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
-      if (dist <= 1000) {
-        return {
-          place_name: item.title.replace(/<[^>]+>/g, ''), // HTML 태그 제거
-          category_name: item.category || '',
-          distanceMeters: dist,
-        };
+      const items = res2.data?.items;
+      if (!items?.length) return null;
+      for (const item of items) {
+        const placeLat = item.mapy / 1e7;
+        const placeLng = item.mapx / 1e7;
+        const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
+        if (dist <= 1000) {
+          return {
+            place_name: item.title.replace(/<[^>]+>/g, ''),
+            category_name: item.category || '',
+            distanceMeters: dist,
+          };
+        }
       }
+      return null;
+    } catch (err2) {
+      console.error('[searchNaverPlace]', err2.message);
+      return null;
     }
-    return null;
-  } catch (err) {
-    console.error('[searchNaverPlace]', err.message);
-    return null;
   }
 }
 
