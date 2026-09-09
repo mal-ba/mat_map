@@ -1,13 +1,11 @@
 const axios = require('axios');
 
 /**
- * 검증 흐름:
- * 카카오 + 네이버 + 구글 세 곳 동시 검색
- * → 하나라도 찾으면 AI 최종 판단 → verified
- * → 셋 다 못 찾으면 → pending (수동 검토)
+ * 검증 흐름: 네이버 → 카카오 → 구글 (병렬)
+ * 하나라도 찾으면 AI 최종 판단 → verified
+ * 셋 다 못 찾으면 → pending
  */
 async function verifyPlace({ name, address, lat, lng }) {
-  // 네이버 우선, 카카오·구글 병렬 fallback
   const [naverResult, kakaoResult, googleResult] = await Promise.all([
     searchNaverPlace(name, lat, lng),
     searchKakaoPlace(name, lat, lng),
@@ -22,15 +20,13 @@ async function verifyPlace({ name, address, lat, lng }) {
 
   console.log(`[verifyPlace] "${name}" — ${sources.length ? sources.join('·') + ' 발견' : '세 곳 모두 미등록'}`);
 
-  // 셋 다 못 찾으면 pending
   if (!sources.length) {
     return {
       status: 'pending',
-      reason: '카카오·네이버·구글 어디에서도 확인되지 않았습니다. 검토 후 공개됩니다.',
+      reason: '네이버·카카오·구글 어디에서도 확인되지 않았습니다. 검토 후 공개됩니다.',
     };
   }
 
-  // 거리 체크: 찾은 것 중 가장 가까운 결과 기준
   const found = [naverResult, kakaoResult, googleResult].find(r => r && r.distanceMeters <= 500);
   const tooFar = [naverResult, kakaoResult, googleResult].find(r => r);
 
@@ -43,7 +39,6 @@ async function verifyPlace({ name, address, lat, lng }) {
     };
   }
 
-  // AI 최종 판단
   const aiVerdict = await aiDoubleCheck({
     name, address,
     foundName: found.place_name,
@@ -55,8 +50,48 @@ async function verifyPlace({ name, address, lat, lng }) {
     status: aiVerdict.approve ? 'verified' : 'rejected',
     reason: `${sources.join('·')} 확인 / ${aiVerdict.reason}`,
     naver_place_id: naverResult?.id,
-      kakao_place_id: kakaoResult?.id,
+    kakao_place_id: kakaoResult?.id,
   };
+}
+
+// ── 네이버 장소 검색 (NCP) ─────────────────────────────────────
+async function searchNaverPlace(name, lat, lng) {
+  const clientId = process.env.NAVER_MAP_CLIENT_ID;
+  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
+
+  try {
+    const coord = lat && lng ? `&coordinate=${lng},${lat}` : '';
+    const res = await axios.get(
+      `https://naveropenapi.apigw.ntruss.com/map-place/v1/search?query=${encodeURIComponent(name)}${coord}`,
+      {
+        headers: {
+          'X-NCP-APIGW-API-KEY-ID': clientId,
+          'X-NCP-APIGW-API-KEY': clientSecret,
+        },
+      }
+    );
+    const places = res.data?.places;
+    if (!places?.length) return null;
+
+    for (const item of places) {
+      const placeLat = parseFloat(item.y);
+      const placeLng = parseFloat(item.x);
+      const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
+      if (dist <= 1000) {
+        return {
+          place_name: item.name,
+          category_name: item.category || '',
+          id: item.id,
+          distanceMeters: dist,
+        };
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error('[searchNaverPlace]', err.message);
+    return null;
+  }
 }
 
 // ── 카카오 키워드 검색 ─────────────────────────────────────────
@@ -81,42 +116,6 @@ async function searchKakaoPlace(name, lat, lng) {
   }
 }
 
-// ── 네이버 지역 검색 ───────────────────────────────────────────
-// developers.naver.com 에서 발급 (일반 네이버 계정으로 가능)
-// 환경변수: NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
-async function searchNaverPlace(name, lat, lng) {
-  if (!process.env.NAVER_CLIENT_ID || !process.env.NAVER_CLIENT_SECRET) return null;
-  try {
-    const res = await axios.get('https://openapi.naver.com/v1/search/local.json', {
-      headers: {
-        'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID,
-        'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET,
-      },
-      params: { query: name, display: 5 },
-    });
-
-      const items = res2.data?.items;
-      if (!items?.length) return null;
-      for (const item of items) {
-        const placeLat = item.mapy / 1e7;
-        const placeLng = item.mapx / 1e7;
-        const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
-        if (dist <= 1000) {
-          return {
-            place_name: item.title.replace(/<[^>]+>/g, ''),
-            category_name: item.category || '',
-            distanceMeters: dist,
-          };
-        }
-      }
-      return null;
-    } catch (err2) {
-      console.error('[searchNaverPlace]', err2.message);
-      return null;
-    }
-  }
-}
-
 // ── 구글 Places 근처 검색 ──────────────────────────────────────
 async function searchGooglePlace(name, lat, lng) {
   if (!process.env.GOOGLE_PLACES_API_KEY) return null;
@@ -132,13 +131,11 @@ async function searchGooglePlace(name, lat, lng) {
     });
     const place = res.data?.results?.[0];
     if (!place) return null;
-
     const dist = getDistanceMeters(lat, lng,
       place.geometry.location.lat,
       place.geometry.location.lng
     );
     if (dist > 1000) return null;
-
     return {
       place_name: place.name,
       category_name: place.types?.[0]?.replace(/_/g, ' ') || '',
@@ -150,7 +147,7 @@ async function searchGooglePlace(name, lat, lng) {
   }
 }
 
-// ── 거리 계산 (미터) ───────────────────────────────────────────
+// ── 거리 계산 ──────────────────────────────────────────────────
 function getDistanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -171,8 +168,7 @@ async function aiDoubleCheck({ name, address, foundName, category, source }) {
 등록된 주소: ${address}
 지도 매칭 이름(${source}): ${foundName}
 카테고리: ${category}
-
-이름이 명백히 다른 업종이거나 완전히 다른 상호면 반려. 아닌 경우 통과.
+이름이 명백히 다른 업종이거나 완전히 다른 상호면 반려.
 JSON으로만 답해: {"approve": true|false, "reason": "한 문장 이유"}`;
   try {
     const res = await axios.post(
