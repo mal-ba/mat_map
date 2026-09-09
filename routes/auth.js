@@ -95,4 +95,28 @@ router.get('/profile', async (req, res) => {
   }
 });
 
+// 뱃지 레벨 계산 (기본 15개, 2배씩)
+function calcBadge(count) {
+  const LEVELS = [480, 240, 120, 60, 30, 15];
+  for (let i = 0; i < LEVELS.length; i++) {
+    if (count >= LEVELS[i]) return LEVELS.length - i;
+  }
+  return 0;
+}
+
+// 접속 기록 업데이트
+router.post('/visit', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '비로그인' });
+  try {
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    await supabase.from('users').update({
+      last_visited_at: new Date().toISOString(),
+      visit_count: supabase.raw('visit_count + 1'),
+    }).eq('id', decoded.userId);
+    res.json({ ok: true });
+  } catch { res.status(401).json({ error: '토큰 오류' }); }
+});
+
 module.exports = router;
