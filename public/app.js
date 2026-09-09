@@ -17,6 +17,7 @@ let placesCache = [];
 
 const maps = { jjin: null, kakao: null, naver: null, google: null };
 let searchMarkers = [];
+let jjinCluster = null;
 let searchOverlay = null;
 const markers = { jjin: [], kakao: [], naver: [], google: [] };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
@@ -41,9 +42,9 @@ window.jjinMyLocation = function() {
 };
 
 window.jjinFitAll = function() {
-  if (!maps.jjin || !markers.jjin.length) return;
-  const group = window.L.featureGroup(markers.jjin);
-  maps.jjin.fitBounds(group.getBounds().pad(0.1));
+  if (!maps.jjin || !jjinCluster) return;
+  const bounds = jjinCluster.getBounds();
+  if (bounds.isValid()) maps.jjin.fitBounds(bounds.pad(0.1));
 };
 
 function getCategoryColor(cat) {
@@ -105,16 +106,7 @@ function initJjinMap() {
   });
   new JjinControl().addTo(maps.jjin);
 
-  // 지도 클릭 → 등록 모달
-  maps.jjin.on('click', (e) => {
-    const modal = document.getElementById('registerModal');
-    document.getElementById('latInput').value = e.latlng.lat.toFixed(6);
-    document.getElementById('lngInput').value = e.latlng.lng.toFixed(6);
-    document.getElementById('geocodeStatus').textContent = '✅';
-    document.getElementById('geocodeResult').textContent = `📍 ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
-    document.getElementById('geocodeResult').style.color = '#22c55e';
-    modal.showModal();
-  });
+  // 지도 클릭 등록 없음
 
   renderJjinMarkers(placesCache);
   setTimeout(() => maps.jjin.invalidateSize(), 200);
@@ -124,10 +116,30 @@ function renderJjinMarkers(places) {
   if (!maps.jjin || !window.L) return;
   const L = window.L;
 
-  markers.jjin.forEach(m => maps.jjin.removeLayer(m));
+  // 기존 클러스터 제거
+  if (jjinCluster) maps.jjin.removeLayer(jjinCluster);
   markers.jjin = [];
 
-  places.filter(p => !p.show_on_maps || p.show_on_maps.includes('jjin') || true).forEach(p => {
+  // 클러스터 그룹 생성
+  jjinCluster = L.markerClusterGroup({
+    maxClusterRadius: 60,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div style="width:38px;height:38px;border-radius:50%;
+          background:#B23A2E;color:#E7DCC3;border:3px solid #fff;
+          display:flex;align-items:center;justify-content:center;
+          font-weight:900;font-size:13px;
+          box-shadow:0 2px 8px rgba(0,0,0,.35);
+          font-family:'Noto Sans KR',sans-serif;">${count}</div>`,
+        iconSize: [38, 38],
+        iconAnchor: [19, 19],
+        className: '',
+      });
+    },
+  });
+
+  places.forEach(p => {
     const color = getCategoryColor(p.category);
     const icon = L.divIcon({
       className: '',
@@ -139,7 +151,6 @@ function renderJjinMarkers(places) {
     });
 
     const marker = L.marker([p.lat, p.lng], { icon });
-    marker.addTo(maps.jjin);
     marker.bindPopup(`
       <div style="font-family:'Noto Sans KR',sans-serif;min-width:160px;">
         <b style="font-size:14px;">${escapeHtml(p.name)}</b>
@@ -148,8 +159,12 @@ function renderJjinMarkers(places) {
         ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
       </div>
     `, { maxWidth: 240 });
+
+    jjinCluster.addLayer(marker);
     markers.jjin.push(marker);
   });
+
+  maps.jjin.addLayer(jjinCluster);
 }
 
 // ---------- SDK 지연 로드 ----------
