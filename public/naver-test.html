@@ -47,10 +47,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('status').textContent = '⏳ SDK 로딩 중...';
   log('Client ID: ' + clientId);
-  log('SDK URL: https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=' + clientId);
+  log('SDK URL: https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=' + clientId);
 
   const script = document.createElement('script');
-  script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
+  script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`;
   script.onload = () => {
     log('SDK 로드 완료');
     try {
