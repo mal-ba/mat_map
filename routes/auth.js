@@ -139,12 +139,16 @@ router.get('/kakao/callback', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: process.env.KAKAO_REST_API_KEY,
+        client_secret: process.env.KAKAO_CLIENT_SECRET,
         redirect_uri: process.env.KAKAO_REDIRECT_URI,
         code,
       }),
     });
     const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) throw new Error('카카오 토큰 발급 실패');
+    if (!tokenData.access_token) {
+      console.error('[kakao/callback] 토큰 응답 상세:', JSON.stringify(tokenData));
+      throw new Error('카카오 토큰 발급 실패');
+    }
 
     const meRes = await fetch('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
