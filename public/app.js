@@ -300,12 +300,9 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
+    backgroundColor: '#aad3df',
     streetViewControl: false,
     mapTypeControl: false,
-    restriction: {
-      latLngBounds: { north: 38.6, south: 33.0, west: 124.5, east: 131.0 },
-      strictBounds: false,
-    },
   });
 
   // 스트리트뷰 파노라마 초기화 (한 번만)
