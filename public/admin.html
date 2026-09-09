@@ -73,6 +73,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   <div id="authWarning" class="auth-warning">
     ⚠️ 로그인이 필요합니다. <a href="/">메인에서 Google 로그인 후 다시 접속하세요.</a>
   </div>
+  <!-- 유저 접속 현황 -->
+  <div class="section-title" style="cursor:pointer;" onclick="toggleUserSection()">
+    👥 유저 접속 현황 <span id="userToggleIcon">▼</span>
+  </div>
+  <div id="userSection" style="margin-bottom:28px;">
+    <div id="userList" style="overflow-x:auto;">
+      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+    </div>
+  </div>
+
   <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span></div>
 
   <div class="filter-bar">
@@ -186,6 +196,56 @@ function filterCat(cat) {
     b.classList.toggle('active', b.textContent === cat);
   });
   render();
+
+// ── 유저 현황 ────────────────────────────
+const BADGE_NAMES = ['탐험 시작','🌱 새싹','🌿 풋내기','🌲 탐험가','⭐ 마스터','🌟 전설','👑 레전드'];
+
+async function loadUsers() {
+  const res = await fetch('/api/admin/users', { credentials: 'include' });
+  if (!res.ok) { document.getElementById('userList').innerHTML = '<p style="color:red">로그인 필요</p>'; return; }
+  const users = await res.json();
+
+  const now = new Date();
+  const rows = users.map(u => {
+    const last = u.last_visited_at ? new Date(u.last_visited_at) : null;
+    const diff = last ? Math.floor((now - last) / 60000) : null;
+    const timeStr = diff === null ? '–' : diff < 60 ? `${diff}분 전` : diff < 1440 ? `${Math.floor(diff/60)}시간 전` : `${Math.floor(diff/1440)}일 전`;
+    const badge = BADGE_NAMES[Math.min(u.badge_level || 0, BADGE_NAMES.length - 1)];
+    return `<tr>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);">${u.name || '–'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);font-size:12px;color:#5A4F3F;">${u.email}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);">${badge}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);text-align:center;">${u.registered_count || 0}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);text-align:center;">${u.visit_count || 0}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);font-size:12px;">${timeStr}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('userList').innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Noto Sans KR',sans-serif;">
+      <thead>
+        <tr style="background:rgba(36,30,23,.06);">
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">이름</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">이메일</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">뱃지</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #241E17;">등록수</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #241E17;">방문수</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">마지막 접속</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#888;">유저 없음</td></tr>'}</tbody>
+    </table>`;
+}
+
+function toggleUserSection() {
+  const sec = document.getElementById('userSection');
+  const icon = document.getElementById('userToggleIcon');
+  const hidden = sec.style.display === 'none';
+  sec.style.display = hidden ? 'block' : 'none';
+  icon.textContent = hidden ? '▼' : '▶';
+}
+
+loadUsers();
 }
 
 function getFiltered() {

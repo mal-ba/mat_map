@@ -649,6 +649,25 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ---------- 뱃지 시스템 ----------
+const BADGE_INFO = [
+  { level: 0, emoji: '',   name: '탐험 시작',   required: 0  },
+  { level: 1, emoji: '🌱', name: '새싹 탐험가', required: 15  },
+  { level: 2, emoji: '🌿', name: '풋내기 맛집러',required: 30  },
+  { level: 3, emoji: '🌲', name: '맛집 탐험가', required: 60  },
+  { level: 4, emoji: '⭐', name: '맛집 마스터', required: 120 },
+  { level: 5, emoji: '🌟', name: '맛집 전설',   required: 240 },
+  { level: 6, emoji: '👑', name: '찐맛집 레전드',required: 480 },
+];
+
+function getBadgeInfo(level) {
+  return BADGE_INFO[Math.min(level, BADGE_INFO.length - 1)];
+}
+
+function getNextBadge(level) {
+  return BADGE_INFO[Math.min(level + 1, BADGE_INFO.length - 1)];
+}
+
 // ---------- 구글 로그인 ----------
 // GSI 스크립트 onload 후 호출됨 (DOMContentLoaded가 아님)
 function initGoogleLogin() {
@@ -772,8 +791,12 @@ function setupRegisterModal() {
       overlay.classList.add('hidden');
       resetForm();
 
-      if (result.status === 'verified') {
-        alert('검증 완료! 지도에 공개되었습니다.');
+      if (result.duplicate) {
+        alert(`⚠️ 중복 등록 불가
+${result.error}`);
+      } else if (result.status === 'verified') {
+        alert('✅ 검증 완료! 지도에 공개되었습니다.
+🏅 등록 뱃지가 업데이트됐어요!');
       } else {
         alert(`검증 보류/반려: ${result.verify_reason || '사유 없음'}`);
       }
@@ -929,6 +952,8 @@ async function restoreSession() {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }
       renderAuthArea();
+      // 접속 기록 업데이트 (비동기, 결과 무시)
+      fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
   } catch (err) {
     // 세션 복원 실패는 조용히 무시 (비로그인 상태로 시작)
@@ -988,6 +1013,17 @@ window.openDiagPanel = function() {
       <div style="margin-bottom:12px">
         <div style="color:#ff0;margin-bottom:6px">📋 환경변수 (config.js)</div>
         <table>${cfg_rows}</table>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="color:#ff0;margin-bottom:6px">🏅 내 뱃지</div>
+        ${(() => {
+          const b = getBadgeInfo(currentUser?.badge_level || 0);
+          const nb = getNextBadge(currentUser?.badge_level || 0);
+          const cnt = currentUser?.registered_count || 0;
+          return `<div style="color:#0f0">${b.emoji || '–'} ${b.name} (등록 ${cnt}개)</div>
+          <div style="color:#aaa;font-size:11px;">다음 등급: ${nb.name} — ${nb.required}개 필요 (${Math.max(0, nb.required - cnt)}개 남음)</div>`;
+        })()}
       </div>
 
       <div style="margin-bottom:12px">
