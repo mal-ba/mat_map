@@ -23,6 +23,29 @@ const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; /
 const sdkPromises = {};
 
 // ---------- 찐지도 (Leaflet + OpenStreetMap) ----------
+window.jjinMyLocation = function() {
+  if (!maps.jjin) return;
+  if (!navigator.geolocation) { alert('위치 정보를 지원하지 않는 브라우저예요.'); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      maps.jjin.setView([lat, lng], 16);
+      // 내 위치 마커
+      if (window._myLocMarker) maps.jjin.removeLayer(window._myLocMarker);
+      window._myLocMarker = window.L.circleMarker([lat, lng], {
+        radius: 10, color: '#1a73e8', fillColor: '#4285f4', fillOpacity: 0.9, weight: 3
+      }).addTo(maps.jjin).bindPopup('📍 현재 내 위치').openPopup();
+    },
+    () => alert('위치 정보를 가져올 수 없어요. 브라우저 권한을 확인해주세요.')
+  );
+};
+
+window.jjinFitAll = function() {
+  if (!maps.jjin || !markers.jjin.length) return;
+  const group = window.L.featureGroup(markers.jjin);
+  maps.jjin.fitBounds(group.getBounds().pad(0.1));
+};
+
 function getCategoryColor(cat) {
   if (!cat) return '#241E17';
   if (cat.includes('한식')) return '#B23A2E';
@@ -53,7 +76,34 @@ function initJjinMap() {
     maxZoom: 20,
   }).addTo(maps.jjin);
 
-  L.control.zoom({ position: 'bottomright' }).addTo(maps.jjin);
+  // 기본 줌 컨트롤 제거하고 커스텀으로
+  // L.control.zoom는 이미 false로 꺼둠
+
+  // 커스텀 컨트롤 버튼 추가
+  const JjinControl = L.Control.extend({
+    options: { position: 'bottomright' },
+    onAdd: function() {
+      const div = L.DomUtil.create('div', '');
+      div.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px;margin-right:8px;';
+      div.innerHTML = `
+        <button onclick="maps.jjin.zoomIn()" title="확대"
+          style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
+          border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">+</button>
+        <button onclick="maps.jjin.zoomOut()" title="축소"
+          style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
+          border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">−</button>
+        <button onclick="jjinMyLocation()" title="내 위치"
+          style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
+          border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">📍</button>
+        <button onclick="jjinFitAll()" title="전체 보기"
+          style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
+          border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">⊞</button>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    }
+  });
+  new JjinControl().addTo(maps.jjin);
 
   // 지도 클릭 → 등록 모달
   maps.jjin.on('click', (e) => {
