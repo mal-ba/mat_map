@@ -1026,6 +1026,7 @@ window.openDiagPanel = function() {
       <div style="margin-bottom:12px">
         <div style="color:#ff0;margin-bottom:6px">🏅 내 뱃지</div>
         ${(() => {
+          if (isAdmin()) return `<div style="color:#0f0">👑 관리자</div>`;
           const b = getBadgeInfo(currentUser?.badge_level || 0);
           const nb = getNextBadge(currentUser?.badge_level || 0);
           const cnt = currentUser?.registered_count || 0;
