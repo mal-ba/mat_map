@@ -54,11 +54,14 @@
               padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;">✕ 지도로</button>
     </div>
     <div class="map-tabs">
-      <button class="map-tab active" data-provider="jjin">지도</button>
-      <button class="map-tab" data-provider="kakao">카카오맵</button>
-      <button class="map-tab" data-provider="naver">네이버지도</button>
-      <button class="map-tab" data-provider="google">구글맵</button>
+      <button class="map-tab active" data-provider="jjin" data-tier="0">지도</button>
+      <button class="map-tab" data-provider="naver" data-tier="1">네이버지도</button>
+      <button class="map-tab" data-provider="kakao" data-tier="2">카카오맵</button>
+      <button class="map-tab" data-provider="google" data-tier="3">구글맵</button>
     </div>
+    <div id="mapLockMsg" style="display:none;position:absolute;top:56px;left:50%;transform:translateX(-50%);
+         z-index:25;background:#241E17;color:#E7DCC3;padding:8px 16px;border-radius:4px;
+         font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25);"></div>
     <!-- 검색 토글 버튼 -->
     <button id="searchToggleBtn" onclick="toggleMapSearch()"
       style="position:absolute;top:56px;right:12px;z-index:10;

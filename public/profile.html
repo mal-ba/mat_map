@@ -168,6 +168,10 @@ const BADGE_INFO = [
 let isMyProfile = false;
 let currentUser = null;
 
+// 관리자는 일반 뱃지 대신 '관리자' 뱃지로 표시
+const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+function isAdminEmail(email) { return ADMIN_EMAILS.includes(email); }
+
 function getBadge(level) { return BADGE_INFO[Math.min(level||0, BADGE_INFO.length-1)]; }
 function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
@@ -228,14 +232,19 @@ function renderProfile(u) {
 
   const badge = getBadge(u.badge_level);
   const nextBadge = getBadge((u.badge_level||0)+1);
-  document.getElementById('badgeChip').textContent = `${badge.emoji} ${badge.name}`;
-  if (nextBadge.required > 0) {
-    const remaining = Math.max(0, nextBadge.required - (u.registered_count||0));
-    document.getElementById('badgeNext').textContent = remaining > 0 ? `다음 등급까지 ${remaining}개` : '';
+  if (isAdminEmail(u.email)) {
+    document.getElementById('badgeChip').textContent = '👑 관리자';
+    document.getElementById('badgeNext').textContent = '';
+  } else {
+    document.getElementById('badgeChip').textContent = `${badge.emoji} ${badge.name}`;
+    if (nextBadge.required > 0) {
+      const remaining = Math.max(0, nextBadge.required - (u.registered_count||0));
+      document.getElementById('badgeNext').textContent = remaining > 0 ? `다음 등급까지 ${remaining}개` : '';
+    }
   }
 
   document.getElementById('statPlaces').textContent = u.registered_count || 0;
-  document.getElementById('statBadge').textContent = badge.emoji || u.badge_level || 0;
+  document.getElementById('statBadge').textContent = isAdminEmail(u.email) ? '👑' : (badge.emoji || u.badge_level || 0);
   document.getElementById('statVisit').textContent = u.visit_count || 0;
 
   if (u.avatar_url) {

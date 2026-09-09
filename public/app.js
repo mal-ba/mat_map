@@ -498,6 +498,14 @@ function setupMapTabs() {
       const provider = tab.dataset.provider;
       if (provider === currentProvider) return;
 
+      const tier = Number(tab.dataset.tier || 0);
+      if (tier > mapUnlockLevel()) {
+        const need = { 1: 15, 2: 30, 3: 60 }[tier] || 0;
+        const remaining = Math.max(0, need - (currentUser?.registered_count || 0));
+        showMapLockMsg(`${MAP_TIER_LABEL[provider]}은 맛집 ${remaining}개 더 등록하면 열려요`);
+        return;
+      }
+
       document.querySelectorAll('.map-tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
       tab.classList.add('active');
@@ -790,6 +798,7 @@ function resetForm() {
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
+  updateMapTabLocks();
   initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
@@ -923,6 +932,7 @@ async function restoreSession() {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }
       renderAuthArea();
+      updateMapTabLocks();
       // 접속 기록 업데이트 (로그인 확인 후 비동기 호출)
       if (currentUser) fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
@@ -940,6 +950,33 @@ const ADMIN_EMAILS = [
 
 function isAdmin() {
   return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
+// ---------- 지도 등급 잠금 ----------
+const MAP_TIER_LABEL = { naver: '네이버지도', kakao: '카카오맵', google: '구글맵' };
+
+function mapUnlockLevel() {
+  if (isAdmin()) return Infinity;
+  return currentUser?.badge_level || 0;
+}
+
+function updateMapTabLocks() {
+  const level = mapUnlockLevel();
+  document.querySelectorAll('.map-tab').forEach((tab) => {
+    const tier = Number(tab.dataset.tier || 0);
+    const locked = tier > level;
+    tab.classList.toggle('locked', locked);
+    const label = MAP_TIER_LABEL[tab.dataset.provider] || tab.textContent.replace('🔒 ', '');
+    tab.textContent = locked ? `🔒 ${label}` : label;
+  });
+}
+
+function showMapLockMsg(text) {
+  const el = document.getElementById('mapLockMsg');
+  el.textContent = text;
+  el.style.display = 'block';
+  clearTimeout(showMapLockMsg._t);
+  showMapLockMsg._t = setTimeout(() => { el.style.display = 'none'; }, 2600);
 }
 
 // ---------- 진단 패널 ----------
