@@ -792,11 +792,9 @@ function setupRegisterModal() {
       resetForm();
 
       if (result.duplicate) {
-        alert(`⚠️ 중복 등록 불가
-${result.error}`);
+        alert('⚠️ 중복 등록 불가\n' + result.error);
       } else if (result.status === 'verified') {
-        alert('✅ 검증 완료! 지도에 공개되었습니다.
-🏅 등록 뱃지가 업데이트됐어요!');
+        alert('✅ 검증 완료! 지도에 공개되었습니다.\n🏅 등록 뱃지가 업데이트됐어요!');
       } else {
         alert(`검증 보류/반려: ${result.verify_reason || '사유 없음'}`);
       }
