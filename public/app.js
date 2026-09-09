@@ -80,7 +80,6 @@ function initJjinMap() {
   maps.jjin = L.map('map-jjin', {
     center: [37.5665, 126.978],
     zoom: 12,
-    minZoom: 7,
     zoomControl: false,
   });
 
@@ -230,7 +229,7 @@ async function initKakaoMap() {
   if (maps.kakao) return;
   await loadKakaoSDK();
   const center = new kakao.maps.LatLng(37.5665, 126.978);
-  maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6, maxLevel: 12 });
+  maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
   renderKakaoMarkers(placesCache);
 }
 
@@ -271,7 +270,7 @@ async function initNaverMap() {
   }
 
   const center = new naver.maps.LatLng(37.5665, 126.978);
-  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13, minZoom: 6 });
+  maps.naver = new naver.maps.Map('map-naver', { center, zoom: 13 });
 
   // 탭 전환 후 컨테이너 크기 재계산
   setTimeout(() => {
