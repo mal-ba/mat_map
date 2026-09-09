@@ -300,7 +300,6 @@ async function initGoogleMap() {
   const center = { lat: 37.5665, lng: 126.978 };
   maps.google = new google.maps.Map(document.getElementById('map-google'), {
     center, zoom: 12,
-    minZoom: 7,
     streetViewControl: false,
     mapTypeControl: false,
     restriction: {
