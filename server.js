@@ -67,6 +67,73 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// 관리자 강제 등록 (검증 생략, 바로 verified)
+app.post('/api/admin/force-place', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+
+  const jwt = require('jsonwebtoken');
+  let decoded;
+  try { decoded = jwt.verify(token, process.env.JWT_SECRET); }
+  catch { return res.status(401).json({ error: '토큰 만료' }); }
+
+  const { name, address, lat, lng, category, comment } = req.body;
+  if (!name || !address || lat == null || lng == null) {
+    return res.status(400).json({ error: '필수 항목 누락' });
+  }
+
+  const supabase = require('./services/supabase');
+  const { data, error } = await supabase
+    .from('places')
+    .insert({
+      name, address, lat, lng, category, comment,
+      submitted_by: decoded.userId,
+      status: 'verified',
+      verify_reason: '관리자 직접 등록',
+    })
+    .select().single();
+
+  if (error) {
+    console.error('[admin/force-place]', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+  res.json(data);
+});
+
+// 카카오 장소 대표사진 프록시 (CORS 우회)
+app.get('/api/place-image', async (req, res) => {
+  const { place_id } = req.query;
+  if (!place_id) return res.status(400).json({ error: 'place_id 필요' });
+  try {
+    const r = await fetch(
+      `https://place.map.kakao.com/main/v/${place_id}`,
+      { headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://map.kakao.com/' } }
+    );
+    const json = await r.json();
+    const img = json?.basicInfo?.mainphotourl || json?.basicInfo?.photoList?.[0]?.orgurl || null;
+    res.json({ image_url: img });
+  } catch {
+    res.json({ image_url: null });
+  }
+});
+
+// 관리자용 유저 접속 현황
+app.get('/api/admin/users', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '비로그인' });
+  try {
+    const jwt = require('jsonwebtoken');
+    jwt.verify(token, process.env.JWT_SECRET);
+    const supabase = require('./services/supabase');
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, badge_level, registered_count, visit_count, last_visited_at, created_at')
+      .order('last_visited_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch { res.status(401).json({ error: '인증 오류' }); }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/places', placesRoutes);
 
