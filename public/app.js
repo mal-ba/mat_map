@@ -710,12 +710,24 @@ async function onGoogleCredential(response) {
   renderAuthArea();
 }
 
+const LOGGED_OUT_AREA_HTML = `
+  <button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>
+  <button class="btn-ghost" onclick="openAuthModal()" style="margin-left:6px;">이메일로 시작하기</button>
+`;
+
 function renderAuthArea() {
   const area = document.getElementById('authArea');
   const addBtn = document.getElementById('addBtn');
   if (currentUser) {
+    const displayName = currentUser.display_name || currentUser.name || '익명';
+    const avatarSrc = currentUser.avatar_url || currentUser.picture;
     area.innerHTML = `
-      <span style="font-size:13px;font-weight:700">${escapeHtml(currentUser.name)}님 환영해요</span>
+      <a href="/profile.html" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit;">
+        ${avatarSrc
+          ? `<img src="${avatarSrc}" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid #241E17;" />`
+          : `<span style="width:26px;height:26px;border-radius:50%;background:#D9A441;border:1.5px solid #241E17;display:flex;align-items:center;justify-content:center;font-size:13px;">👤</span>`}
+        <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
+      </a>
       ${isAdmin() ? '<button onclick="openDiagPanel()" style="margin-left:6px;background:none;border:1.5px solid #5A4F3F;border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer;" title="진단 패널">🛠️</button>' : ''}
       <button id="logoutBtn" class="btn-ghost" style="margin-left:6px;font-size:12px;">로그아웃</button>
     `;
@@ -724,11 +736,74 @@ function renderAuthArea() {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       currentUser = null;
       addBtn.disabled = true;
-      area.innerHTML = `<button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>`;
+      area.innerHTML = LOGGED_OUT_AREA_HTML;
     });
   } else {
-    area.innerHTML = `<button class="btn-ghost" onclick="triggerGoogleLogin()">Google로 시작하기</button>`;
+    area.innerHTML = LOGGED_OUT_AREA_HTML;
   }
+}
+
+// ---------- 이메일 로그인/회원가입 모달 ----------
+window.openAuthModal = function () {
+  document.getElementById('authModal').showModal();
+};
+
+function setupAuthModal() {
+  const modal = document.getElementById('authModal');
+  const tabLogin = document.getElementById('authTabLogin');
+  const tabSignup = document.getElementById('authTabSignup');
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+
+  function showTab(which) {
+    const isLogin = which === 'login';
+    loginForm.style.display = isLogin ? 'block' : 'none';
+    signupForm.style.display = isLogin ? 'none' : 'block';
+    tabLogin.style.borderBottom = isLogin ? '3px solid #B23A2E' : 'none';
+    tabLogin.style.color = isLogin ? 'inherit' : '#5A4F3F';
+    tabSignup.style.borderBottom = isLogin ? 'none' : '3px solid #B23A2E';
+    tabSignup.style.color = isLogin ? '#5A4F3F' : 'inherit';
+  }
+  tabLogin.addEventListener('click', () => showTab('login'));
+  tabSignup.addEventListener('click', () => showTab('signup'));
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('loginError');
+    errEl.textContent = '';
+    const fd = new FormData(loginForm);
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email: fd.get('email'), password: fd.get('password') }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요'; return; }
+    currentUser = data.user;
+    renderAuthArea();
+    modal.close();
+    loginForm.reset();
+  });
+
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById('signupError');
+    errEl.textContent = '';
+    const fd = new FormData(signupForm);
+    const res = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name: fd.get('name'), email: fd.get('email'), password: fd.get('password') }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.error || '회원가입에 실패했어요'; return; }
+    currentUser = data.user;
+    renderAuthArea();
+    modal.close();
+    signupForm.reset();
+  });
 }
 
 // ---------- 등록 모달 ----------
@@ -821,6 +896,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
   initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
+  setupAuthModal();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });

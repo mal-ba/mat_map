@@ -101,6 +101,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f5f5;color:var(--ink);m
         <div class="avatar-wrap">
           <img id="avatarImg" class="avatar" style="display:none;" />
           <div id="avatarPlaceholder" class="avatar-placeholder">👤</div>
+          <label id="avatarEditBtn" for="avatarFileInput" style="display:none;position:absolute;bottom:-2px;right:-2px;
+            width:26px;height:26px;border-radius:50%;background:var(--stamp);border:2px solid var(--ink);
+            align-items:center;justify-content:center;font-size:13px;cursor:pointer;">📷</label>
+          <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
         </div>
         <div class="profile-info">
           <div class="profile-name" id="profileName">—</div>
@@ -234,10 +238,18 @@ function renderProfile(u) {
   document.getElementById('statBadge').textContent = badge.emoji || u.badge_level || 0;
   document.getElementById('statVisit').textContent = u.visit_count || 0;
 
+  if (u.avatar_url) {
+    const img = document.getElementById('avatarImg');
+    img.src = u.avatar_url;
+    img.style.display = 'block';
+    document.getElementById('avatarPlaceholder').style.display = 'none';
+  }
+
   if (isMyProfile) {
     document.getElementById('editSection').style.display = 'block';
     document.getElementById('editName').value = u.display_name || '';
     document.getElementById('editBio').value = u.bio || '';
+    document.getElementById('avatarEditBtn').style.display = 'flex';
   }
 }
 
@@ -258,6 +270,30 @@ function renderPlaces(places) {
     </div>
   `).join('');
 }
+
+document.getElementById('avatarFileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { alert('5MB 이하 이미지만 업로드할 수 있어요.'); return; }
+
+  const fd = new FormData();
+  fd.append('avatar', file);
+  try {
+    const res = await fetch('/api/auth/profile/avatar', {
+      method: 'POST',
+      credentials: 'include',
+      body: fd,
+    });
+    if (!res.ok) { alert('사진 업로드에 실패했어요.'); return; }
+    const updated = await res.json();
+    currentUser = updated;
+    renderProfile(updated);
+  } catch {
+    alert('사진 업로드 중 오류가 발생했어요.');
+  } finally {
+    e.target.value = '';
+  }
+});
 
 function toggleEdit() {
   const form = document.getElementById('editForm');

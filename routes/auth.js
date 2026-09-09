@@ -1,10 +1,33 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../services/supabase');
 
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 프로필 사진 업로드용 (메모리에 잠깐 올렸다가 바로 Supabase Storage로 전송)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('이미지 파일만 업로드할 수 있어요'));
+    cb(null, true);
+  },
+});
+
+function issueToken(res, user) {
+  const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+  res.cookie('token', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+}
 
 // 구글 로그인
 router.post('/google', async (req, res) => {
@@ -40,20 +63,80 @@ router.post('/google', async (req, res) => {
       user = created;
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '30d',
-    });
+    issueToken(res, user);
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+    res.json({
+      user: {
+        id: user.id,
+        name: user.display_name || user.name,
+        picture: user.avatar_url || user.picture,
+        email: user.email,
+      },
     });
-
-    res.json({ user: { id: user.id, name: user.name, picture: user.picture, email: user.email } });
   } catch (err) {
     console.error(err);
     res.status(401).json({ error: '구글 로그인 검증 실패' });
+  }
+});
+
+// 이메일 회원가입
+router.post('/signup', async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요' });
+  if (password.length < 6) return res.status(400).json({ error: '비밀번호는 6자 이상이어야 해요' });
+
+  try {
+    const { data: existing } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+    if (existing) return res.status(409).json({ error: '이미 가입된 이메일이에요' });
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert({
+        email,
+        password_hash,
+        name: name?.trim() || email.split('@')[0],
+        display_name: name?.trim() || email.split('@')[0],
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    issueToken(res, user);
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || null, email: user.email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '회원가입 중 오류가 발생했어요' });
+  }
+});
+
+// 이메일 로그인
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요' });
+
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!user || !user.password_hash) {
+      return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않아요' });
+    }
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않아요' });
+
+    issueToken(res, user);
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || user.picture, email: user.email } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '로그인 중 오류가 발생했어요' });
   }
 });
 
@@ -83,13 +166,13 @@ router.get('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, email, picture')
+      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
       .eq('id', decoded.userId)
       .single();
 
     if (error || !user) return res.status(401).json({ error: '유저 없음' });
 
-    res.json({ id: user.id, name: user.name, email: user.email, picture: user.picture });
+    res.json(user);
   } catch {
     res.status(401).json({ error: '토큰 만료/무효' });
   }
@@ -133,18 +216,55 @@ router.put('/profile', async (req, res) => {
       .from('users')
       .update({ display_name, bio })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, display_name, bio, badge_level, registered_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch { res.status(401).json({ error: '토큰 오류' }); }
 });
 
+// 프로필 사진 업로드
+router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+  if (!req.file) return res.status(400).json({ error: '이미지 파일이 없어요' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `${decoded.userId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: true,
+      });
+    if (uploadError) throw uploadError;
+
+    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const avatar_url = pub.publicUrl;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ avatar_url })
+      .eq('id', decoded.userId)
+      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .single();
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error('[profile/avatar]', err.message);
+    res.status(500).json({ error: '사진 업로드에 실패했어요' });
+  }
+});
+
 // 공개 프로필 조회
 router.get('/public-profile/:userId', async (req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, display_name, picture, bio, badge_level, registered_count')
+    .select('id, name, display_name, picture, avatar_url, bio, badge_level, registered_count')
     .eq('id', req.params.userId)
     .single();
   if (error || !data) return res.status(404).json({ error: '유저 없음' });

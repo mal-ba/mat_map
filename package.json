@@ -11,11 +11,24 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "axios": "^1.7.7",
+    "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "google-auth-library": "^9.14.1",
-    "jsonwebtoken": "^9.0.2"
-  }
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matmap101/mat_map.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/matmap101/mat_map/issues"
+  },
+  "homepage": "https://github.com/matmap101/mat_map#readme"
 }
