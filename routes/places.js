@@ -112,7 +112,7 @@ router.post('/', requireAuth, async (req, res) => {
     const { data: dupKakao } = await supabase
       .from('places')
       .select('id, name')
-      .eq('kakao_place_id', data.kakao_place_id)
+      .eq('naver_place_id', data.naver_place_id)
       .neq('id', data.id)
       .neq('status', 'rejected')
       .limit(1);
