@@ -89,7 +89,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
     <span class="brand-mark">찐</span>
   </a>
   <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">프로필</span>
-  <a href="/map.html" class="back-btn">← 지도로</a>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <a href="/" class="back-btn" style="margin-left:0;">🔍 검색으로</a>
+    <a href="/map.html" class="back-btn" style="margin-left:0;">🗺️ 지도</a>
+  </div>
 </header>
 
 <div class="container">
@@ -134,7 +137,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
         </div>
       </div>
 
-      <!-- 내 프로필일 때만 편집 버튼 표시 -->
+      <!-- 내 프로필일 때만 편집/로그아웃 버튼 표시 -->
       <div id="editSection" style="display:none;">
         <button class="edit-btn" onclick="toggleEdit()">✏️ 프로필 편집</button>
         <div class="edit-form" id="editForm">
@@ -144,6 +147,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
           <textarea class="form-input" id="editBio" rows="3" placeholder="나를 소개해보세요 (100자 이내)" maxlength="100"></textarea>
           <button class="save-btn" onclick="saveProfile()">저장</button>
         </div>
+        <button class="edit-btn" onclick="logout()" style="margin-top:8px;color:var(--stamp);border-color:var(--stamp);">🚪 로그아웃</button>
       </div>
     </div>
 
@@ -158,12 +162,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 <script>
 const BADGE_INFO = [
   { level:0, emoji:'',   name:'탐험 시작',   required:0   },
-  { level:1, emoji:'🌱', name:'새싹 탐험가', required:15  },
-  { level:2, emoji:'🌿', name:'풋내기 맛집러',required:30  },
-  { level:3, emoji:'🌲', name:'맛집 탐험가', required:60  },
-  { level:4, emoji:'⭐', name:'맛집 마스터', required:120 },
-  { level:5, emoji:'🌟', name:'맛집 전설',   required:240 },
-  { level:6, emoji:'👑', name:'찐맛집 레전드',required:480 },
+  { level:1, emoji:'🌱', name:'새싹 탐험가', required:5   },
+  { level:2, emoji:'🌿', name:'풋내기 맛집러',required:10  },
+  { level:3, emoji:'🌲', name:'맛집 탐험가', required:15  },
+  { level:4, emoji:'⭐', name:'맛집 마스터', required:30  },
+  { level:5, emoji:'🌟', name:'맛집 전설',   required:60  },
+  { level:6, emoji:'👑', name:'찐맛집 레전드',required:120 },
 ];
 
 let isMyProfile = false;
@@ -304,6 +308,11 @@ document.getElementById('avatarFileInput').addEventListener('change', async (e) 
     e.target.value = '';
   }
 });
+
+async function logout() {
+  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  location.href = '/';
+}
 
 function toggleEdit() {
   const form = document.getElementById('editForm');

@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
- 1b4e62f33ffb9ccc89c75b0d8a5d89902733b8e8
+:root{--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--line:#E7E4DF;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
   min-height:100vh;display:flex;flex-direction:column;align-items:center;}
@@ -48,7 +48,7 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;text-align:center;marg
 .submit-btn{width:100%;padding:13px;background:var(--stamp);color:#fff;border:none;
   border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;}
 .submit-btn:hover{opacity:.9;}
-.submit-btn:disabled{background:#ccc;cursor:not-allowed;}
+.submit-btn:disabled{background:#ccc;color:#777;cursor:not-allowed;}
 
 .error-msg{color:var(--stamp);font-size:13px;min-height:18px;margin-top:10px;text-align:center;}
 .loading{text-align:center;padding:60px 20px;color:#aaa;}
@@ -100,6 +100,9 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;text-align:center;marg
 let pendingAvatarFile = null;
 
 async function init() {
+  const todayStr = new Date().toISOString().split('T')[0];
+  document.getElementById('birthdateInput').max = todayStr;
+
   const meRes = await fetch('/api/auth/me', { credentials: 'include' });
   if (!meRes.ok) { location.href = '/login.html'; return; }
 
@@ -153,6 +156,7 @@ document.getElementById('onboardingForm').addEventListener('submit', async (e) =
 
   if (!display_name) { errEl.textContent = '별명을 입력해주세요'; return; }
   if (!birthdate) { errEl.textContent = '생년월일을 입력해주세요'; return; }
+  if (birthdate > new Date().toISOString().split('T')[0]) { errEl.textContent = '생년월일은 오늘 이전 날짜만 가능해요'; return; }
 
   submitBtn.disabled = true;
   submitBtn.textContent = '저장 중...';

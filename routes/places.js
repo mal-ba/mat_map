@@ -173,7 +173,7 @@ router.post('/', requireAuth, async (req, res) => {
       .single();
 
     const newCount = (userData?.registered_count || 0) + 1;
-    const LEVELS = [480, 240, 120, 60, 30, 15];
+    const LEVELS = [120, 60, 30, 15, 10, 5];
     let badgeLevel = 0;
     for (let i = 0; i < LEVELS.length; i++) {
       if (newCount >= LEVELS[i]) { badgeLevel = LEVELS.length - i; break; }

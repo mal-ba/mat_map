@@ -425,9 +425,9 @@ router.get('/profile', async (req, res) => {
   }
 });
 
-// 뱃지 레벨 계산 (기본 15개, 2배씩)
+// 뱃지 레벨 계산 (5개부터 시작, 5→10→15→30→60→120)
 function calcBadge(count) {
-  const LEVELS = [480, 240, 120, 60, 30, 15];
+  const LEVELS = [120, 60, 30, 15, 10, 5];
   for (let i = 0; i < LEVELS.length; i++) {
     if (count >= LEVELS[i]) return LEVELS.length - i;
   }
@@ -481,6 +481,8 @@ router.put('/onboarding', async (req, res) => {
     if (!display_name?.trim()) return res.status(400).json({ error: '별명을 입력해주세요' });
     if (!birthdate) return res.status(400).json({ error: '생년월일을 입력해주세요' });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) return res.status(400).json({ error: '생년월일 형식이 올바르지 않아요' });
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (birthdate > todayStr) return res.status(400).json({ error: '생년월일은 오늘 이전 날짜만 가능해요' });
 
     const { data, error } = await supabase
       .from('users')
