@@ -1008,12 +1008,104 @@ function resetForm() {
   clearPreviewMarkers();
 }
 
+// ---------- 하단 서랍(바텀시트) — 모바일에서 맛집 목록 패널을 드래그로 여닫기 ----------
+function setupBottomSheet() {
+  const panel = document.getElementById('panel');
+  const handle = document.getElementById('sheetHandle');
+  if (!panel || !handle) return;
+
+  function snapPoints() {
+    const vh = window.innerHeight;
+    return {
+      peek: 110,
+      half: Math.round(vh * 0.45),
+      full: Math.round(vh * 0.86),
+    };
+  }
+
+  function setHeight(px, animate = true) {
+    panel.classList.toggle('dragging', !animate);
+    panel.style.height = px + 'px';
+  }
+
+  // 화면 폭이 모바일 레이아웃일 때만 동작 (데스크톱은 핸들이 안 보임)
+  function isMobileLayout() {
+    return window.matchMedia('(max-width:760px)').matches;
+  }
+
+  setHeight(snapPoints().peek, false);
+
+  let startY = 0;
+  let startHeight = 0;
+  let dragging = false;
+
+  function onStart(clientY) {
+    if (!isMobileLayout()) return;
+    dragging = true;
+    startY = clientY;
+    startHeight = panel.getBoundingClientRect().height;
+    panel.classList.add('dragging');
+  }
+
+  function onMove(clientY) {
+    if (!dragging) return;
+    const sp = snapPoints();
+    const delta = startY - clientY; // 위로 끌면 양수
+    let next = startHeight + delta;
+    next = Math.max(60, Math.min(sp.full, next));
+    panel.style.height = next + 'px';
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('dragging');
+
+    const sp = snapPoints();
+    const current = panel.getBoundingClientRect().height;
+    // 가장 가까운 스냅 지점으로 붙이기
+    const candidates = [sp.peek, sp.half, sp.full];
+    let closest = candidates[0];
+    let minDiff = Infinity;
+    candidates.forEach((c) => {
+      const diff = Math.abs(current - c);
+      if (diff < minDiff) { minDiff = diff; closest = c; }
+    });
+    setHeight(closest, true);
+  }
+
+  handle.addEventListener('touchstart', (e) => onStart(e.touches[0].clientY), { passive: true });
+  handle.addEventListener('touchmove', (e) => onMove(e.touches[0].clientY), { passive: true });
+  handle.addEventListener('touchend', onEnd);
+
+  handle.addEventListener('pointerdown', (e) => { handle.setPointerCapture(e.pointerId); onStart(e.clientY); });
+  handle.addEventListener('pointermove', (e) => onMove(e.clientY));
+  handle.addEventListener('pointerup', onEnd);
+  handle.addEventListener('pointercancel', onEnd);
+
+  // 화면 회전/크기 변경 시 peek 높이 재조정
+  window.addEventListener('resize', () => {
+    if (!dragging && isMobileLayout()) setHeight(snapPoints().peek, false);
+  });
+
+  // 탭해서 펼치기/접기 (드래그 없이 짧게 터치했을 때)
+  let tapStartTime = 0;
+  handle.addEventListener('touchstart', () => { tapStartTime = Date.now(); }, { passive: true });
+  handle.addEventListener('touchend', () => {
+    if (Date.now() - tapStartTime > 250) return; // 드래그였으면 무시
+    const sp = snapPoints();
+    const current = Math.round(panel.getBoundingClientRect().height);
+    setHeight(current <= sp.peek + 10 ? sp.half : sp.peek, true);
+  });
+}
+
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
   updateMapTabLocks();
   initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
+  setupBottomSheet();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });
