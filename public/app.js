@@ -613,37 +613,62 @@ async function loadPlaces() {
 
     const data = await res.json();
     placesCache = Array.isArray(data) ? data : [];
-
-    const list = document.getElementById('placeList');
-    if (!placesCache.length) {
-      showEmptyState();
-    } else {
-      list.innerHTML = placesCache
-        .map(
-          (p) => `
-        <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
-          <div class="verified-badge">인증</div>
-          <h3>${escapeHtml(p.name)}</h3>
-          <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
-          ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
-          ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
-        </li>`
-        )
-        .join('');
-
-      list.querySelectorAll('.place-card').forEach((card) => {
-        card.addEventListener('click', () => {
-          panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
-        });
-      });
-    }
-
+    renderPlaceList(placesCache);
     renderAllMarkers(placesCache);
+
+    // 홈(검색 결과)에서 특정 맛집을 콕 집어 넘어온 경우 해당 위치로 이동
+    const focusId = new URLSearchParams(location.search).get('focus');
+    if (focusId) {
+      const target = placesCache.find((p) => p.id === focusId);
+      if (target) panActiveMapTo(target.lat, target.lng);
+    }
   } catch (err) {
     console.error('[loadPlaces] fetch 실패:', err);
     placesCache = [];
     renderAllMarkers([]);
     showEmptyState();
+  }
+}
+
+function renderPlaceList(items) {
+  const list = document.getElementById('placeList');
+  if (!items.length) {
+    showEmptyState();
+    return;
+  }
+  list.innerHTML = items
+    .map(
+      (p) => `
+    <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
+      <div class="verified-badge">인증</div>
+      <h3>${escapeHtml(p.name)}</h3>
+      <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
+      ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
+      ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
+    </li>`
+    )
+    .join('');
+
+  list.querySelectorAll('.place-card').forEach((card) => {
+    card.addEventListener('click', () => {
+      panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
+    });
+  });
+}
+
+// 왼쪽 패널에서 등록된 맛집 이름/주소/카테고리로 검색 (지도에 등록을 위한 검색과는 별개)
+function filterPlaceList(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) { renderPlaceList(placesCache); return; }
+  const filtered = placesCache.filter((p) =>
+    (p.name || '').toLowerCase().includes(q) ||
+    (p.address || '').toLowerCase().includes(q) ||
+    (p.category || '').toLowerCase().includes(q)
+  );
+  if (!filtered.length) {
+    document.getElementById('placeList').innerHTML = '<li class="empty-state">검색 결과가 없어요.</li>';
+  } else {
+    renderPlaceList(filtered);
   }
 }
 
@@ -716,6 +741,27 @@ function setupRegisterModal() {
   const form = document.getElementById('registerForm');
   const overlay = document.getElementById('verifyOverlay');
   const addressInput = document.getElementById('addressInput');
+
+  const photoInput = document.getElementById('placePhotoInput');
+  const photoStatus = document.getElementById('photoUploadStatus');
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { photoStatus.textContent = '5MB 이하 이미지만 업로드할 수 있어요.'; photoInput.value = ''; return; }
+
+    photoStatus.textContent = '업로드 중...';
+    const fd = new FormData();
+    fd.append('photo', file);
+    try {
+      const res = await fetch('/api/places/photo-upload', { method: 'POST', credentials: 'include', body: fd });
+      const data = await res.json();
+      if (!res.ok) { photoStatus.textContent = data.error || '업로드 실패'; return; }
+      document.getElementById('imageUrlInput').value = data.url;
+      photoStatus.textContent = '사진 업로드 완료 ✓';
+    } catch {
+      photoStatus.textContent = '업로드 중 오류가 발생했어요.';
+    }
+  });
 
   // 주소 입력 시 디바운스 후 자동 지오코딩
   addressInput.addEventListener('input', () => {
@@ -792,6 +838,8 @@ function resetForm() {
   document.getElementById('geocodeResult').textContent = '';
   document.getElementById('latInput').value = '';
   document.getElementById('lngInput').value = '';
+  document.getElementById('photoUploadStatus').textContent = '';
+  document.getElementById('imageUrlInput').value = '';
   clearPreviewMarkers();
 }
 
