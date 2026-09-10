@@ -6,7 +6,7 @@
 <title>관리자 — 찐맛집 일괄 등록</title>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
 <style>
-:root{--paper:#E7DCC3;--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--mustard:#D9A441;--green:#22c55e;--radius:4px;}
+:root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--mustard:#D9A441;--green:#22c55e;--line:#E7E4DF;--radius:8px;}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;
   background-image:radial-gradient(rgba(36,30,23,0.035) 1px,transparent 1px);background-size:4px 4px;}
@@ -39,11 +39,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 .btn-del{background:none;border:1.5px solid #ccc;border-radius:var(--radius);padding:3px 8px;font-size:11px;cursor:pointer;}
 .btn-del:hover:not(:disabled){background:var(--stamp);color:white;border-color:var(--stamp);}
 .row-status{font-size:11px;font-weight:700;white-space:nowrap;text-align:right;}
-.cat-badge{font-size:10px;padding:2px 7px;border-radius:99px;border:1.5px solid var(--ink);background:var(--paper-deep,#DCCEA9);white-space:nowrap;}
+.cat-badge{font-size:10px;padding:2px 7px;border-radius:99px;border:1.5px solid var(--ink);background:var(--paper-deep,#F6F4F1);white-space:nowrap;}
 .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:20px 0;}
 .btn{font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:14px;padding:10px 20px;border-radius:var(--radius);cursor:pointer;border:2px solid var(--ink);}
 .btn-primary{background:var(--stamp);color:var(--paper);}
-.btn-primary:hover:not(:disabled){background:#8C2C22;}
+.btn-primary:hover:not(:disabled){background:#B92C1F;}
 .btn-primary:disabled{background:#bbb;border-color:#999;cursor:not-allowed;}
 .btn-ghost{background:transparent;color:var(--ink);}
 .btn-ghost:hover{background:var(--ink);color:var(--paper);}
@@ -101,7 +101,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 
   <div class="actions">
     <button id="startBtn" class="btn btn-primary" onclick="startBatch(false)">▶ 일괄 검증 등록</button>
-    <button id="forceBtn" class="btn btn-ghost" onclick="startBatch(true)" style="border-color:#B23A2E;color:#B23A2E;">⚡ 강제 등록 (검증 생략)</button>
+    <button id="forceBtn" class="btn btn-ghost" onclick="startBatch(true)" style="border-color:#E1392A;color:#E1392A;">⚡ 강제 등록 (검증 생략)</button>
     <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <span class="progress-text" id="progressText"></span>
   </div>
@@ -212,12 +212,12 @@ async function loadUsers() {
     const timeStr = diff === null ? '–' : diff < 60 ? `${diff}분 전` : diff < 1440 ? `${Math.floor(diff/60)}시간 전` : `${Math.floor(diff/1440)}일 전`;
     const badge = BADGE_NAMES[Math.min(u.badge_level || 0, BADGE_NAMES.length - 1)];
     return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);">${u.name || '–'}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);font-size:12px;color:#5A4F3F;">${u.email}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);">${badge}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);text-align:center;">${u.registered_count || 0}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);text-align:center;">${u.visit_count || 0}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid rgba(36,30,23,.1);font-size:12px;">${timeStr}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${u.name || '–'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:#8A8580;">${u.email}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${badge}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.registered_count || 0}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.visit_count || 0}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;">${timeStr}</td>
     </tr>`;
   }).join('');
 
@@ -225,12 +225,12 @@ async function loadUsers() {
     <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Noto Sans KR',sans-serif;">
       <thead>
         <tr style="background:rgba(36,30,23,.06);">
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">이름</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">이메일</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">뱃지</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #241E17;">등록수</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #241E17;">방문수</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #241E17;">마지막 접속</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이름</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이메일</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">뱃지</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">등록수</th>
+          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">방문수</th>
+          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">마지막 접속</th>
         </tr>
       </thead>
       <tbody>${rows || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#888;">유저 없음</td></tr>'}</tbody>

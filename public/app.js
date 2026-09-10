@@ -61,15 +61,15 @@ function getCategoryEmoji(cat) {
 }
 
 function getCategoryColor(cat) {
-  if (!cat) return '#241E17';
-  if (cat.includes('한식')) return '#B23A2E';
+  if (!cat) return '#1C1917';
+  if (cat.includes('한식')) return '#E1392A';
   if (cat.includes('카페') || cat.includes('디저트')) return '#D9A441';
   if (cat.includes('고기') || cat.includes('구이')) return '#8B4513';
   if (cat.includes('분식') || cat.includes('간식')) return '#4A90D9';
   if (cat.includes('일식')) return '#6B4E9B';
   if (cat.includes('양식')) return '#2E7D32';
   if (cat.includes('중식')) return '#C62828';
-  return '#241E17';
+  return '#1C1917';
 }
 
 function initJjinMap() {
@@ -141,7 +141,7 @@ function renderJjinMarkers(places) {
       const count = cluster.getChildCount();
       return L.divIcon({
         html: `<div style="width:38px;height:38px;border-radius:50%;
-          background:#B23A2E;color:#E7DCC3;border:3px solid #fff;
+          background:#E1392A;color:#FFFFFF;border:3px solid #fff;
           display:flex;align-items:center;justify-content:center;
           font-weight:900;font-size:13px;
           box-shadow:0 2px 8px rgba(0,0,0,.35);
@@ -172,7 +172,7 @@ function renderJjinMarkers(places) {
       <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
         ${imgHtml}
         <b style="font-size:14px;">${escapeHtml(p.name)}</b>
-        <div style="font-size:11px;color:#5A4F3F;margin:3px 0;">${escapeHtml(p.address || '')}</div>
+        <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
         ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
         ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
       </div>
@@ -255,9 +255,9 @@ async function initNaverMap() {
   if (naverAuthError || typeof naver === 'undefined' || !naver.maps) {
     document.getElementById('map-naver').innerHTML =
       '<div style="display:flex;align-items:center;justify-content:center;height:100%;' +
-      'flex-direction:column;gap:10px;color:#5A4F3F;font-family:Noto Sans KR,sans-serif;padding:24px;text-align:center;">' +
+      'flex-direction:column;gap:10px;color:#8A8580;font-family:Noto Sans KR,sans-serif;padding:24px;text-align:center;">' +
       '<div style="font-size:28px;">⚠️</div>' +
-      '<div style="font-size:14px;font-weight:700;color:#B23A2E;">네이버 지도 인증 실패</div>' +
+      '<div style="font-size:14px;font-weight:700;color:#E1392A;">네이버 지도 인증 실패</div>' +
       '<div style="font-size:11px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:4px;' +
       'padding:10px 14px;text-align:left;max-width:320px;word-break:break-all;line-height:1.8;">' +
       '<b>Client ID:</b> ' + clientId.slice(0,10) + '...<br>' +
@@ -373,8 +373,8 @@ function renderKakaoMarkers(places) {
       minLevel: 9, // 레벨 9 이상(약 30km+ 뷰)에서만 묶음
       styles: [{
         width: '40px', height: '40px',
-        background: '#B23A2E',
-        color: '#E7DCC3',
+        background: '#E1392A',
+        color: '#FFFFFF',
         borderRadius: '50%',
         border: '3px solid #fff',
         textAlign: 'center',
@@ -392,7 +392,7 @@ function renderKakaoMarkers(places) {
     const infowindow = new kakao.maps.InfoWindow({
       content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
         <b style="font-size:13px;">${escapeHtml(p.name)}</b>
-        <div style="font-size:11px;color:#5A4F3F;margin-top:2px;">${escapeHtml(p.category||'')}</div>
+        <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
         ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
       </div>`,
       removable: true,
@@ -480,14 +480,14 @@ window.toggleMapSearch = function() {
   if (isHidden) {
     bar.style.display = 'flex';
     bar.classList.remove('search-hidden');
-    btn.style.background = '#B23A2E';
-    btn.style.color = '#E7DCC3';
+    btn.style.background = '#E1392A';
+    btn.style.color = '#FFFFFF';
     document.getElementById('mapSearchInput').focus();
   } else {
     bar.style.display = 'none';
     bar.classList.add('search-hidden');
     btn.style.background = '#fff';
-    btn.style.color = '#241E17';
+    btn.style.color = '#1C1917';
   }
 };
 
@@ -497,6 +497,14 @@ function setupMapTabs() {
     tab.addEventListener('click', async () => {
       const provider = tab.dataset.provider;
       if (provider === currentProvider) return;
+
+      const tier = Number(tab.dataset.tier || 0);
+      if (tier > mapUnlockLevel()) {
+        const need = { 1: 15, 2: 30, 3: 60 }[tier] || 0;
+        const remaining = Math.max(0, need - (currentUser?.registered_count || 0));
+        showMapLockMsg(`${MAP_TIER_LABEL[provider]}은 맛집 ${remaining}개 더 등록하면 열려요`);
+        return;
+      }
 
       document.querySelectorAll('.map-tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
@@ -683,11 +691,11 @@ function renderAuthArea() {
     area.innerHTML = `
       <a href="/profile.html" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit;">
         ${avatarSrc
-          ? `<img src="${avatarSrc}" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid #241E17;" />`
-          : `<span style="width:26px;height:26px;border-radius:50%;background:#D9A441;border:1.5px solid #241E17;display:flex;align-items:center;justify-content:center;font-size:13px;">👤</span>`}
+          ? `<img src="${avatarSrc}" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid #1C1917;" />`
+          : `<span style="width:26px;height:26px;border-radius:50%;background:#D9A441;border:1.5px solid #1C1917;display:flex;align-items:center;justify-content:center;font-size:13px;">👤</span>`}
         <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
       </a>
-      ${isAdmin() ? '<button onclick="openDiagPanel()" style="margin-left:6px;background:none;border:1.5px solid #5A4F3F;border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer;" title="진단 패널">🛠️</button>' : ''}
+      ${isAdmin() ? '<button onclick="openDiagPanel()" style="margin-left:6px;background:none;border:1.5px solid #8A8580;border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer;" title="진단 패널">🛠️</button>' : ''}
       <button id="logoutBtn" class="btn-ghost" style="margin-left:6px;font-size:12px;">로그아웃</button>
     `;
     addBtn.disabled = false;
@@ -790,6 +798,7 @@ function resetForm() {
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
+  updateMapTabLocks();
   initJjinMap(); // 찐지도 기본 로드
   setupRegisterModal();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
@@ -847,14 +856,14 @@ function showPlaceOverlay(place, pos, marker) {
   if (searchOverlay) searchOverlay.setMap(null);
 
   const content = `
-    <div style="background:#fff;border:2px solid #241E17;border-radius:6px;padding:12px 14px;
+    <div style="background:#fff;border:2px solid #1C1917;border-radius:6px;padding:12px 14px;
                 min-width:200px;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,0.2);
                 font-family:'Noto Sans KR',sans-serif;">
       <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${escapeHtml(place.place_name)}</div>
-      <div style="font-size:12px;color:#5A4F3F;margin-bottom:8px;">${escapeHtml(place.address_name)}</div>
+      <div style="font-size:12px;color:#8A8580;margin-bottom:8px;">${escapeHtml(place.address_name)}</div>
       ${place.category_name ? `<div style="font-size:11px;color:#888;margin-bottom:8px;">${escapeHtml(place.category_name)}</div>` : ''}
       <button onclick="registerFromSearch(${JSON.stringify(place.place_name).replace(/"/g,'&quot;')}, ${JSON.stringify(place.address_name).replace(/"/g,'&quot;')}, ${place.y}, ${place.x})"
-        style="width:100%;background:#B23A2E;color:#E7DCC3;border:none;border-radius:4px;
+        style="width:100%;background:#E1392A;color:#FFFFFF;border:none;border-radius:4px;
                padding:8px;font-size:13px;font-weight:700;cursor:pointer;">
         ✅ 찐맛집으로 등록
       </button>
@@ -918,10 +927,12 @@ async function restoreSession() {
       if (profileRes.ok) {
         const profile = await profileRes.json();
         currentUser = profile;
+        if (!profile.onboarding_completed) { location.href = '/onboarding.html'; return; }
       } else {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }
       renderAuthArea();
+      updateMapTabLocks();
       // 접속 기록 업데이트 (로그인 확인 후 비동기 호출)
       if (currentUser) fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
@@ -939,6 +950,33 @@ const ADMIN_EMAILS = [
 
 function isAdmin() {
   return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
+// ---------- 지도 등급 잠금 ----------
+const MAP_TIER_LABEL = { naver: '네이버지도', kakao: '카카오맵', google: '구글맵' };
+
+function mapUnlockLevel() {
+  if (isAdmin()) return Infinity;
+  return currentUser?.badge_level || 0;
+}
+
+function updateMapTabLocks() {
+  const level = mapUnlockLevel();
+  document.querySelectorAll('.map-tab').forEach((tab) => {
+    const tier = Number(tab.dataset.tier || 0);
+    const locked = tier > level;
+    tab.classList.toggle('locked', locked);
+    const label = MAP_TIER_LABEL[tab.dataset.provider] || tab.textContent.replace('🔒 ', '');
+    tab.textContent = locked ? `🔒 ${label}` : label;
+  });
+}
+
+function showMapLockMsg(text) {
+  const el = document.getElementById('mapLockMsg');
+  el.textContent = text;
+  el.style.display = 'block';
+  clearTimeout(showMapLockMsg._t);
+  showMapLockMsg._t = setTimeout(() => { el.style.display = 'none'; }, 2600);
 }
 
 // ---------- 진단 패널 ----------
@@ -977,7 +1015,7 @@ window.openDiagPanel = function() {
     <div style="max-width:600px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <b style="font-size:16px;color:#fff">🛠️ 찐맛집 진단 패널</b>
-        <button onclick="document.getElementById('diagPanel').remove()" style="background:#B23A2E;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">✕ 닫기</button>
+        <button onclick="document.getElementById('diagPanel').remove()" style="background:#E1392A;color:#fff;border:none;border-radius:4px;padding:6px 14px;cursor:pointer;font-size:13px">✕ 닫기</button>
       </div>
 
       <div style="margin-bottom:12px">
@@ -988,6 +1026,7 @@ window.openDiagPanel = function() {
       <div style="margin-bottom:12px">
         <div style="color:#ff0;margin-bottom:6px">🏅 내 뱃지</div>
         ${(() => {
+          if (isAdmin()) return `<div style="color:#0f0">👑 관리자</div>`;
           const b = getBadgeInfo(currentUser?.badge_level || 0);
           const nb = getNextBadge(currentUser?.badge_level || 0);
           const cnt = currentUser?.registered_count || 0;

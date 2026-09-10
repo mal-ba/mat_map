@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
-:root{--ink:#241E17;--ink-soft:#5A4F3F;--stamp:#B23A2E;--line:#e7e2d8;}
+:root{--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--line:#E7E4DF;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
   min-height:100vh;display:flex;flex-direction:column;align-items:center;}
@@ -106,7 +106,8 @@ async function onGoogleCredential(response) {
     body: JSON.stringify({ credential: response.credential }),
   });
   if (!res.ok) { document.getElementById('errorMsg').textContent = 'Google 로그인에 실패했어요.'; return; }
-  location.href = '/';
+  const data = await res.json();
+  location.href = data.user?.onboarding_completed ? '/' : '/onboarding.html';
 }
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -122,7 +123,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   });
   const data = await res.json();
   if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요'; return; }
-  location.href = '/';
+  location.href = data.user?.onboarding_completed ? '/' : '/onboarding.html';
 });
 </script>
 </body>
