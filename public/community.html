@@ -108,13 +108,17 @@ document.getElementById('searchForm').addEventListener('submit', async (e) => {
   wrap.innerHTML = '<p class="empty">검색 중...</p>';
   try {
     const res = await fetch(`/api/community/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
-    if (!res.ok) { wrap.innerHTML = '<p class="empty">로그인 후 검색할 수 있어요.</p>'; return; }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      wrap.innerHTML = `<p class="empty">검색 실패 (${res.status}): ${body.error || '알 수 없는 오류'}</p>`;
+      return;
+    }
     const users = await res.json();
     wrap.innerHTML = users.length
       ? users.map(u => userRowHtml(u, 'search')).join('')
       : '<p class="empty">검색 결과가 없어요.</p>';
-  } catch {
-    wrap.innerHTML = '<p class="empty">검색 중 오류가 발생했어요.</p>';
+  } catch (err) {
+    wrap.innerHTML = `<p class="empty">검색 중 오류가 발생했어요. (${err.message})</p>`;
   }
 });
 
@@ -122,12 +126,17 @@ window.follow = async function (userId, btn) {
   btn.disabled = true;
   try {
     const res = await fetch(`/api/community/follow/${userId}`, { method: 'POST', credentials: 'include' });
-    if (!res.ok) { btn.disabled = false; return; }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      alert(`팔로우 실패 (${res.status}): ${body.error || '알 수 없는 오류'}`);
+      btn.disabled = false;
+      return;
+    }
     btn.textContent = '팔로잉';
     btn.classList.add('following');
     btn.setAttribute('onclick', `unfollow('${userId}', this)`);
     btn.disabled = false;
-  } catch { btn.disabled = false; }
+  } catch (err) { alert('팔로우 중 오류: ' + err.message); btn.disabled = false; }
 };
 
 window.unfollow = async function (userId, btn) {
