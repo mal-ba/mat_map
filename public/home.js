@@ -156,6 +156,7 @@ async function initAuthArea() {
       <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
     `;
   }
+  area.style.visibility = 'visible';
 }
 
 document.getElementById('homeSearchInput').addEventListener('input', (e) => runSearch(e.target.value));

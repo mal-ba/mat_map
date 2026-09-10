@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
 <script src="/config.js"></script>
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <style>.hidden { display: none !important; }</style>
 </head>
 <body>
@@ -23,7 +24,7 @@
       <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
     </div>
   </a>
-  <div class="auth-area" id="authArea">
+  <div class="auth-area" id="authArea" style="visibility:hidden;">
     <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
     <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
   </div>
@@ -48,7 +49,7 @@
 
   <section class="map-wrap" style="position:relative;">
     <!-- 스트리트뷰 오버레이: map-google 밖에 위치해야 DOM 충돌 없음 -->
-    <div id="streetview-pane" class="hidden" style="position:absolute;inset:0;top:48px;z-index:20;">
+    <div id="streetview-pane" class="hidden" style="position:absolute;inset:0;top:48px;z-index:1100;">
       <div id="streetview-map" style="width:100%;height:100%;"></div>
       <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:30;
                   background:rgba(28,25,23,0.88);color:#FFFFFF;padding:6px 16px;
@@ -66,18 +67,18 @@
       <button class="map-tab" data-provider="google" data-tier="3">구글맵</button>
     </div>
     <div id="mapLockMsg" style="display:none;position:absolute;top:56px;left:50%;transform:translateX(-50%);
-         z-index:25;background:#1C1917;color:#FFFFFF;padding:8px 16px;border-radius:4px;
+         z-index:1200;background:#1C1917;color:#FFFFFF;padding:8px 16px;border-radius:4px;
          font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25);"></div>
     <!-- 검색 토글 버튼 -->
     <button id="searchToggleBtn" onclick="toggleMapSearch()"
-      style="position:absolute;top:56px;right:12px;z-index:10;
+      style="position:absolute;top:56px;right:12px;z-index:1200;
              width:40px;height:40px;background:#fff;border:2px solid #1C1917;
              border-radius:4px;font-size:18px;cursor:pointer;
              box-shadow:0 2px 6px rgba(0,0,0,.2);">🔍</button>
 
     <!-- 검색창 (기본 숨김) -->
     <div id="mapSearchBar" style="position:absolute;top:56px;left:12px;right:60px;
-         z-index:10;display:none;gap:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+         z-index:1200;display:none;gap:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
       <input id="mapSearchInput" type="text" placeholder="가게 이름으로 검색"
         style="flex:1;width:100%;padding:10px 14px;border:2px solid #1C1917;border-right:none;
                border-radius:4px 0 0 4px;font-size:14px;font-family:'Noto Sans KR',sans-serif;
@@ -88,8 +89,11 @@
                border-left:none;border-radius:0 4px 4px 0;font-weight:700;font-size:14px;
                cursor:pointer;white-space:nowrap;">검색</button>
     </div>
+    <div id="searchDropdown" style="display:none;position:absolute;top:100px;left:12px;right:60px;
+         z-index:1200;background:#fff;border:1.5px solid #1C1917;border-radius:8px;
+         max-height:280px;overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,0.25);"></div>
     <div id="searchMsg" style="position:absolute;top:106px;right:12px;
-         z-index:10;font-size:12px;color:#E1392A;"></div>
+         z-index:1200;font-size:12px;color:#E1392A;"></div>
 
     <div id="map-jjin" class="map-instance active"></div>
     <div id="map-kakao" class="map-instance"></div>

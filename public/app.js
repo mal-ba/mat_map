@@ -16,10 +16,11 @@ let currentProvider = 'jjin';
 let placesCache = [];
 
 const maps = { jjin: null, kakao: null, naver: null, google: null };
-let searchMarkers = [];
 let jjinCluster = null;
 let kakaoCluster = null;
-let searchOverlay = null;
+let googleCluster = null;
+let naverClusterMarkers = []; // 네이버 지도에서 그려진 클러스터/단일 마커 오버레이 전체
+let naverPlacesForCluster = [];
 const markers = { jjin: [], kakao: [], naver: [], google: [] };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
@@ -175,6 +176,9 @@ function renderJjinMarkers(places) {
         <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
         ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
         ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+        <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+          style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
+          border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
       </div>
     `, { maxWidth: 240 });
 
@@ -305,15 +309,27 @@ async function initGoogleMap() {
     mapTypeControl: false,
   });
 
-  // 스트리트뷰 파노라마 초기화 (한 번만)
-  maps.streetview = new google.maps.StreetViewPanorama(
-    document.getElementById('streetview-map'),
-    { visible: false, addressControl: true, fullscreenControl: false }
-  );
+  await ensureStreetView();
   maps.google.setStreetView(maps.streetview);
 
   renderGoogleMarkers(placesCache);
 }
+
+// 구글맵 탭을 열지 않아도(등급 잠김 상태여도) 거리뷰 자체는 바로 쓸 수 있도록 분리
+async function ensureStreetView() {
+  if (maps.streetview) return;
+  await loadGoogleMapsSDK();
+  maps.streetview = new google.maps.StreetViewPanorama(
+    document.getElementById('streetview-map'),
+    { visible: false, addressControl: true, fullscreenControl: false }
+  );
+}
+
+// 리스트/팝업 어디서든 호출 가능한 거리뷰 진입점
+window.viewStreetView = async function (lat, lng, name) {
+  await ensureStreetView();
+  openStreetView(parseFloat(lat), parseFloat(lng), name);
+};
 
 // ---------- 미리보기 마커 (주소 검색 결과) ----------
 function showPreviewMarker(lat, lng) {
@@ -394,6 +410,9 @@ function renderKakaoMarkers(places) {
         <b style="font-size:13px;">${escapeHtml(p.name)}</b>
         <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
         ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
+        <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+          style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
+          border:1.5px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;">🚶 거리뷰</button>
       </div>`,
       removable: true,
     });
@@ -409,27 +428,100 @@ function renderKakaoMarkers(places) {
 
 function renderNaverMarkers(places) {
   if (!maps.naver) return;
-  markers.naver.forEach((m) => m.setMap(null));
-  markers.naver = places.filter(p => shouldShow(p, 'naver')).map((p) => {
-    const position = new naver.maps.LatLng(p.lat, p.lng);
-    const marker = new naver.maps.Marker({ position, map: maps.naver });
-    naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
-    return marker;
+  naverPlacesForCluster = places.filter(p => shouldShow(p, 'naver'));
+  drawNaverClusters();
+
+  // 지도를 움직이거나 확대/축소할 때마다 다시 묶어서 그리기
+  if (!maps.naver.__clusterBound) {
+    naver.maps.Event.addListener(maps.naver, 'idle', drawNaverClusters);
+    maps.naver.__clusterBound = true;
+  }
+}
+
+function drawNaverClusters() {
+  if (!maps.naver) return;
+  naverClusterMarkers.forEach((m) => m.setMap(null));
+  naverClusterMarkers = [];
+
+  const proj = maps.naver.getProjection();
+  if (!proj) return;
+
+  const points = naverPlacesForCluster.map((p) => ({
+    place: p,
+    pt: proj.fromCoordToOffset(new naver.maps.LatLng(p.lat, p.lng)),
+  }));
+
+  const CLUSTER_DIST_PX = 48;
+  const used = new Array(points.length).fill(false);
+  const groups = [];
+
+  for (let i = 0; i < points.length; i++) {
+    if (used[i]) continue;
+    const group = [points[i]];
+    used[i] = true;
+    for (let j = i + 1; j < points.length; j++) {
+      if (used[j]) continue;
+      const dx = points[i].pt.x - points[j].pt.x;
+      const dy = points[i].pt.y - points[j].pt.y;
+      if (Math.sqrt(dx * dx + dy * dy) < CLUSTER_DIST_PX) {
+        group.push(points[j]);
+        used[j] = true;
+      }
+    }
+    groups.push(group);
+  }
+
+  groups.forEach((group) => {
+    const avgLat = group.reduce((s, g) => s + g.place.lat, 0) / group.length;
+    const avgLng = group.reduce((s, g) => s + g.place.lng, 0) / group.length;
+    const position = new naver.maps.LatLng(avgLat, avgLng);
+
+    if (group.length === 1) {
+      const marker = new naver.maps.Marker({ position, map: maps.naver });
+      naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
+      naverClusterMarkers.push(marker);
+    } else {
+      const marker = new naver.maps.Marker({
+        position,
+        map: maps.naver,
+        icon: {
+          content: `<div style="width:38px;height:38px;border-radius:50%;
+            background:#E1392A;color:#fff;border:3px solid #fff;
+            display:flex;align-items:center;justify-content:center;
+            font-weight:900;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35);
+            font-family:'Noto Sans KR',sans-serif;">${group.length}</div>`,
+          anchor: new naver.maps.Point(19, 19),
+        },
+      });
+      naver.maps.Event.addListener(marker, 'click', () => {
+        maps.naver.setCenter(position);
+        maps.naver.setZoom(Math.min(maps.naver.getZoom() + 2, 18));
+      });
+      naverClusterMarkers.push(marker);
+    }
   });
 }
 
 function renderGoogleMarkers(places) {
   if (!maps.google) return;
+  if (googleCluster) googleCluster.clearMarkers();
   markers.google.forEach((m) => m.setMap(null));
   markers.google = places.filter(p => shouldShow(p, 'google')).map((p) => {
     const position = { lat: p.lat, lng: p.lng };
-    const marker = new google.maps.Marker({ position, map: maps.google });
+    const marker = new google.maps.Marker({ position });
     marker.addListener('click', () => {
       maps.google.panTo(position);
       openStreetView(p.lat, p.lng, p.name);
     });
     return marker;
   });
+
+  if (window.markerClusterer) {
+    googleCluster = new markerClusterer.MarkerClusterer({ map: maps.google, markers: markers.google });
+  } else {
+    // 클러스터 라이브러리 로드 실패 시에도 마커는 개별로 정상 표시
+    markers.google.forEach((m) => m.setMap(maps.google));
+  }
 }
 
 function openStreetView(lat, lng, name) {
@@ -488,6 +580,7 @@ window.toggleMapSearch = function() {
     bar.classList.add('search-hidden');
     btn.style.background = '#fff';
     btn.style.color = '#1C1917';
+    hideSearchDropdown();
   }
 };
 
@@ -645,6 +738,9 @@ function renderPlaceList(items) {
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
+      <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+        style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
+        border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
     </li>`
     )
     .join('');
@@ -733,6 +829,7 @@ function renderAuthArea() {
   } else {
     area.innerHTML = LOGGED_OUT_AREA_HTML;
   }
+  area.style.visibility = 'visible';
 }
 
 // ---------- 등록 모달 ----------
@@ -855,84 +952,51 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 
 
-// ---------- 카카오 장소 검색 ----------
-function searchKakaoPlaces(keyword) {
-  if (!keyword.trim() || !maps.kakao) return;
-  clearSearchMarkers();
+// ---------- 장소 검색 (등록용) — 어느 지도 탭에 있든 동작 ----------
+async function searchKakaoPlaces(keyword) {
+  if (!keyword.trim()) return;
+  hideSearchDropdown();
+  showSearchMsg('검색 중...');
+
+  await loadKakaoSDK(); // 지도 탭과 무관하게 검색만 가능하도록 SDK 로드 (지도 인스턴스는 불필요)
 
   const ps = new kakao.maps.services.Places();
   ps.keywordSearch(keyword, (data, status) => {
     if (status !== kakao.maps.services.Status.OK) {
       showSearchMsg('검색 결과가 없어요.');
+      hideSearchDropdown();
       return;
     }
     showSearchMsg('');
-
-    // 검색 범위에 맞게 지도 이동
-    const bounds = new kakao.maps.LatLngBounds();
-
-    data.forEach((place) => {
-      const pos = new kakao.maps.LatLng(place.y, place.x);
-      bounds.extend(pos);
-
-      // 검색 결과 마커 (파란색 구분)
-      const marker = new kakao.maps.Marker({
-        position: pos,
-        map: maps.kakao,
-        image: new kakao.maps.MarkerImage(
-          'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-          new kakao.maps.Size(24, 35)
-        ),
-      });
-
-      kakao.maps.event.addListener(marker, 'click', () => {
-        showPlaceOverlay(place, pos, marker);
-      });
-
-      searchMarkers.push(marker);
-    });
-
-    maps.kakao.setBounds(bounds);
-  }, {
-    location: maps.kakao.getCenter(),
-    radius: 10000,
-    sort: kakao.maps.services.SortBy.DISTANCE,
-  });
+    renderSearchDropdown(data.slice(0, 8));
+  }, { sort: kakao.maps.services.SortBy.ACCURACY });
 }
 
-function showPlaceOverlay(place, pos, marker) {
-  if (searchOverlay) searchOverlay.setMap(null);
+function renderSearchDropdown(results) {
+  const wrap = document.getElementById('searchDropdown');
+  if (!wrap) return;
+  if (!results.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
 
-  const content = `
-    <div style="background:#fff;border:2px solid #1C1917;border-radius:6px;padding:12px 14px;
-                min-width:200px;max-width:260px;box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                font-family:'Noto Sans KR',sans-serif;">
-      <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${escapeHtml(place.place_name)}</div>
-      <div style="font-size:12px;color:#8A8580;margin-bottom:8px;">${escapeHtml(place.address_name)}</div>
-      ${place.category_name ? `<div style="font-size:11px;color:#888;margin-bottom:8px;">${escapeHtml(place.category_name)}</div>` : ''}
-      <button onclick="registerFromSearch(${JSON.stringify(place.place_name).replace(/"/g,'&quot;')}, ${JSON.stringify(place.address_name).replace(/"/g,'&quot;')}, ${place.y}, ${place.x})"
-        style="width:100%;background:#E1392A;color:#FFFFFF;border:none;border-radius:4px;
-               padding:8px;font-size:13px;font-weight:700;cursor:pointer;">
-        ✅ 찐맛집으로 등록
-      </button>
-      <button onclick="if(searchOverlay)searchOverlay.setMap(null)"
-        style="width:100%;background:none;border:1.5px solid #ccc;border-radius:4px;
-               padding:6px;font-size:12px;cursor:pointer;margin-top:4px;">
-        닫기
-      </button>
+  wrap.style.display = 'block';
+  wrap.innerHTML = results.map((place) => `
+    <div class="search-result-item"
+      onclick='registerFromSearch(${JSON.stringify(place.place_name)}, ${JSON.stringify(place.address_name)}, ${place.y}, ${place.x})'
+      style="padding:10px 12px;border-bottom:1px solid var(--line,#E7E4DF);cursor:pointer;background:#fff;">
+      <div style="font-weight:700;font-size:13px;">${escapeHtml(place.place_name)}</div>
+      <div style="font-size:11px;color:#8A8580;">${escapeHtml(place.address_name)}</div>
     </div>
-  `;
+  `).join('');
+}
 
-  searchOverlay = new kakao.maps.CustomOverlay({
-    position: pos,
-    content,
-    yAnchor: 1.3,
-    map: maps.kakao,
-  });
+function hideSearchDropdown() {
+  const wrap = document.getElementById('searchDropdown');
+  if (wrap) { wrap.style.display = 'none'; wrap.innerHTML = ''; }
 }
 
 window.registerFromSearch = function(name, address, lat, lng) {
-  if (searchOverlay) searchOverlay.setMap(null);
+  hideSearchDropdown();
+  showSearchMsg('');
+  document.getElementById('mapSearchInput').value = '';
 
   // 등록 모달 열고 값 채우기
   const modal = document.getElementById('registerModal');
@@ -946,17 +1010,11 @@ window.registerFromSearch = function(name, address, lat, lng) {
   document.getElementById('geocodeResult').textContent = `📍 ${address}`;
   document.getElementById('geocodeResult').style.color = '#22c55e';
 
-  // 지도에 미리보기 마커
+  // 현재 활성화된 지도(어느 탭이든)에 미리보기 마커 표시
   showPreviewMarker(parseFloat(lat), parseFloat(lng));
 
   modal.showModal();
 };
-
-function clearSearchMarkers() {
-  searchMarkers.forEach(m => m.setMap(null));
-  searchMarkers = [];
-  if (searchOverlay) { searchOverlay.setMap(null); searchOverlay = null; }
-}
 
 function showSearchMsg(msg) {
   const el = document.getElementById('searchMsg');
@@ -979,14 +1037,16 @@ async function restoreSession() {
       } else {
         currentUser = { name: data.email.split('@')[0], email: data.email };
       }
-      renderAuthArea();
-      updateMapTabLocks();
       // 접속 기록 업데이트 (로그인 확인 후 비동기 호출)
       if (currentUser) fetch('/api/auth/visit', { method: 'POST', credentials: 'include' }).catch(() => {});
     }
   } catch (err) {
     // 세션 복원 실패는 조용히 무시 (비로그인 상태로 시작)
     console.log('[restoreSession] 로그인 세션 없음');
+  } finally {
+    // 로그인 여부와 상관없이 항상 인증 영역을 확정 렌더링 (깜빡임/무한 숨김 방지)
+    renderAuthArea();
+    updateMapTabLocks();
   }
 }
 
