@@ -18,6 +18,18 @@ function tossAuthHeader() {
   return 'Basic ' + Buffer.from(key + ':').toString('base64');
 }
 
+// 가게 끌어올리기는 '사장' 계정만 가능
+async function requireOwner(req, res, next) {
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', req.user.userId)
+    .single();
+  if (error || !user) return res.status(401).json({ error: '유저 정보를 확인할 수 없어요' });
+  if (user.role !== 'owner') return res.status(403).json({ error: '가게 끌어올리기는 사장님 계정만 이용할 수 있어요' });
+  next();
+}
+
 async function tossConfirmPayment({ paymentKey, orderId, amount }) {
   const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
     method: 'POST',
@@ -44,7 +56,7 @@ router.get('/config', (req, res) => {
 // ============================================================
 
 // 특정 가게가 부스트 신청 가능한지 확인 (본인 등록 + 저매출 기준 충족)
-router.get('/boost/eligibility/:placeId', requireAuth, async (req, res) => {
+router.get('/boost/eligibility/:placeId', requireAuth, requireOwner, async (req, res) => {
   const { data: place, error } = await supabase
     .from('places')
     .select('id, name, submitted_by, review_count, boosted_until, status')
@@ -70,7 +82,7 @@ router.get('/boost/eligibility/:placeId', requireAuth, async (req, res) => {
 });
 
 // 결제 주문 생성 (결제창 열기 전 서버에 금액/주문번호를 먼저 기록)
-router.post('/boost/order', requireAuth, async (req, res) => {
+router.post('/boost/order', requireAuth, requireOwner, async (req, res) => {
   const { placeId } = req.body;
   const { data: place, error } = await supabase
     .from('places')
