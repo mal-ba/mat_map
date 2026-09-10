@@ -1,6 +1,9 @@
 let allPlaces = [];
 let currentUser = null;
 
+// 관리자는 역할과 무관하게 끌어올리기 이용 가능
+const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str || '';
@@ -153,7 +156,7 @@ async function initAuthArea() {
       </a>
     `;
     const boostLink = document.getElementById('boostNavLink');
-    if (boostLink && profile.role === 'owner') boostLink.style.display = 'inline-block';
+    if (boostLink && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) boostLink.style.display = 'inline-block';
   } catch {
     area.innerHTML = `
       <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
