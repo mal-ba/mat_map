@@ -16,9 +16,6 @@ let currentProvider = 'jjin';
 let placesCache = [];
 
 const maps = { jjin: null, kakao: null, naver: null, google: null };
-let jjinCluster = null;
-let kakaoCluster = null;
-let googleCluster = null;
 let naverClusterMarkers = []; // 네이버 지도에서 그려진 클러스터/단일 마커 오버레이 전체
 let naverPlacesForCluster = [];
 const markers = { jjin: [], kakao: [], naver: [], google: [] };
@@ -44,8 +41,8 @@ window.jjinMyLocation = function() {
 };
 
 window.jjinFitAll = function() {
-  if (!maps.jjin || !jjinCluster) return;
-  const bounds = jjinCluster.getBounds();
+  if (!maps.jjin || !markers.jjin.length) return;
+  const bounds = window.L.featureGroup(markers.jjin).getBounds();
   if (bounds.isValid()) maps.jjin.fitBounds(bounds.pad(0.1));
 };
 
@@ -125,68 +122,107 @@ function initJjinMap() {
   setTimeout(() => maps.jjin.invalidateSize(), 200);
 }
 
+// ---------- 거리 기반 클러스터링 (모든 지도 공통, 30km 기준) ----------
+const CLUSTER_RADIUS_KM = 30;
+
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// 반경(km) 이내에 있는 맛집들을 하나의 그룹으로 묶는다 (모든 지도가 이 결과를 공유)
+function clusterByDistance(places, radiusKm = CLUSTER_RADIUS_KM) {
+  const used = new Array(places.length).fill(false);
+  const groups = [];
+  for (let i = 0; i < places.length; i++) {
+    if (used[i]) continue;
+    const group = [places[i]];
+    used[i] = true;
+    for (let j = i + 1; j < places.length; j++) {
+      if (used[j]) continue;
+      if (getDistanceKm(places[i].lat, places[i].lng, places[j].lat, places[j].lng) <= radiusKm) {
+        group.push(places[j]);
+        used[j] = true;
+      }
+    }
+    groups.push({
+      places: group,
+      lat: group.reduce((s, p) => s + p.lat, 0) / group.length,
+      lng: group.reduce((s, p) => s + p.lng, 0) / group.length,
+      count: group.length,
+    });
+  }
+  return groups;
+}
+
+function clusterBubbleHtml(count) {
+  return `<div style="width:38px;height:38px;border-radius:50%;
+    background:#E1392A;color:#FFFFFF;border:3px solid #fff;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35);
+    font-family:'Noto Sans KR',sans-serif;">${count}</div>`;
+}
+
+function placePopupHtml(p) {
+  const imgHtml = p.image_url
+    ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
+    : `<div style="width:100%;height:60px;background:${getCategoryColor(p.category)}22;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">${getCategoryEmoji(p.category)}</div>`;
+  return `
+    <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
+      ${imgHtml}
+      <b style="font-size:14px;">${escapeHtml(p.name)}</b>
+      <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
+      ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
+      ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+      <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+        style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
+        border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
+    </div>`;
+}
+
 function renderJjinMarkers(places) {
   if (!maps.jjin || !window.L) return;
   const L = window.L;
 
-  // 기존 클러스터 제거
-  if (jjinCluster) maps.jjin.removeLayer(jjinCluster);
+  markers.jjin.forEach((m) => maps.jjin.removeLayer(m));
   markers.jjin = [];
 
-  // 클러스터 그룹 생성
-  jjinCluster = L.markerClusterGroup({
-    maxClusterRadius: 40,
-    disableClusteringAtZoom: 10, // 줌 10 이상(30km 이내)이면 개별 마커로 표시
-    spiderfyOnMaxZoom: true,
-    iconCreateFunction: (cluster) => {
-      const count = cluster.getChildCount();
-      return L.divIcon({
-        html: `<div style="width:38px;height:38px;border-radius:50%;
-          background:#E1392A;color:#FFFFFF;border:3px solid #fff;
-          display:flex;align-items:center;justify-content:center;
-          font-weight:900;font-size:13px;
-          box-shadow:0 2px 8px rgba(0,0,0,.35);
-          font-family:'Noto Sans KR',sans-serif;">${count}</div>`,
+  const groups = clusterByDistance(places);
+
+  groups.forEach((group) => {
+    let marker;
+    if (group.count === 1) {
+      const p = group.places[0];
+      const color = getCategoryColor(p.category);
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
+          background:${color};border:2.5px solid #fff;
+          box-shadow:0 2px 6px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+      });
+      marker = L.marker([p.lat, p.lng], { icon });
+      marker.bindPopup(placePopupHtml(p), { maxWidth: 240 });
+    } else {
+      const icon = L.divIcon({
+        className: '',
+        html: clusterBubbleHtml(group.count),
         iconSize: [38, 38],
         iconAnchor: [19, 19],
-        className: '',
       });
-    },
-  });
-
-  places.forEach(p => {
-    const color = getCategoryColor(p.category);
-    const icon = L.divIcon({
-      className: '',
-      html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
-        background:${color};border:2.5px solid #fff;
-        box-shadow:0 2px 6px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-    });
-
-    const marker = L.marker([p.lat, p.lng], { icon });
-    const imgHtml = p.image_url
-      ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
-      : `<div style="width:100%;height:60px;background:${getCategoryColor(p.category)}22;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">${getCategoryEmoji(p.category)}</div>`;
-    marker.bindPopup(`
-      <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
-        ${imgHtml}
-        <b style="font-size:14px;">${escapeHtml(p.name)}</b>
-        <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
-        ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
-        ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
-        <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
-          style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
-          border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
-      </div>
-    `, { maxWidth: 240 });
-
-    jjinCluster.addLayer(marker);
+      marker = L.marker([group.lat, group.lng], { icon });
+      marker.on('click', () => {
+        maps.jjin.setView([group.lat, group.lng], Math.min(maps.jjin.getZoom() + 3, 18));
+      });
+    }
+    marker.addTo(maps.jjin);
     markers.jjin.push(marker);
   });
-
-  maps.jjin.addLayer(jjinCluster);
 }
 
 // ---------- SDK 지연 로드 ----------
@@ -378,64 +414,50 @@ function shouldShow(place, mapName) {
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
   markers.kakao.forEach((m) => m.setMap(null));
-  if (kakaoCluster) kakaoCluster.clear();
+  markers.kakao = [];
 
-  const filtered = places.filter(p => shouldShow(p, 'kakao'));
+  const groups = clusterByDistance(places.filter(p => shouldShow(p, 'kakao')));
 
-  if (!kakaoCluster) {
-    kakaoCluster = new kakao.maps.MarkerClusterer({
-      map: maps.kakao,
-      averageCenter: true,
-      minLevel: 9, // 레벨 9 이상(약 30km+ 뷰)에서만 묶음
-      styles: [{
-        width: '40px', height: '40px',
-        background: '#E1392A',
-        color: '#FFFFFF',
-        borderRadius: '50%',
-        border: '3px solid #fff',
-        textAlign: 'center',
-        lineHeight: '34px',
-        fontWeight: '900',
-        fontSize: '14px',
-        fontFamily: "'Noto Sans KR', sans-serif",
-        boxShadow: '0 2px 8px rgba(0,0,0,.35)',
-      }],
-    });
-  }
-
-  markers.kakao = filtered.map((p) => {
-    const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng) });
-    const infowindow = new kakao.maps.InfoWindow({
-      content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
-        <b style="font-size:13px;">${escapeHtml(p.name)}</b>
-        <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
-        ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
-        <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
-          style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
-          border:1.5px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;">🚶 거리뷰</button>
-      </div>`,
-      removable: true,
-    });
-    kakao.maps.event.addListener(marker, 'click', () => {
-      infowindow.open(maps.kakao, marker);
-      maps.kakao.panTo(marker.getPosition());
-    });
-    return marker;
+  groups.forEach((group) => {
+    if (group.count === 1) {
+      const p = group.places[0];
+      const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
+      const infowindow = new kakao.maps.InfoWindow({
+        content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
+          <b style="font-size:13px;">${escapeHtml(p.name)}</b>
+          <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
+          ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
+          <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+            style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
+            border:1.5px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;">🚶 거리뷰</button>
+        </div>`,
+        removable: true,
+      });
+      kakao.maps.event.addListener(marker, 'click', () => {
+        infowindow.open(maps.kakao, marker);
+        maps.kakao.panTo(marker.getPosition());
+      });
+      markers.kakao.push(marker);
+    } else {
+      const content = document.createElement('div');
+      content.innerHTML = clusterBubbleHtml(group.count);
+      content.style.cursor = 'pointer';
+      const position = new kakao.maps.LatLng(group.lat, group.lng);
+      const overlay = new kakao.maps.CustomOverlay({ position, content, yAnchor: 0.5 });
+      overlay.setMap(maps.kakao);
+      content.addEventListener('click', () => {
+        maps.kakao.setLevel(Math.max(maps.kakao.getLevel() - 3, 1));
+        maps.kakao.panTo(position);
+      });
+      markers.kakao.push(overlay); // CustomOverlay도 setMap(null)로 동일하게 제거 가능
+    }
   });
-
-  kakaoCluster.addMarkers(markers.kakao);
 }
 
 function renderNaverMarkers(places) {
   if (!maps.naver) return;
   naverPlacesForCluster = places.filter(p => shouldShow(p, 'naver'));
   drawNaverClusters();
-
-  // 지도를 움직이거나 확대/축소할 때마다 다시 묶어서 그리기
-  if (!maps.naver.__clusterBound) {
-    naver.maps.Event.addListener(maps.naver, 'idle', drawNaverClusters);
-    maps.naver.__clusterBound = true;
-  }
 }
 
 function drawNaverClusters() {
@@ -443,40 +465,12 @@ function drawNaverClusters() {
   naverClusterMarkers.forEach((m) => m.setMap(null));
   naverClusterMarkers = [];
 
-  const proj = maps.naver.getProjection();
-  if (!proj) return;
-
-  const points = naverPlacesForCluster.map((p) => ({
-    place: p,
-    pt: proj.fromCoordToOffset(new naver.maps.LatLng(p.lat, p.lng)),
-  }));
-
-  const CLUSTER_DIST_PX = 48;
-  const used = new Array(points.length).fill(false);
-  const groups = [];
-
-  for (let i = 0; i < points.length; i++) {
-    if (used[i]) continue;
-    const group = [points[i]];
-    used[i] = true;
-    for (let j = i + 1; j < points.length; j++) {
-      if (used[j]) continue;
-      const dx = points[i].pt.x - points[j].pt.x;
-      const dy = points[i].pt.y - points[j].pt.y;
-      if (Math.sqrt(dx * dx + dy * dy) < CLUSTER_DIST_PX) {
-        group.push(points[j]);
-        used[j] = true;
-      }
-    }
-    groups.push(group);
-  }
+  const groups = clusterByDistance(naverPlacesForCluster);
 
   groups.forEach((group) => {
-    const avgLat = group.reduce((s, g) => s + g.place.lat, 0) / group.length;
-    const avgLng = group.reduce((s, g) => s + g.place.lng, 0) / group.length;
-    const position = new naver.maps.LatLng(avgLat, avgLng);
+    const position = new naver.maps.LatLng(group.lat, group.lng);
 
-    if (group.length === 1) {
+    if (group.count === 1) {
       const marker = new naver.maps.Marker({ position, map: maps.naver });
       naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
       naverClusterMarkers.push(marker);
@@ -484,18 +478,11 @@ function drawNaverClusters() {
       const marker = new naver.maps.Marker({
         position,
         map: maps.naver,
-        icon: {
-          content: `<div style="width:38px;height:38px;border-radius:50%;
-            background:#E1392A;color:#fff;border:3px solid #fff;
-            display:flex;align-items:center;justify-content:center;
-            font-weight:900;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.35);
-            font-family:'Noto Sans KR',sans-serif;">${group.length}</div>`,
-          anchor: new naver.maps.Point(19, 19),
-        },
+        icon: { content: clusterBubbleHtml(group.count), anchor: new naver.maps.Point(19, 19) },
       });
       naver.maps.Event.addListener(marker, 'click', () => {
         maps.naver.setCenter(position);
-        maps.naver.setZoom(Math.min(maps.naver.getZoom() + 2, 18));
+        maps.naver.setZoom(Math.min(maps.naver.getZoom() + 3, 18));
       });
       naverClusterMarkers.push(marker);
     }
@@ -504,24 +491,42 @@ function drawNaverClusters() {
 
 function renderGoogleMarkers(places) {
   if (!maps.google) return;
-  if (googleCluster) googleCluster.clearMarkers();
   markers.google.forEach((m) => m.setMap(null));
-  markers.google = places.filter(p => shouldShow(p, 'google')).map((p) => {
-    const position = { lat: p.lat, lng: p.lng };
-    const marker = new google.maps.Marker({ position });
-    marker.addListener('click', () => {
-      maps.google.panTo(position);
-      openStreetView(p.lat, p.lng, p.name);
-    });
-    return marker;
-  });
+  markers.google = [];
 
-  if (window.markerClusterer) {
-    googleCluster = new markerClusterer.MarkerClusterer({ map: maps.google, markers: markers.google });
-  } else {
-    // 클러스터 라이브러리 로드 실패 시에도 마커는 개별로 정상 표시
-    markers.google.forEach((m) => m.setMap(maps.google));
-  }
+  const groups = clusterByDistance(places.filter(p => shouldShow(p, 'google')));
+
+  groups.forEach((group) => {
+    if (group.count === 1) {
+      const p = group.places[0];
+      const position = { lat: p.lat, lng: p.lng };
+      const marker = new google.maps.Marker({ position, map: maps.google });
+      marker.addListener('click', () => {
+        maps.google.panTo(position);
+        openStreetView(p.lat, p.lng, p.name);
+      });
+      markers.google.push(marker);
+    } else {
+      const position = { lat: group.lat, lng: group.lng };
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38">
+        <circle cx="19" cy="19" r="16" fill="#E1392A" stroke="#fff" stroke-width="3"/>
+        <text x="19" y="24" font-size="13" font-weight="900" fill="#fff" text-anchor="middle" font-family="Noto Sans KR, sans-serif">${group.count}</text>
+      </svg>`;
+      const marker = new google.maps.Marker({
+        position,
+        map: maps.google,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+          scaledSize: new google.maps.Size(38, 38),
+        },
+      });
+      marker.addListener('click', () => {
+        maps.google.panTo(position);
+        maps.google.setZoom(Math.min(maps.google.getZoom() + 3, 18));
+      });
+      markers.google.push(marker);
+    }
+  });
 }
 
 function openStreetView(lat, lng, name) {

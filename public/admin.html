@@ -75,7 +75,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <!-- 유저 접속 현황 -->
   <div class="section-title" style="cursor:pointer;" onclick="toggleUserSection()">
-    👥 유저 접속 현황 <span id="userToggleIcon">▼</span>
+    👥 유저 접속 현황 <span id="userCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="userToggleIcon">▼</span>
   </div>
   <div id="userSection" style="margin-bottom:28px;">
     <div id="userList" style="overflow-x:auto;">
@@ -187,8 +187,27 @@ const ALL = [
   {name:'미향',address:'서울 마포구 독막로 331',category:'중식',comment:'합정 중식 맛집. 마라샹궈가 시그니처. 마라 마니아들의 성지. 매운맛 조절 가능'},
 ];
 
-let rows = ALL.map((p, i) => ({ id: i, ...p, status: 'idle' }));
+let rows = [];
 let currentFilter = '전체';
+
+// 이미 지도에 등록(verified)된 이름은 목록에서 미리 제외
+async function initRows() {
+  let registeredNames = new Set();
+  try {
+    const res = await fetch('/api/places');
+    if (res.ok) {
+      const places = await res.json();
+      registeredNames = new Set(places.map(p => p.name));
+    }
+  } catch (e) {
+    console.error('[admin] 등록된 장소 목록 조회 실패', e);
+  }
+
+  rows = ALL
+    .filter(p => !registeredNames.has(p.name))
+    .map((p, i) => ({ id: i, ...p, status: 'idle' }));
+  render();
+}
 
 function filterCat(cat) {
   currentFilter = cat;
@@ -201,40 +220,61 @@ function filterCat(cat) {
 const BADGE_NAMES = ['탐험 시작','🌱 새싹','🌿 풋내기','🌲 탐험가','⭐ 마스터','🌟 전설','👑 레전드'];
 
 async function loadUsers() {
-  const res = await fetch('/api/admin/users', { credentials: 'include' });
-  if (!res.ok) { document.getElementById('userList').innerHTML = '<p style="color:red">로그인 필요</p>'; return; }
-  const users = await res.json();
+  const listEl = document.getElementById('userList');
+  const countEl = document.getElementById('userCountLabel');
+  try {
+    const res = await fetch('/api/admin/users', { credentials: 'include' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      listEl.innerHTML = `<p style="color:red">${body.error || '유저 목록을 불러오지 못했어요.'}</p>`;
+      countEl.textContent = '';
+      return;
+    }
+    const users = await res.json();
 
-  const now = new Date();
-  const rows = users.map(u => {
-    const last = u.last_visited_at ? new Date(u.last_visited_at) : null;
-    const diff = last ? Math.floor((now - last) / 60000) : null;
-    const timeStr = diff === null ? '–' : diff < 60 ? `${diff}분 전` : diff < 1440 ? `${Math.floor(diff/60)}시간 전` : `${Math.floor(diff/1440)}일 전`;
-    const badge = BADGE_NAMES[Math.min(u.badge_level || 0, BADGE_NAMES.length - 1)];
-    return `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${u.name || '–'}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:#8A8580;">${u.email}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${badge}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.registered_count || 0}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.visit_count || 0}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;">${timeStr}</td>
-    </tr>`;
-  }).join('');
+    if (!Array.isArray(users) || !users.length) {
+      listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">접속한 유저가 없어요.</p>';
+      countEl.textContent = '(0명)';
+      return;
+    }
 
-  document.getElementById('userList').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Noto Sans KR',sans-serif;">
-      <thead>
-        <tr style="background:rgba(36,30,23,.06);">
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이름</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이메일</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">뱃지</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">등록수</th>
-          <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">방문수</th>
-          <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">마지막 접속</th>
-        </tr>
-      </thead>
-      <tbody>${rows || '<tr><td colspan="6" style="padding:16px;text-align:center;color:#888;">유저 없음</td></tr>'}</tbody>
-    </table>`;
+    countEl.textContent = `(${users.length}명)`;
+
+    const now = new Date();
+    const rows = users.map(u => {
+      const last = u.last_visited_at ? new Date(u.last_visited_at) : null;
+      const diff = last ? Math.floor((now - last) / 60000) : null;
+      const timeStr = diff === null ? '–' : diff < 60 ? `${diff}분 전` : diff < 1440 ? `${Math.floor(diff/60)}시간 전` : `${Math.floor(diff/1440)}일 전`;
+      const badge = BADGE_NAMES[Math.min(u.badge_level || 0, BADGE_NAMES.length - 1)];
+      return `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${u.name || '–'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:#8A8580;">${u.email}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);">${badge}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.registered_count || 0}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);text-align:center;">${u.visit_count || 0}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;">${timeStr}</td>
+      </tr>`;
+    }).join('');
+
+    listEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'Noto Sans KR',sans-serif;">
+        <thead>
+          <tr style="background:rgba(36,30,23,.06);">
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이름</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">이메일</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">뱃지</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">등록수</th>
+            <th style="padding:8px 12px;text-align:center;border-bottom:2px solid #1C1917;">방문수</th>
+            <th style="padding:8px 12px;text-align:left;border-bottom:2px solid #1C1917;">마지막 접속</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  } catch (err) {
+    console.error('[admin] loadUsers 실패', err);
+    listEl.innerHTML = '<p style="color:red">유저 목록을 불러오는 중 오류가 발생했어요. 콘솔을 확인해주세요.</p>';
+    countEl.textContent = '';
+  }
 }
 
 function toggleUserSection() {
@@ -357,7 +397,7 @@ function updateProgress(done, total) {
   document.getElementById('progressFill').style.width = `${Math.round(done/total*100)}%`;
 }
 
-render();
+initRows();
 </script>
 </body>
 </html>
