@@ -799,17 +799,21 @@ function renderPlaceList(items) {
   }
   list.innerHTML = items
     .map(
-      (p) => `
+      (p) => {
+        const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+        return `
     <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">인증</div>
-      <h3>${escapeHtml(p.name)}</h3>
+      ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
+      <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
-    </li>`
+    </li>`;
+      }
     )
     .join('');
 
