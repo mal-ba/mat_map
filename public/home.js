@@ -152,6 +152,8 @@ async function initAuthArea() {
         <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
       </a>
     `;
+    const boostLink = document.getElementById('boostNavLink');
+    if (boostLink && profile.role === 'owner') boostLink.style.display = 'inline-block';
   } catch {
     area.innerHTML = `
       <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
