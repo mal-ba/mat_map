@@ -56,7 +56,17 @@ router.get('/', async (req, res) => {
     console.error('[places GET] Supabase 에러:', error.message);
     return res.status(500).json({ error: error.message });
   }
-  res.json(data ?? []);
+
+  const now = Date.now();
+  const sorted = (data ?? []).sort((a, b) => {
+    const aBoosted = a.boosted_until && new Date(a.boosted_until).getTime() > now;
+    const bBoosted = b.boosted_until && new Date(b.boosted_until).getTime() > now;
+    if (aBoosted && !bBoosted) return -1;
+    if (!aBoosted && bBoosted) return 1;
+    return 0; // 둘 다 부스트거나 둘 다 아니면 기존 created_at 순서 유지
+  });
+
+  res.json(sorted);
 });
 
 // 내가 등록한 목록 (대기중/반려 포함, 마이페이지용)
