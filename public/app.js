@@ -120,10 +120,62 @@ function initJjinMap() {
 
   renderJjinMarkers(placesCache);
   setTimeout(() => maps.jjin.invalidateSize(), 200);
+
+  // 확대/축소·이동할 때마다 지금 배율 기준으로 다시 묶어서 그리기
+  maps.jjin.on('zoomend moveend', () => renderJjinMarkers(placesCache));
 }
 
-// ---------- 거리 기반 클러스터링 (모든 지도 공통, 30km 기준) ----------
+// ---------- 화면 배율 기반 클러스터링 (모든 지도 공통) ----------
 const CLUSTER_RADIUS_KM = 100;
+// 화면에서 1cm가 실제로 100km 이상을 나타낼 만큼 축소됐을 때부터만 묶는다
+const CLUSTER_TRIGGER_KM_PER_CM = 100;
+const CM_TO_PX = 37.8; // 96dpi 기준 1cm ≈ 37.8px
+
+// 현재 지도 화면에서 1cm가 실제로 몇 km를 의미하는지 계산
+function getViewportKmPerCm(provider) {
+  try {
+    let bounds, containerId;
+    if (provider === 'jjin' && maps.jjin) {
+      const b = maps.jjin.getBounds();
+      bounds = { west: b.getWest(), east: b.getEast(), north: b.getNorth(), south: b.getSouth() };
+      containerId = 'map-jjin';
+    } else if (provider === 'kakao' && maps.kakao) {
+      const b = maps.kakao.getBounds();
+      const sw = b.getSouthWest(), ne = b.getNorthEast();
+      bounds = { west: sw.getLng(), east: ne.getLng(), north: ne.getLat(), south: sw.getLat() };
+      containerId = 'map-kakao';
+    } else if (provider === 'naver' && maps.naver) {
+      const b = maps.naver.getBounds();
+      bounds = { west: b.west(), east: b.east(), north: b.north(), south: b.south() };
+      containerId = 'map-naver';
+    } else if (provider === 'google' && maps.google) {
+      const b = maps.google.getBounds();
+      if (!b) return null;
+      const sw = b.getSouthWest(), ne = b.getNorthEast();
+      bounds = { west: sw.lng(), east: ne.lng(), north: ne.lat(), south: sw.lat() };
+      containerId = 'map-google';
+    } else {
+      return null;
+    }
+
+    const el = document.getElementById(containerId);
+    const widthPx = el ? el.clientWidth : 0;
+    if (!widthPx) return null;
+
+    const midLat = (bounds.north + bounds.south) / 2;
+    const widthKm = getDistanceKm(midLat, bounds.west, midLat, bounds.east);
+    return (widthKm / widthPx) * CM_TO_PX;
+  } catch {
+    return null;
+  }
+}
+
+// 지금 화면 배율에서 묶어야 하는지 (계산 실패 시엔 안전하게 묶는 쪽으로)
+function shouldClusterNow(provider) {
+  const scale = getViewportKmPerCm(provider);
+  if (scale == null) return true;
+  return scale >= CLUSTER_TRIGGER_KM_PER_CM;
+}
 
 function getDistanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -159,6 +211,14 @@ function clusterByDistance(places, radiusKm = CLUSTER_RADIUS_KM) {
   return groups;
 }
 
+// 지금 배율에서 묶어야 하면 클러스터링, 아니면 전부 개별 마커로
+function getGroups(provider, places) {
+  if (!shouldClusterNow(provider)) {
+    return places.map(p => ({ places: [p], lat: p.lat, lng: p.lng, count: 1 }));
+  }
+  return clusterByDistance(places);
+}
+
 function clusterBubbleHtml(count) {
   return `<div style="width:38px;height:38px;border-radius:50%;
     background:#E1392A;color:#FFFFFF;border:3px solid #fff;
@@ -191,7 +251,7 @@ function renderJjinMarkers(places) {
   markers.jjin.forEach((m) => maps.jjin.removeLayer(m));
   markers.jjin = [];
 
-  const groups = clusterByDistance(places);
+  const groups = getGroups('jjin', places);
 
   groups.forEach((group) => {
     let marker;
@@ -271,6 +331,7 @@ async function initKakaoMap() {
   const center = new kakao.maps.LatLng(37.5665, 126.978);
   maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
   renderKakaoMarkers(placesCache);
+  kakao.maps.event.addListener(maps.kakao, 'idle', () => renderKakaoMarkers(placesCache));
 }
 
 async function initNaverMap() {
@@ -319,6 +380,7 @@ async function initNaverMap() {
   }, 100);
 
   renderNaverMarkers(placesCache);
+  naver.maps.Event.addListener(maps.naver, 'idle', () => renderNaverMarkers(placesCache));
 }
 
 // 컨테이너에 실제 크기가 생길 때까지 대기
@@ -349,6 +411,7 @@ async function initGoogleMap() {
   maps.google.setStreetView(maps.streetview);
 
   renderGoogleMarkers(placesCache);
+  google.maps.event.addListener(maps.google, 'idle', () => renderGoogleMarkers(placesCache));
 }
 
 // 구글맵 탭을 열지 않아도(등급 잠김 상태여도) 거리뷰 자체는 바로 쓸 수 있도록 분리
@@ -416,7 +479,7 @@ function renderKakaoMarkers(places) {
   markers.kakao.forEach((m) => m.setMap(null));
   markers.kakao = [];
 
-  const groups = clusterByDistance(places.filter(p => shouldShow(p, 'kakao')));
+  const groups = getGroups('kakao', places.filter(p => shouldShow(p, 'kakao')));
 
   groups.forEach((group) => {
     if (group.count === 1) {
@@ -465,7 +528,7 @@ function drawNaverClusters() {
   naverClusterMarkers.forEach((m) => m.setMap(null));
   naverClusterMarkers = [];
 
-  const groups = clusterByDistance(naverPlacesForCluster);
+  const groups = getGroups('naver', naverPlacesForCluster);
 
   groups.forEach((group) => {
     const position = new naver.maps.LatLng(group.lat, group.lng);
@@ -494,7 +557,7 @@ function renderGoogleMarkers(places) {
   markers.google.forEach((m) => m.setMap(null));
   markers.google = [];
 
-  const groups = clusterByDistance(places.filter(p => shouldShow(p, 'google')));
+  const groups = getGroups('google', places.filter(p => shouldShow(p, 'google')));
 
   groups.forEach((group) => {
     if (group.count === 1) {
@@ -598,7 +661,7 @@ function setupMapTabs() {
 
       const tier = Number(tab.dataset.tier || 0);
       if (tier > mapUnlockLevel()) {
-        const need = { 1: 15, 2: 30, 3: 60 }[tier] || 0;
+        const need = { 1: 5, 2: 10, 3: 15 }[tier] || 0;
         const remaining = Math.max(0, need - (currentUser?.registered_count || 0));
         showMapLockMsg(`${MAP_TIER_LABEL[provider]}은 맛집 ${remaining}개 더 등록하면 열려요`);
         return;
@@ -787,12 +850,12 @@ function escapeHtml(str) {
 // ---------- 뱃지 시스템 ----------
 const BADGE_INFO = [
   { level: 0, emoji: '',   name: '탐험 시작',   required: 0  },
-  { level: 1, emoji: '🌱', name: '새싹 탐험가', required: 15  },
-  { level: 2, emoji: '🌿', name: '풋내기 맛집러',required: 30  },
-  { level: 3, emoji: '🌲', name: '맛집 탐험가', required: 60  },
-  { level: 4, emoji: '⭐', name: '맛집 마스터', required: 120 },
-  { level: 5, emoji: '🌟', name: '맛집 전설',   required: 240 },
-  { level: 6, emoji: '👑', name: '찐맛집 레전드',required: 480 },
+  { level: 1, emoji: '🌱', name: '새싹 탐험가', required: 5   },
+  { level: 2, emoji: '🌿', name: '풋내기 맛집러',required: 10  },
+  { level: 3, emoji: '🌲', name: '맛집 탐험가', required: 15  },
+  { level: 4, emoji: '⭐', name: '맛집 마스터', required: 30  },
+  { level: 5, emoji: '🌟', name: '맛집 전설',   required: 60  },
+  { level: 6, emoji: '👑', name: '찐맛집 레전드',required: 120 },
 ];
 
 function getBadgeInfo(level) {
