@@ -184,4 +184,4 @@ JSON으로만 답해: {"approve": true|false, "reason": "한 문장 이유"}`;
   }
 }
 
-module.exports = { verifyPlace };
+module.exports = { verifyPlace, searchNaverPlace, getDistanceMeters };

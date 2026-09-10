@@ -6,6 +6,7 @@ const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const placesRoutes = require('./routes/places');
+const communityRoutes = require('./routes/community');
 
 const app = express();
 
@@ -178,6 +179,7 @@ app.get('/api/admin/users', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/places', placesRoutes);
+app.use('/api/community', communityRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`서버 실행중: http://localhost:${PORT}`));

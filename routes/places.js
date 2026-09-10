@@ -1,9 +1,48 @@
 const express = require('express');
+const multer = require('multer');
 const supabase = require('../services/supabase');
 const requireAuth = require('./requireAuth');
-const { verifyPlace } = require('../services/verifyPlace');
+const { verifyPlace, searchNaverPlace } = require('../services/verifyPlace');
 
 const router = express.Router();
+
+// 관리자 이메일만 반려 목록 조회/재검증/삭제 가능
+const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+function requireAdmin(req, res, next) {
+  if (!ADMIN_EMAILS.includes(req.user?.email)) {
+    return res.status(403).json({ error: '관리자만 할 수 있어요' });
+  }
+  next();
+}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('이미지 파일만 업로드할 수 있어요'));
+    cb(null, true);
+  },
+});
+
+// 맛집 등록 폼에서 쓰는 사진 업로드 (등록 전이라 place id 없이 유저별 경로에 저장)
+router.post('/photo-upload', requireAuth, upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '이미지 파일이 없어요' });
+  try {
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `${req.user.userId}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('place-photos')
+      .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: pub } = supabase.storage.from('place-photos').getPublicUrl(filePath);
+    res.json({ url: pub.publicUrl });
+  } catch (err) {
+    console.error('[places/photo-upload]', err.message);
+    res.status(500).json({ error: '사진 업로드에 실패했어요' });
+  }
+});
 
 // 지도에 표시할 목록 - 검증된 것만 공개
 router.get('/', async (req, res) => {
@@ -147,6 +186,64 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   res.json(data);
+});
+
+// 반려된 가게 목록 (관리자용)
+router.get('/rejected', requireAuth, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('status', 'rejected')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? []);
+});
+
+// 반려된 가게를 네이버 지도 기준으로 재검증 (찾아지면 바로 공개)
+router.post('/:id/retry-naver', requireAuth, requireAdmin, async (req, res) => {
+  const { data: place, error: findError } = await supabase
+    .from('places')
+    .select('*')
+    .eq('id', req.params.id)
+    .single();
+  if (findError || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+
+  try {
+    const found = await searchNaverPlace(place.name, place.lat, place.lng);
+    if (!found || found.distanceMeters > 500) {
+      return res.json({
+        verified: false,
+        message: found
+          ? `네이버에서 찾았지만 등록 위치와 ${Math.round(found.distanceMeters)}m 떨어져 있어요.`
+          : '네이버 지도에서 이 가게를 찾을 수 없어요.',
+      });
+    }
+
+    const { data: updated, error } = await supabase
+      .from('places')
+      .update({
+        status: 'verified',
+        verify_reason: `관리자 재검증 — 네이버 확인 (${Math.round(found.distanceMeters)}m 이내)`,
+        naver_place_id: found.id,
+      })
+      .eq('id', place.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json({ verified: true, place: updated });
+  } catch (err) {
+    console.error('[places/retry-naver]', err.message);
+    res.status(500).json({ error: '재검증 중 오류가 발생했어요' });
+  }
+});
+
+// 반려된 가게 삭제 (관리자용)
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  const { error } = await supabase.from('places').delete().eq('id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ deleted: true });
 });
 
 module.exports = router;

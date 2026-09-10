@@ -83,6 +83,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
     </div>
   </div>
 
+  <!-- 반려된 가게 -->
+  <div class="section-title" style="cursor:pointer;" onclick="toggleRejectedSection()">
+    🚫 반려된 가게 <span id="rejectedCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="rejectedToggleIcon">▼</span>
+  </div>
+  <div id="rejectedSection" style="margin-bottom:28px;">
+    <div id="rejectedList" style="overflow-x:auto;">
+      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+    </div>
+  </div>
+
   <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span></div>
 
   <div class="filter-bar">
@@ -215,6 +225,7 @@ function filterCat(cat) {
     b.classList.toggle('active', b.textContent === cat);
   });
   render();
+}
 
 // ── 유저 현황 ────────────────────────────
 const BADGE_NAMES = ['탐험 시작','🌱 새싹','🌿 풋내기','🌲 탐험가','⭐ 마스터','🌟 전설','👑 레전드'];
@@ -285,7 +296,84 @@ function toggleUserSection() {
   icon.textContent = hidden ? '▼' : '▶';
 }
 
-loadUsers();
+// ── 반려된 가게 ────────────────────────────
+async function loadRejected() {
+  const listEl = document.getElementById('rejectedList');
+  const countEl = document.getElementById('rejectedCountLabel');
+  try {
+    const res = await fetch('/api/places/rejected', { credentials: 'include' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      listEl.innerHTML = `<p style="color:red">${body.error || '불러오지 못했어요.'}</p>`;
+      countEl.textContent = '';
+      return;
+    }
+    const places = await res.json();
+    if (!places.length) {
+      listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">반려된 가게가 없어요.</p>';
+      countEl.textContent = '(0개)';
+      return;
+    }
+    countEl.textContent = `(${places.length}개)`;
+    listEl.innerHTML = places.map(p => `
+      <div id="rejected-${p.id}" style="border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;font-size:14px;">${esc(p.name)}</div>
+        <div style="font-size:12px;color:#8A8580;margin:2px 0 6px;">${esc(p.address)}</div>
+        <div style="font-size:11px;color:#aaa;margin-bottom:8px;">${esc(p.verify_reason || '')}</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="retryNaver('${p.id}')" style="flex:1;padding:7px;border:1.5px solid var(--stamp);
+            color:var(--stamp);background:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">🔄 네이버로 재검증</button>
+          <button onclick="deleteRejected('${p.id}')" style="flex:1;padding:7px;border:1.5px solid #999;
+            color:#666;background:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">🗑 삭제</button>
+        </div>
+        <div id="rejected-${p.id}-msg" style="font-size:11px;margin-top:6px;"></div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('[admin] loadRejected 실패', err);
+    listEl.innerHTML = '<p style="color:red">불러오는 중 오류가 발생했어요.</p>';
+    countEl.textContent = '';
+  }
+}
+
+async function retryNaver(id) {
+  const msgEl = document.getElementById(`rejected-${id}-msg`);
+  msgEl.textContent = '확인 중...';
+  try {
+    const res = await fetch(`/api/places/${id}/retry-naver`, { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) { msgEl.style.color = 'red'; msgEl.textContent = data.error || '실패'; return; }
+    if (data.verified) {
+      document.getElementById(`rejected-${id}`).remove();
+      loadRejected();
+    } else {
+      msgEl.style.color = '#b45309';
+      msgEl.textContent = data.message;
+    }
+  } catch {
+    msgEl.style.color = 'red';
+    msgEl.textContent = '오류가 발생했어요.';
+  }
+}
+
+async function deleteRejected(id) {
+  if (!confirm('이 가게를 완전히 삭제할까요?')) return;
+  try {
+    const res = await fetch(`/api/places/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) { alert('삭제 실패'); return; }
+    document.getElementById(`rejected-${id}`)?.remove();
+    loadRejected();
+  } catch {
+    alert('삭제 중 오류가 발생했어요.');
+  }
+}
+
+function toggleRejectedSection() {
+  const sec = document.getElementById('rejectedSection');
+  const icon = document.getElementById('rejectedToggleIcon');
+  const hidden = sec.style.display === 'none';
+  sec.style.display = hidden ? 'block' : 'none';
+  icon.textContent = hidden ? '▼' : '▶';
 }
 
 function getFiltered() {
@@ -398,6 +486,8 @@ function updateProgress(done, total) {
 }
 
 initRows();
+loadUsers();
+loadRejected();
 </script>
 </body>
 </html>

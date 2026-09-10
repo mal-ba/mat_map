@@ -123,7 +123,7 @@ function initJjinMap() {
 }
 
 // ---------- 거리 기반 클러스터링 (모든 지도 공통, 30km 기준) ----------
-const CLUSTER_RADIUS_KM = 30;
+const CLUSTER_RADIUS_KM = 100;
 
 function getDistanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;

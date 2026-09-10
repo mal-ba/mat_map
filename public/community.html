@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>커뮤니티 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+<style>
+.container{max-width:640px;margin:0 auto;padding:28px 16px 60px;}
+h1{font-family:'Black Han Sans',sans-serif;font-size:24px;margin:0 0 6px;}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 0 24px;}
+
+.search-row{display:flex;gap:8px;margin-bottom:24px;}
+.search-row input{flex:1;padding:12px 14px;border:1.5px solid var(--line);border-radius:10px;
+  font-family:'Noto Sans KR',sans-serif;font-size:14px;}
+.search-row input:focus{outline:none;border-color:var(--stamp);}
+
+.section-title{font-family:'Black Han Sans',sans-serif;font-size:17px;margin:28px 0 12px;}
+
+.user-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:8px;background:#fff;}
+.user-avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--paper-deep);flex-shrink:0;}
+.user-avatar-ph{width:42px;height:42px;border-radius:50%;background:var(--paper-deep);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.user-name{font-weight:700;font-size:14px;flex:1;}
+.friend-tag{font-size:11px;color:var(--stamp);font-weight:700;}
+
+.follow-btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+  border:1.5px solid var(--stamp);background:var(--stamp);color:#fff;}
+.follow-btn.following{background:#fff;color:var(--ink-soft);border-color:var(--line);}
+
+.empty{text-align:center;color:#aaa;font-size:13px;padding:30px 0;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;color:inherit;">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text">
+      <strong>찐맛집</strong>
+      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+    </div>
+  </a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/map.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">🗺️ 지도</a>
+    <div class="auth-area" id="authArea" style="visibility:hidden;"></div>
+  </div>
+</header>
+
+<div class="container">
+  <h1>👥 커뮤니티</h1>
+  <p class="sub">친구를 찾아서 맞팔해보세요</p>
+
+  <form id="searchForm" class="search-row">
+    <input id="searchInput" type="text" placeholder="별명으로 검색" autocomplete="off" />
+    <button type="submit" class="btn-primary">검색</button>
+  </form>
+
+  <div id="searchResults"></div>
+
+  <div class="section-title">내 친구</div>
+  <div id="friendsList"><p class="empty">불러오는 중...</p></div>
+</div>
+
+<script>
+let currentUser = null;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function userRowHtml(u, context) {
+  const avatar = u.avatar_url
+    ? `<img class="user-avatar" src="${u.avatar_url}" alt="" />`
+    : `<div class="user-avatar-ph">👤</div>`;
+
+  let actionHtml = '';
+  if (context === 'search') {
+    if (u.isFriend) {
+      actionHtml = `<span class="friend-tag">✅ 친구</span>`;
+    } else if (u.following) {
+      actionHtml = `<button class="follow-btn following" onclick="unfollow('${u.id}', this)">팔로잉</button>`;
+    } else {
+      actionHtml = `<button class="follow-btn" onclick="follow('${u.id}', this)">+ 팔로우</button>`;
+    }
+  }
+
+  return `
+    <div class="user-row" id="user-${u.id}">
+      ${avatar}
+      <span class="user-name">${escapeHtml(u.name)}</span>
+      ${actionHtml}
+    </div>`;
+}
+
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const q = document.getElementById('searchInput').value.trim();
+  const wrap = document.getElementById('searchResults');
+  if (!q) { wrap.innerHTML = ''; return; }
+
+  wrap.innerHTML = '<p class="empty">검색 중...</p>';
+  try {
+    const res = await fetch(`/api/community/search?q=${encodeURIComponent(q)}`, { credentials: 'include' });
+    if (!res.ok) { wrap.innerHTML = '<p class="empty">로그인 후 검색할 수 있어요.</p>'; return; }
+    const users = await res.json();
+    wrap.innerHTML = users.length
+      ? users.map(u => userRowHtml(u, 'search')).join('')
+      : '<p class="empty">검색 결과가 없어요.</p>';
+  } catch {
+    wrap.innerHTML = '<p class="empty">검색 중 오류가 발생했어요.</p>';
+  }
+});
+
+window.follow = async function (userId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/community/follow/${userId}`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) { btn.disabled = false; return; }
+    btn.textContent = '팔로잉';
+    btn.classList.add('following');
+    btn.setAttribute('onclick', `unfollow('${userId}', this)`);
+    btn.disabled = false;
+  } catch { btn.disabled = false; }
+};
+
+window.unfollow = async function (userId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/community/follow/${userId}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) { btn.disabled = false; return; }
+    btn.textContent = '+ 팔로우';
+    btn.classList.remove('following');
+    btn.setAttribute('onclick', `follow('${userId}', this)`);
+    btn.disabled = false;
+  } catch { btn.disabled = false; }
+};
+
+async function loadFriends() {
+  const wrap = document.getElementById('friendsList');
+  try {
+    const res = await fetch('/api/community/friends', { credentials: 'include' });
+    if (!res.ok) { wrap.innerHTML = '<p class="empty">로그인 후 볼 수 있어요.</p>'; return; }
+    const friends = await res.json();
+    wrap.innerHTML = friends.length
+      ? friends.map(u => userRowHtml(u, 'friends')).join('')
+      : '<p class="empty">아직 친구가 없어요. 위에서 검색해서 팔로우해보세요.</p>';
+  } catch {
+    wrap.innerHTML = '<p class="empty">불러오는 중 오류가 발생했어요.</p>';
+  }
+}
+
+async function initAuthArea() {
+  const area = document.getElementById('authArea');
+  try {
+    const res = await fetch('/api/auth/profile', { credentials: 'include' });
+    if (!res.ok) throw new Error('not logged in');
+    const profile = await res.json();
+    currentUser = profile;
+    if (!profile.onboarding_completed) { location.href = '/onboarding.html'; return; }
+
+    const displayName = profile.display_name || profile.name || '익명';
+    const avatarSrc = profile.avatar_url || profile.picture;
+    area.innerHTML = `
+      <a href="/profile.html" style="display:flex;align-items:center;gap:6px;text-decoration:none;color:inherit;">
+        ${avatarSrc
+          ? `<img src="${avatarSrc}" alt="" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid #1C1917;" />`
+          : `<span style="width:26px;height:26px;border-radius:50%;background:#D9A441;border:1.5px solid #1C1917;display:flex;align-items:center;justify-content:center;font-size:13px;">👤</span>`}
+        <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
+      </a>
+    `;
+  } catch {
+    area.innerHTML = `
+      <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
+      <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
+    `;
+  }
+  area.style.visibility = 'visible';
+}
+
+initAuthArea();
+loadFriends();
+</script>
+</body>
+</html>
