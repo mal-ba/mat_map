@@ -18,15 +18,18 @@ function tossAuthHeader() {
   return 'Basic ' + Buffer.from(key + ':').toString('base64');
 }
 
-// 가게 끌어올리기는 '사장' 계정만 가능
+// 가게 끌어올리기는 '사장' 계정(또는 관리자) 만 가능
+const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
 async function requireOwner(req, res, next) {
   const { data: user, error } = await supabase
     .from('users')
-    .select('role')
+    .select('role, email')
     .eq('id', req.user.userId)
     .single();
   if (error || !user) return res.status(401).json({ error: '유저 정보를 확인할 수 없어요' });
-  if (user.role !== 'owner') return res.status(403).json({ error: '가게 끌어올리기는 사장님 계정만 이용할 수 있어요' });
+  if (user.role !== 'owner' && !ADMIN_EMAILS.includes(user.email)) {
+    return res.status(403).json({ error: '가게 끌어올리기는 사장님 계정만 이용할 수 있어요' });
+  }
   next();
 }
 
