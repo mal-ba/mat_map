@@ -123,6 +123,10 @@ body{
   color:#c7c2ba;
   cursor:not-allowed;
 }
+.map-tab.locked{
+  color:#b3ab9a;
+  cursor:not-allowed;
+}
 .map-instance{width:100%; flex:1; min-height:0; display:none; background:#aad3df;}
 .map-instance.active{display:block}
 

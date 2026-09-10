@@ -48,7 +48,30 @@ async function findOrCreateSocialUser({ provider, providerId, email, name, pictu
     .select('*')
     .eq(providerCol, providerId)
     .maybeSingle();
-  if (byProvider) return byProvider;
+  if (byProvider) {
+    const nameChanged = name && name !== byProvider.name;
+    const pictureChanged = picture && picture !== byProvider.picture;
+    if (nameChanged || pictureChanged) {
+      const updates = {};
+      if (nameChanged) {
+        updates.name = name;
+        // 표시이름을 따로 커스텀한 적 없다면(예전 name과 같다면) 표시이름도 같이 갱신
+        if (!byProvider.display_name || byProvider.display_name === byProvider.name) {
+          updates.display_name = name;
+        }
+      }
+      if (pictureChanged) updates.picture = picture;
+      const { data: updated, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', byProvider.id)
+        .select()
+        .single();
+      if (error) throw error;
+      return updated;
+    }
+    return byProvider;
+  }
 
   if (email) {
     const { data: byEmail } = await supabase
@@ -109,6 +132,7 @@ router.post('/google', async (req, res) => {
         name: user.display_name || user.name,
         picture: user.avatar_url || user.picture,
         email: user.email,
+        onboarding_completed: user.onboarding_completed,
       },
     });
   } catch (err) {
@@ -139,12 +163,16 @@ router.get('/kakao/callback', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: process.env.KAKAO_REST_API_KEY,
+        client_secret: process.env.KAKAO_CLIENT_SECRET,
         redirect_uri: process.env.KAKAO_REDIRECT_URI,
         code,
       }),
     });
     const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) throw new Error('카카오 토큰 발급 실패');
+    if (!tokenData.access_token) {
+      console.error('[kakao/callback] 토큰 응답 상세:', JSON.stringify(tokenData));
+      throw new Error('카카오 토큰 발급 실패');
+    }
 
     const meRes = await fetch('https://kapi.kakao.com/v2/user/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -161,7 +189,7 @@ router.get('/kakao/callback', async (req, res) => {
     });
 
     issueToken(res, user);
-    res.redirect(base);
+    res.redirect(user.onboarding_completed ? base : `${base}/onboarding.html`);
   } catch (err) {
     console.error('[kakao/callback]', err.message);
     res.redirect(`${base}/login.html?error=kakao`);
@@ -195,7 +223,10 @@ router.get('/naver/callback', async (req, res) => {
       `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${process.env.NAVER_LOGIN_CLIENT_ID}&client_secret=${process.env.NAVER_LOGIN_CLIENT_SECRET}&code=${code}&state=${state}`
     );
     const tokenData = await tokenRes.json();
-    if (!tokenData.access_token) throw new Error('네이버 토큰 발급 실패');
+    if (!tokenData.access_token) {
+      console.error('[naver/callback] 토큰 응답 상세:', JSON.stringify(tokenData));
+      throw new Error('네이버 토큰 발급 실패');
+    }
 
     const meRes = await fetch('https://openapi.naver.com/v1/nid/me', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -212,7 +243,7 @@ router.get('/naver/callback', async (req, res) => {
     });
 
     issueToken(res, user);
-    res.redirect(base);
+    res.redirect(user.onboarding_completed ? base : `${base}/onboarding.html`);
   } catch (err) {
     console.error('[naver/callback]', err.message);
     res.redirect(`${base}/login.html?error=naver`);
@@ -323,7 +354,7 @@ router.post('/signup', async (req, res) => {
     await supabase.from('email_verifications').delete().eq('email', email);
 
     issueToken(res, user);
-    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || null, email: user.email } });
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || null, email: user.email, onboarding_completed: user.onboarding_completed } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '회원가입 중 오류가 발생했어요' });
@@ -349,7 +380,7 @@ router.post('/login', async (req, res) => {
     if (!ok) return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않아요' });
 
     issueToken(res, user);
-    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || user.picture, email: user.email } });
+    res.json({ user: { id: user.id, name: user.display_name || user.name, picture: user.avatar_url || user.picture, email: user.email, onboarding_completed: user.onboarding_completed } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '로그인 중 오류가 발생했어요' });
@@ -382,7 +413,7 @@ router.get('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .eq('id', decoded.userId)
       .single();
 
@@ -432,14 +463,40 @@ router.put('/profile', async (req, res) => {
       .from('users')
       .update({ display_name, bio })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
   } catch { res.status(401).json({ error: '토큰 오류' }); }
 });
 
-// 프로필 사진 업로드
+// 온보딩 완료 처리 (가입 직후 생년월일/별명 필수, 소개글은 선택)
+router.put('/onboarding', async (req, res) => {
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).json({ error: '로그인 필요' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { display_name, birthdate, bio } = req.body;
+
+    if (!display_name?.trim()) return res.status(400).json({ error: '별명을 입력해주세요' });
+    if (!birthdate) return res.status(400).json({ error: '생년월일을 입력해주세요' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) return res.status(400).json({ error: '생년월일 형식이 올바르지 않아요' });
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        display_name: display_name.trim(),
+        birthdate,
+        bio: bio?.trim() || null,
+        onboarding_completed: true,
+      })
+      .eq('id', decoded.userId)
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
+  } catch { res.status(401).json({ error: '토큰 오류' }); }
+});
 router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
@@ -465,7 +522,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
       .from('users')
       .update({ avatar_url })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
       .single();
     if (error) throw error;
 
