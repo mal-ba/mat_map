@@ -44,12 +44,14 @@ const CATEGORY_BUCKETS = [
 function placeCardHtml(p) {
   const emoji = getCategoryEmoji(p.category);
   const color = getCategoryColor(p.category);
+  const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
   const photo = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" onerror="this.style.display='none'" />`
     : `<div style="width:100%;height:120px;background:${color}18;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px;">${emoji}</div>`;
 
   return `
-    <div class="place-tile" data-id="${p.id}" onclick="goToMapWith('${p.id}')">
+    <div class="place-tile" data-id="${p.id}" onclick="goToMapWith('${p.id}')" style="position:relative;">
+      ${boosted ? `<span style="position:absolute;top:6px;left:6px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;z-index:2;">🚀 추천</span>` : ''}
       ${photo}
       <div style="padding:10px 12px;">
         <div style="font-weight:700;font-size:14px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</div>
