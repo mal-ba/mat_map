@@ -2,9 +2,41 @@ const express = require('express');
 const multer = require('multer');
 const supabase = require('../services/supabase');
 const requireAuth = require('./requireAuth');
-const { verifyPlace, searchNaverPlace } = require('../services/verifyPlace');
+const { verifyPlace, searchNaverPlace, analyzeNaverContent } = require('../services/verifyPlace');
+const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos } = require('../services/naverPlaceScraper');
 
 const router = express.Router();
+
+// 이미 등록된 가게 하나의 네이버 평점/리뷰/사진을 다시 가져와서 채워 넣는다
+// (naver_place_id가 없으면 이름+좌표로 네이버 재검색부터 시도)
+async function refreshNaverContentForPlace(place) {
+  let naverPlaceId = place.naver_place_id;
+  if (!naverPlaceId) {
+    const found = await searchNaverPlace(place.name, place.lat, place.lng);
+    if (!found) return { updated: false, reason: '네이버에서 이 가게를 찾지 못했어요' };
+    naverPlaceId = found.id;
+  }
+
+  const [detail, content] = await Promise.all([
+    fetchNaverPlaceDetail(naverPlaceId),
+    fetchNaverReviewsAndPhotos(naverPlaceId),
+  ]);
+  const analysis = await analyzeNaverContent({ reviews: content.reviews, photoUrls: content.photos });
+
+  const fields = {
+    naver_place_id: naverPlaceId,
+    naver_rating: detail?.rating ?? null,
+    naver_review_count: detail?.reviewCount ?? null,
+    review_trust_score: analysis.trustScore,
+    review_summary: analysis.summary,
+    photo_authenticity_note: analysis.photoNote,
+    naver_reviews: content.reviews.slice(0, 5),
+  };
+  // 사용자가 직접 올린 사진이 없을 때만 네이버 사진으로 채워줌 (기존 사진 덮어쓰지 않음)
+  if (!place.image_url && content.photos?.[0]) fields.image_url = content.photos[0];
+
+  return { updated: true, fields };
+}
 
 // 관리자 이메일만 반려 목록 조회/재검증/삭제 가능
 const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
@@ -266,6 +298,71 @@ router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   const { error } = await supabase.from('places').delete().eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ deleted: true });
+});
+
+// naver_reviews가 비어있는 verified 가게 목록 (관리자 페이지에서 백필 대상 확인용)
+router.get('/missing-naver-content', requireAuth, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, name, address, naver_reviews')
+    .eq('status', 'verified')
+    .is('naver_reviews', null)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? []);
+});
+
+// 이미 등록된 가게 하나의 네이버 평점/리뷰/사진을 다시 가져와 채움 (관리자용)
+router.post('/:id/refresh-naver-content', requireAuth, requireAdmin, async (req, res) => {
+  const { data: place, error: findError } = await supabase
+    .from('places')
+    .select('*')
+    .eq('id', req.params.id)
+    .single();
+  if (findError || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+
+  try {
+    const result = await refreshNaverContentForPlace(place);
+    if (!result.updated) return res.json({ updated: false, message: result.reason });
+
+    const { data: updated, error } = await supabase
+      .from('places')
+      .update(result.fields)
+      .eq('id', place.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json({ updated: true, place: updated });
+  } catch (err) {
+    console.error('[places/refresh-naver-content]', err.message);
+    res.status(500).json({ error: '네이버 정보를 가져오는 중 오류가 발생했어요' });
+  }
+});
+
+// naver_reviews가 비어있는 verified 가게 전체를 순회하며 일괄 백필 (관리자용, 시간이 걸릴 수 있음)
+router.post('/refresh-naver-content-all', requireAuth, requireAdmin, async (req, res) => {
+  const { data: places, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('status', 'verified')
+    .is('naver_reviews', null);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const summary = { total: places.length, updated: 0, skipped: 0, failed: 0 };
+  for (const place of places) {
+    try {
+      const result = await refreshNaverContentForPlace(place);
+      if (!result.updated) { summary.skipped++; continue; }
+      const { error: updateError } = await supabase.from('places').update(result.fields).eq('id', place.id);
+      if (updateError) { summary.failed++; continue; }
+      summary.updated++;
+    } catch (err) {
+      console.error('[places/refresh-naver-content-all]', place.name, err.message);
+      summary.failed++;
+    }
+    await new Promise((r) => setTimeout(r, 300)); // 네이버/카카오 호출 과부하 방지용 딜레이
+  }
+  res.json(summary);
 });
 
 module.exports = router;
