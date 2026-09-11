@@ -22,6 +22,9 @@ const maps = { jjin: null, jjinNew: null, kakao: null, naver: null, google: null
 let naverClusterMarkers = []; // 네이버 지도에서 그려진 클러스터/단일 마커 오버레이 전체
 let naverPlacesForCluster = [];
 const markers = { jjin: [], jjinNew: [], kakao: [], naver: [], google: [] };
+// 지도를 다시 그릴 때(idle 이벤트) 열려있던 정보창을 다시 열어주기 위한 추적용 상태
+const openInfoWindows = { kakao: null, naver: null, google: null };
+const selectedPlaceId = { kakao: null, naver: null, google: null };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
 
@@ -542,6 +545,7 @@ function shouldShow(place, mapName) {
 
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
+  if (openInfoWindows.kakao) { openInfoWindows.kakao.close(); openInfoWindows.kakao = null; }
   markers.kakao.forEach((m) => m.setMap(null));
   markers.kakao = [];
 
@@ -556,9 +560,17 @@ function renderKakaoMarkers(places) {
         removable: true,
       });
       kakao.maps.event.addListener(marker, 'click', () => {
+        if (openInfoWindows.kakao) openInfoWindows.kakao.close();
         infowindow.open(maps.kakao, marker);
+        openInfoWindows.kakao = infowindow;
+        selectedPlaceId.kakao = p.id;
         maps.kakao.panTo(marker.getPosition());
       });
+      // 재렌더링 후에도 선택돼 있던 가게면 정보창을 다시 열어줌 (지도 이동/줌으로 사라지지 않게)
+      if (selectedPlaceId.kakao === p.id) {
+        infowindow.open(maps.kakao, marker);
+        openInfoWindows.kakao = infowindow;
+      }
       markers.kakao.push(marker);
     } else {
       const content = document.createElement('div');
@@ -584,6 +596,7 @@ function renderNaverMarkers(places) {
 
 function drawNaverClusters() {
   if (!maps.naver) return;
+  if (openInfoWindows.naver) { openInfoWindows.naver.close(); openInfoWindows.naver = null; }
   naverClusterMarkers.forEach((m) => m.setMap(null));
   naverClusterMarkers = [];
 
@@ -602,10 +615,22 @@ function drawNaverClusters() {
         disableAnchor: true,
       });
       naver.maps.Event.addListener(marker, 'click', () => {
-        if (infowindow.getMap()) infowindow.close();
-        else infowindow.open(maps.naver, marker);
+        if (openInfoWindows.naver) openInfoWindows.naver.close();
+        if (selectedPlaceId.naver === p.id) {
+          // 같은 마커를 다시 누르면 닫기
+          selectedPlaceId.naver = null;
+          openInfoWindows.naver = null;
+        } else {
+          infowindow.open(maps.naver, marker);
+          openInfoWindows.naver = infowindow;
+          selectedPlaceId.naver = p.id;
+        }
         maps.naver.panTo(position);
       });
+      if (selectedPlaceId.naver === p.id) {
+        infowindow.open(maps.naver, marker);
+        openInfoWindows.naver = infowindow;
+      }
       naverClusterMarkers.push(marker);
     } else {
       const marker = new naver.maps.Marker({
@@ -624,6 +649,7 @@ function drawNaverClusters() {
 
 function renderGoogleMarkers(places) {
   if (!maps.google) return;
+  if (openInfoWindows.google) { openInfoWindows.google.close(); openInfoWindows.google = null; }
   markers.google.forEach((m) => m.setMap(null));
   markers.google = [];
 
@@ -637,10 +663,21 @@ function renderGoogleMarkers(places) {
       const infowindow = new google.maps.InfoWindow({
         content: `<div style="padding:2px;">${placePopupHtml(p)}</div>`,
       });
+      infowindow.addListener('closeclick', () => {
+        if (selectedPlaceId.google === p.id) selectedPlaceId.google = null;
+        openInfoWindows.google = null;
+      });
       marker.addListener('click', () => {
+        if (openInfoWindows.google) openInfoWindows.google.close();
         infowindow.open(maps.google, marker);
+        openInfoWindows.google = infowindow;
+        selectedPlaceId.google = p.id;
         maps.google.panTo(position);
       });
+      if (selectedPlaceId.google === p.id) {
+        infowindow.open(maps.google, marker);
+        openInfoWindows.google = infowindow;
+      }
       markers.google.push(marker);
     } else {
       const position = { lat: group.lat, lng: group.lng };
