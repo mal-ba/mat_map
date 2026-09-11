@@ -23,6 +23,17 @@ async function verifyPlace({ name, address, lat, lng }) {
   console.log(`[verifyPlace] "${name}" — ${sources.length ? sources.join('·') + ' 발견' : '세 곳 모두 미등록'}`);
 
   if (!sources.length) {
+    // 이름 키워드 검색으로는 못 찾았지만, 등록 위치(좌표) 근처에 동일한 상호가 실제로 있는지 마지막으로 대조
+    // (신규 오픈처럼 아직 키워드 검색엔 안 잡혀도, 그 자리 자체엔 업체가 등록돼 있는 경우를 구제)
+    const nearby = await searchNearbyPlaceNames(lat, lng, 50);
+    const addressMatch = nearby.find(p => namesMatch(p.place_name, name));
+    if (addressMatch) {
+      return {
+        status: 'verified',
+        reason: `이름 검색으로는 못 찾았지만, 등록 위치 근처(${Math.round(addressMatch.distanceMeters)}m)에 동일한 상호 "${addressMatch.place_name}"가 확인되어 승인되었습니다.`,
+        kakao_place_id: addressMatch.id,
+      };
+    }
     return {
       status: 'pending',
       reason: '네이버·카카오·구글 어디에서도 확인되지 않았습니다. 검토 후 공개됩니다.',
@@ -135,6 +146,44 @@ async function searchNaverPlace(name, lat, lng) {
     console.error('[searchNaverPlace]', err.message);
     return null;
   }
+}
+
+// ── 좌표 근처 상호명 조회 (이름 키워드 검색이 실패했을 때 마지막 대조용) ──
+async function searchNearbyPlaceNames(lat, lng, radius = 50) {
+  if (!process.env.KAKAO_REST_API_KEY || lat == null || lng == null) return [];
+  try {
+    const [foodRes, cafeRes] = await Promise.all([
+      axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
+        headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` },
+        params: { category_group_code: 'FD6', x: lng, y: lat, radius, sort: 'distance' },
+      }),
+      axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
+        headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` },
+        params: { category_group_code: 'CE7', x: lng, y: lat, radius, sort: 'distance' },
+      }),
+    ]);
+    const docs = [...(foodRes.data?.documents || []), ...(cafeRes.data?.documents || [])];
+    return docs.map((d) => ({
+      place_name: d.place_name,
+      id: d.id,
+      distanceMeters: Number(d.distance || 0),
+    }));
+  } catch (err) {
+    console.error('[searchNearbyPlaceNames]', err.message);
+    return [];
+  }
+}
+
+// 한글/영문/숫자만 남기고 공백·기호 제거 후 비교 — "쿠마스시"와 "쿠마스시 용산점" 같은 표기 차이를 흡수
+function normalizeName(str) {
+  return (str || '').replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+}
+
+function namesMatch(a, b) {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 // ── 카카오 키워드 검색 ─────────────────────────────────────────
