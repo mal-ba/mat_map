@@ -556,8 +556,9 @@ function renderKakaoMarkers(places) {
       const p = group.places[0];
       const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
       const infowindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:6px;">${placePopupHtml(p)}</div>`,
+        content: `<div style="padding:6px;background:#fff;border-radius:6px;">${placePopupHtml(p)}</div>`,
         removable: true,
+        zIndex: 10000,
       });
       kakao.maps.event.addListener(marker, 'click', () => {
         if (openInfoWindows.kakao) openInfoWindows.kakao.close();
@@ -609,10 +610,11 @@ function drawNaverClusters() {
       const p = group.places[0];
       const marker = new naver.maps.Marker({ position, map: maps.naver });
       const infowindow = new naver.maps.InfoWindow({
-        content: `<div style="padding:6px;">${placePopupHtml(p)}</div>`,
+        content: `<div style="padding:6px;background:#fff;border-radius:6px;">${placePopupHtml(p)}</div>`,
         borderWidth: 0,
-        backgroundColor: 'transparent',
+        backgroundColor: '#ffffff',
         disableAnchor: true,
+        zIndex: 10000,
       });
       naver.maps.Event.addListener(marker, 'click', () => {
         if (openInfoWindows.naver) openInfoWindows.naver.close();
