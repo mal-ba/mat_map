@@ -145,9 +145,8 @@ async function searchNaverPlace(name, lat, lng) {
 
     let nearest = null;
     for (const item of items) {
-      // mapx/mapy는 WGS84 기준 경도/위도 (문서 확인됨, 좌표계 변환 불필요)
-      const placeLng = parseFloat(item.mapx);
-      const placeLat = parseFloat(item.mapy);
+      const placeLng = normalizeCoord(item.mapx);
+      const placeLat = normalizeCoord(item.mapy);
       if (!placeLat || !placeLng) continue;
       const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
       if (!nearest || dist < nearest) nearest = dist;
@@ -170,6 +169,15 @@ async function searchNaverPlace(name, lat, lng) {
     );
     return null;
   }
+}
+
+// mapx/mapy가 정상적인 십진도(예: 126.978)로 오면 그대로 쓰고,
+// 소수점 없는 확대된 정수(예: 1269780000, ×10^7)로 오면 나눠서 보정한다.
+// 한반도 위경도는 위도 33~43, 경도 124~132 — 절댓값 1000을 넘는 값은 확대된 형식으로 판단.
+function normalizeCoord(raw) {
+  const num = parseFloat(raw);
+  if (!num) return null;
+  return Math.abs(num) > 1000 ? num / 1e7 : num;
 }
 
 // 지역 검색 API의 title에는 검색어 매칭 부분에 <b> 태그가 섞여 옴
