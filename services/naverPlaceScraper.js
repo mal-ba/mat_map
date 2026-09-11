@@ -97,9 +97,10 @@ async function findNaverPlaceId(name, lat, lng) {
       headers: MAP_SEARCH_HEADERS,
       timeout: 8000,
     });
-    const list = res.data?.result?.place?.list;
+    const list = res.data?.place?.list;
     if (!Array.isArray(list) || !list.length) {
-      console.log(`[findNaverPlaceId] "${name}" — 응답 구조: result.place.list 없음/빈 배열. 실제 응답 키: ${Object.keys(res.data?.result || {}).join(',') || '(result 없음)'}`);
+      const placeKeys = res.data?.place ? Object.keys(res.data.place).join(',') : '(place 자체가 없음)';
+      console.log(`[findNaverPlaceId] "${name}" — place.list 없음/빈 배열. place 안의 키: ${placeKeys} — place 내용 일부: ${JSON.stringify(res.data?.place || {}).slice(0, 200)}`);
       return null;
     }
     return list[0]?.id || null;
