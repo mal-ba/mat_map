@@ -56,7 +56,7 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;margin:0 0 6px;}
   <p class="sub">친구를 찾아서 맞팔해보세요</p>
 
   <form id="searchForm" class="search-row">
-    <input id="searchInput" type="text" placeholder="별명으로 검색" autocomplete="off" />
+    <input id="searchInput" type="text" placeholder="별명 또는 고유코드로 검색" autocomplete="off" />
     <button type="submit" class="btn-primary">검색</button>
   </form>
 
@@ -91,10 +91,14 @@ function userRowHtml(u, context) {
     }
   }
 
+  const codeHtml = u.user_code
+    ? `<span style="font-size:11px;color:#aaa;margin-left:6px;">#${escapeHtml(u.user_code)}</span>`
+    : '';
+
   return `
     <div class="user-row" id="user-${u.id}">
       ${avatar}
-      <span class="user-name">${escapeHtml(u.name)}</span>
+      <span class="user-name">${escapeHtml(u.name)}${codeHtml}</span>
       ${actionHtml}
     </div>`;
 }

@@ -2,14 +2,22 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>찐맛집 — 진짜 검증된 맛집 지도</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="/config.js"></script>
-<style>.hidden { display: none !important; }</style>
+<style>
+.hidden { display: none !important; }
+.listing-tab{
+  flex:1; padding:9px; border:1.5px solid var(--line); border-radius:8px;
+  font-weight:700; font-size:13px; cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+  background:#fff; color:#1C1917;
+}
+.listing-tab.active{ background:#1C1917; color:#fff; }
+</style>
 </head>
 <body>
 
@@ -32,20 +40,27 @@
 </header>
 
 <main class="layout">
-  <aside class="panel">
-    <div class="panel-head">
-      <h2>공개된 맛집</h2>
-      <button id="addBtn" class="btn-primary" disabled title="로그인 후 등록할 수 있어요">+ 맛집 등록</button>
+  <aside class="panel" id="panel">
+    <div class="sheet-handle" id="sheetHandle"></div>
+    <div class="panel-scroll">
+      <div class="panel-head">
+        <h2 id="panelTitle">공개된 맛집</h2>
+        <button id="addBtn" class="btn-primary" disabled title="로그인 후 등록할 수 있어요">+ 맛집 등록</button>
+      </div>
+      <div class="listing-tabs" style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="listing-tab active" data-listing="verified">🍽 찐맛집</button>
+        <button class="listing-tab" data-listing="new_opening">🆕 신규 오픈</button>
+      </div>
+      <div style="margin-bottom:10px;">
+        <input id="placeFilterInput" type="text" placeholder="🔍 등록된 맛집 검색"
+          oninput="filterPlaceList(this.value)"
+          style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;
+          font-family:inherit;font-size:14px;" />
+      </div>
+      <ul id="placeList" class="place-list">
+        <li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>
+      </ul>
     </div>
-    <div style="margin-bottom:10px;">
-      <input id="placeFilterInput" type="text" placeholder="🔍 등록된 맛집 검색"
-        oninput="filterPlaceList(this.value)"
-        style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;
-        font-family:inherit;font-size:14px;" />
-    </div>
-    <ul id="placeList" class="place-list">
-      <li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>
-    </ul>
   </aside>
 
   <section class="map-wrap" style="position:relative;">
@@ -97,6 +112,7 @@
          z-index:1200;font-size:12px;color:#E1392A;"></div>
 
     <div id="map-jjin" class="map-instance active"></div>
+    <div id="map-jjin-new" class="map-instance"></div>
     <div id="map-kakao" class="map-instance"></div>
     <div id="map-naver" class="map-instance"></div>
     <div id="map-google" class="map-instance"></div>
@@ -108,6 +124,18 @@
   <form id="registerForm" class="register-form">
     <h3>새 맛집 등록</h3>
     <p class="hint">등록하면 카카오맵 + AI가 실제 존재 여부와 신뢰도를 확인한 뒤 지도에 공개됩니다.</p>
+
+    <label>등록 종류
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="radio" name="listing_type" value="verified" checked style="width:16px;height:16px;"> 🍽 찐맛집 (기존/단골 맛집)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="radio" name="listing_type" value="new_opening" style="width:16px;height:16px;"> 🆕 신규 오픈 (최근 문 연 곳)
+        </label>
+      </div>
+      <span style="font-size:12px;color:#8A8580;display:block;margin-top:4px;">신규 오픈은 아직 리뷰가 없어도 괜찮아요 — 실존 여부만 확인해요.</span>
+    </label>
 
     <label>가게 이름
       <input name="name" required placeholder="예: 왕십리곱창골목" />
@@ -166,7 +194,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=12"></script>
 <footer style="text-align:center;padding:20px;font-size:12px;color:#8A8580;border-top:2px solid rgba(28,25,23,0.16);margin-top:auto;">
   <a href="/privacy.html" style="color:#8A8580;text-decoration:underline;">개인정보처리방침</a>
   &nbsp;|&nbsp; © 2026 찐맛집

@@ -1,9 +1,11 @@
 const axios = require('axios');
+const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos } = require('./naverPlaceScraper');
 
 /**
  * 검증 흐름: 네이버 → 카카오 → 구글 (병렬)
  * 하나라도 찾으면 AI 최종 판단 → verified
  * 셋 다 못 찾으면 → pending
+ * + 네이버에서 잡힌 경우, 평점/리뷰/사진까지 가져와 AI가 리뷰 신뢰도를 별도로 분석
  */
 async function verifyPlace({ name, address, lat, lng }) {
   const [naverResult, kakaoResult, googleResult] = await Promise.all([
@@ -21,6 +23,17 @@ async function verifyPlace({ name, address, lat, lng }) {
   console.log(`[verifyPlace] "${name}" — ${sources.length ? sources.join('·') + ' 발견' : '세 곳 모두 미등록'}`);
 
   if (!sources.length) {
+    // 이름 키워드 검색으로는 못 찾았지만, 등록 위치(좌표) 근처에 동일한 상호가 실제로 있는지 마지막으로 대조
+    // (신규 오픈처럼 아직 키워드 검색엔 안 잡혀도, 그 자리 자체엔 업체가 등록돼 있는 경우를 구제)
+    const nearby = await searchNearbyPlaceNames(lat, lng, 50);
+    const addressMatch = nearby.find(p => namesMatch(p.place_name, name));
+    if (addressMatch) {
+      return {
+        status: 'verified',
+        reason: `이름 검색으로는 못 찾았지만, 등록 위치 근처(${Math.round(addressMatch.distanceMeters)}m)에 동일한 상호 "${addressMatch.place_name}"가 확인되어 승인되었습니다.`,
+        kakao_place_id: addressMatch.id,
+      };
+    }
     return {
       status: 'pending',
       reason: '네이버·카카오·구글 어디에서도 확인되지 않았습니다. 검토 후 공개됩니다.',
@@ -46,11 +59,53 @@ async function verifyPlace({ name, address, lat, lng }) {
     source: sources.join('·'),
   });
 
+  // 네이버에서 잡힌 경우, 평점/리뷰/사진을 가져와 AI 리뷰 신뢰도 분석 + 평점 게이트 적용
+  let naverExtra = {};
+  // 리뷰가 있는데 4점 이상 비율이 50% 미만이면 반려 — 리뷰가 아예 없으면(신규 오픈 등) 이 기준을 적용하지 않음
+  let ratingGate = { passed: true, reason: '' };
+
+  if (naverResult?.id) {
+    const [detail, content] = await Promise.all([
+      fetchNaverPlaceDetail(naverResult.id),
+      fetchNaverReviewsAndPhotos(naverResult.id),
+    ]);
+    const contentAnalysis = await analyzeNaverContent({
+      reviews: content.reviews,
+      photoUrls: content.photos,
+    });
+
+    const ratedReviews = content.reviews.filter(r => typeof r.rating === 'number');
+    if (ratedReviews.length > 0) {
+      const highCount = ratedReviews.filter(r => r.rating >= 4).length;
+      const highRatio = highCount / ratedReviews.length;
+      ratingGate = {
+        passed: highRatio >= 0.5,
+        reason: `리뷰 ${ratedReviews.length}개 중 4점 이상 ${highCount}개(${Math.round(highRatio * 100)}%)`,
+      };
+    }
+
+    naverExtra = {
+      naver_rating: detail?.rating ?? null,
+      naver_review_count: detail?.reviewCount ?? null,
+      review_trust_score: contentAnalysis.trustScore,
+      review_summary: contentAnalysis.summary,
+      photo_authenticity_note: contentAnalysis.photoNote,
+      naver_photo_url: content.photos?.[0] || null, // AI가 네이버에서 직접 가져온 대표 사진
+      naver_reviews: content.reviews.slice(0, 5), // 지도에서 실제 리뷰 내용을 보여주기 위해 원문도 같이 저장
+    };
+  }
+
+  const finalApprove = aiVerdict.approve && ratingGate.passed;
+  const reasonParts = [aiVerdict.reason];
+  if (!ratingGate.passed) reasonParts.push(`평점 기준 미달 — ${ratingGate.reason}`);
+  else if (ratingGate.reason) reasonParts.push(ratingGate.reason);
+
   return {
-    status: aiVerdict.approve ? 'verified' : 'rejected',
-    reason: `${sources.join('·')} 확인 / ${aiVerdict.reason}`,
+    status: finalApprove ? 'verified' : 'rejected',
+    reason: `${sources.join('·')} 확인 / ${reasonParts.filter(Boolean).join(' / ')}`,
     naver_place_id: naverResult?.id,
     kakao_place_id: kakaoResult?.id,
+    ...naverExtra,
   };
 }
 
@@ -89,9 +144,51 @@ async function searchNaverPlace(name, lat, lng) {
     }
     return null;
   } catch (err) {
-    console.error('[searchNaverPlace]', err.message);
+    console.error(
+      '[searchNaverPlace]', err.message,
+      '— 응답 본문:', JSON.stringify(err.response?.data || {}),
+      '— clientId 앞 4자리:', clientId ? clientId.slice(0, 4) : '(없음)'
+    );
     return null;
   }
+}
+
+// ── 좌표 근처 상호명 조회 (이름 키워드 검색이 실패했을 때 마지막 대조용) ──
+async function searchNearbyPlaceNames(lat, lng, radius = 50) {
+  if (!process.env.KAKAO_REST_API_KEY || lat == null || lng == null) return [];
+  try {
+    const [foodRes, cafeRes] = await Promise.all([
+      axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
+        headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` },
+        params: { category_group_code: 'FD6', x: lng, y: lat, radius, sort: 'distance' },
+      }),
+      axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
+        headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` },
+        params: { category_group_code: 'CE7', x: lng, y: lat, radius, sort: 'distance' },
+      }),
+    ]);
+    const docs = [...(foodRes.data?.documents || []), ...(cafeRes.data?.documents || [])];
+    return docs.map((d) => ({
+      place_name: d.place_name,
+      id: d.id,
+      distanceMeters: Number(d.distance || 0),
+    }));
+  } catch (err) {
+    console.error('[searchNearbyPlaceNames]', err.message);
+    return [];
+  }
+}
+
+// 한글/영문/숫자만 남기고 공백·기호 제거 후 비교 — "쿠마스시"와 "쿠마스시 용산점" 같은 표기 차이를 흡수
+function normalizeName(str) {
+  return (str || '').replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+}
+
+function namesMatch(a, b) {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 // ── 카카오 키워드 검색 ─────────────────────────────────────────
@@ -158,11 +255,60 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── AI 최종 판단 ───────────────────────────────────────────────
-async function aiDoubleCheck({ name, address, foundName, category, source }) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { approve: true, reason: `${source} 확인으로 자동 승인 (AI 키 미설정)` };
+// ── AI 호출 (Claude → Gemini → 없으면 null 반환) ────────────────
+// imageBlocks: [{ media_type, base64 }] 형태의 배열 (선택)
+// JSON 문자열을 그대로 반환 — 호출부에서 JSON.parse 처리
+async function callAiJudge(prompt, imageBlocks = []) {
+  if (process.env.ANTHROPIC_API_KEY) {
+    const content = [
+      ...imageBlocks.map((img) => ({
+        type: 'image',
+        source: { type: 'base64', media_type: img.media_type, data: img.base64 },
+      })),
+      { type: 'text', text: prompt },
+    ];
+    const res = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      { model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content }] },
+      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }
+    );
+    return res.data.content.map((b) => b.text || '').join('');
   }
+
+  if (process.env.GEMINI_API_KEY) {
+    // 무료 티어(Gemini 2.5 Flash) — 카드 등록 없이 aistudio.google.com에서 키 발급 가능
+    const parts = [
+      ...imageBlocks.map((img) => ({ inline_data: { mime_type: img.media_type, data: img.base64 } })),
+      { text: prompt },
+    ];
+    const res = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      { contents: [{ parts }] },
+      { headers: { 'content-type': 'application/json' } }
+    );
+    return res.data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+  }
+
+  if (process.env.GROQ_API_KEY) {
+    // 무료 티어(Llama 3.3 70B) — console.groq.com, 구글 계정 가입, 카드/나이 제한 없음
+    // 텍스트 전용 — 사진(imageBlocks)은 분석하지 않고 리뷰 텍스트/이름 판단만 수행
+    const res = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] },
+      { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'content-type': 'application/json' } }
+    );
+    return res.data?.choices?.[0]?.message?.content || '';
+  }
+
+  return null; // 셋 다 없음 — 호출부에서 자동승인 등 기본값 처리
+}
+
+function parseAiJson(text) {
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
+// ── AI 최종 판단 (실존 여부 / 명백히 이상한 등록인지) ───────────
+async function aiDoubleCheck({ name, address, foundName, category, source }) {
   const prompt = `다음 장소가 실제로 존재하는 신뢰할 만한 음식점/카페인지 판단해줘.
 등록된 이름: ${name}
 등록된 주소: ${address}
@@ -171,17 +317,65 @@ async function aiDoubleCheck({ name, address, foundName, category, source }) {
 이름이 명백히 다른 업종이거나 완전히 다른 상호면 반려.
 JSON으로만 답해: {"approve": true|false, "reason": "한 문장 이유"}`;
   try {
-    const res = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      { model: 'claude-sonnet-4-6', max_tokens: 200, messages: [{ role: 'user', content: prompt }] },
-      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }
-    );
-    const text = res.data.content.map(b => b.text || '').join('');
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
+    const text = await callAiJudge(prompt);
+    if (text == null) {
+      return { approve: true, reason: `${source} 확인으로 자동 승인 (AI 키 미설정)` };
+    }
+    return parseAiJson(text);
   } catch (err) {
     console.error('[aiDoubleCheck]', err.message);
     return { approve: true, reason: 'AI 오류로 기본 승인' };
   }
 }
 
-module.exports = { verifyPlace, searchNaverPlace, getDistanceMeters };
+// ── AI 리뷰/사진 신뢰도 분석 (네이버 콘텐츠 기반) ────────────────
+async function analyzeNaverContent({ reviews, photoUrls }) {
+  if (!reviews.length && !photoUrls.length) {
+    return { trustScore: null, adLikeCount: 0, photoNote: '분석할 데이터 없음', summary: '' };
+  }
+
+  // 사진 최대 3장만 base64로 변환 (토큰/비용 절약)
+  const imageBlocks = [];
+  for (const url of photoUrls.slice(0, 3)) {
+    try {
+      const img = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
+      imageBlocks.push({
+        media_type: img.headers['content-type'] || 'image/jpeg',
+        base64: Buffer.from(img.data).toString('base64'),
+      });
+    } catch (err) {
+      console.error('[analyzeNaverContent photo]', err.message);
+    }
+  }
+
+  const reviewTexts = reviews.map((r, i) => `[${i + 1}] (${r.rating ?? '?'}점) ${r.text}`).join('\n');
+  const prompt = `아래는 네이버 플레이스에서 가져온 실제 리뷰와 사진이야.
+1) 리뷰 텍스트가 광고성/협찬성인지 실제 방문 후기인지 판단해줘.
+   광고성 신호: 상투적 칭찬 반복, 구체적 방문 디테일 부재, 메뉴/이벤트 부자연스러운 강조
+   실제 후기 신호: 대기시간·특정 메뉴 맛·재방문 의사 등 구체적 묘사, 단점도 언급
+2) 첨부된 사진이 실제 방문객이 찍은 사진(음식/매장 내부, 자연스러운 구도)인지, 업체가 올린 홍보용/스튜디오 사진에 가까운지 판단해줘.
+
+리뷰 목록:
+${reviewTexts || '(리뷰 없음)'}
+
+JSON으로만 답해:
+{"trustScore": 0-100, "adLikeCount": 숫자, "photoNote": "사진 판단 한 문장", "summary": "전체 한 문장 요약"}`;
+
+  try {
+    const text = await callAiJudge(prompt, imageBlocks);
+    if (text == null) {
+      return { trustScore: null, adLikeCount: 0, photoNote: 'AI 키 미설정', summary: '' };
+    }
+    return parseAiJson(text);
+  } catch (err) {
+    console.error('[analyzeNaverContent]', err.message);
+    return { trustScore: null, adLikeCount: 0, photoNote: 'AI 오류', summary: 'AI 분석 오류' };
+  }
+}
+
+module.exports = {
+  verifyPlace,
+  searchNaverPlace,
+  getDistanceMeters,
+  analyzeNaverContent,
+};

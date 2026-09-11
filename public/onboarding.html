@@ -77,6 +77,25 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;text-align:center;marg
       <input type="date" id="birthdateInput" required />
     </div>
 
+    <div class="field">
+      <label>가입 유형 <span class="req">*</span></label>
+      <div style="display:flex;gap:8px;">
+        <label class="role-option" for="roleCustomer" style="flex:1;display:flex;flex-direction:column;align-items:center;
+          gap:4px;padding:14px 8px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;">
+          <input type="radio" name="role" id="roleCustomer" value="customer" checked style="margin:0;" />
+          <span style="font-size:20px;">🍽️</span>
+          <span style="font-size:13px;font-weight:700;">고객이에요</span>
+        </label>
+        <label class="role-option" for="roleOwner" style="flex:1;display:flex;flex-direction:column;align-items:center;
+          gap:4px;padding:14px 8px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;">
+          <input type="radio" name="role" id="roleOwner" value="owner" style="margin:0;" />
+          <span style="font-size:20px;">🏪</span>
+          <span style="font-size:13px;font-weight:700;">가게 사장이에요</span>
+        </label>
+      </div>
+      <p style="font-size:11px;color:#8A8580;margin:6px 0 0;">사장님으로 가입하면 내 가게를 끌어올리는 기능을 쓸 수 있어요.</p>
+    </div>
+
     <div class="section-label">프로필 꾸미기 <span class="section-hint">(선택)</span></div>
 
     <div class="avatar-row">
@@ -95,6 +114,10 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;text-align:center;marg
     <p class="error-msg" id="errorMsg"></p>
   </form>
 </div>
+
+<style>
+.role-option:has(input:checked){ border-color:var(--stamp); background:#FEF2F1; }
+</style>
 
 <script>
 let pendingAvatarFile = null;
@@ -153,6 +176,7 @@ document.getElementById('onboardingForm').addEventListener('submit', async (e) =
   const display_name = document.getElementById('nicknameInput').value.trim();
   const birthdate = document.getElementById('birthdateInput').value;
   const bio = document.getElementById('bioInput').value.trim();
+  const role = document.querySelector('input[name="role"]:checked')?.value || 'customer';
 
   if (!display_name) { errEl.textContent = '별명을 입력해주세요'; return; }
   if (!birthdate) { errEl.textContent = '생년월일을 입력해주세요'; return; }
@@ -166,7 +190,7 @@ document.getElementById('onboardingForm').addEventListener('submit', async (e) =
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ display_name, birthdate, bio }),
+      body: JSON.stringify({ display_name, birthdate, bio, role }),
     });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.error || '저장에 실패했어요'; submitBtn.disabled = false; submitBtn.textContent = '완료하고 시작하기'; return; }

@@ -39,6 +39,28 @@ function issueToken(res, user) {
   });
 }
 
+// 계정 고유 코드 (영문 대문자+숫자 8자리, 헷갈리는 0/O/1/I/L 제외) — 닉네임 대신 정확히 찾을 때 씀
+const USER_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function generateUserCode() {
+  let code = '';
+  for (let i = 0; i < 8; i++) code += USER_CODE_CHARS[Math.floor(Math.random() * USER_CODE_CHARS.length)];
+  return code;
+}
+
+// users insert 시 고유 코드 충돌하면(unique 제약 위반, postgres 23505) 재시도
+async function insertUserWithCode(fields) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await supabase
+      .from('users')
+      .insert({ ...fields, user_code: generateUserCode() })
+      .select()
+      .single();
+    if (!error) return data;
+    if (error.code !== '23505') throw error;
+  }
+  throw new Error('고유 코드 생성에 실패했어요. 다시 시도해주세요');
+}
+
 // 소셜 로그인 공통 처리: 같은 이메일 계정이 있으면 연결, 없으면 새로 생성
 async function findOrCreateSocialUser({ provider, providerId, email, name, picture }) {
   const providerCol = { google: 'google_sub', kakao: 'kakao_sub', naver: 'naver_sub' }[provider];
@@ -91,12 +113,7 @@ async function findOrCreateSocialUser({ provider, providerId, email, name, pictu
     }
   }
 
-  const { data: created, error } = await supabase
-    .from('users')
-    .insert({ [providerCol]: providerId, email, name, display_name: name, picture })
-    .select()
-    .single();
-  if (error) throw error;
+  const created = await insertUserWithCode({ [providerCol]: providerId, email, name, display_name: name, picture });
   return created;
 }
 
@@ -339,17 +356,12 @@ router.post('/signup', async (req, res) => {
     if (existing) return res.status(409).json({ error: '이미 가입된 이메일이에요' });
 
     const password_hash = await bcrypt.hash(password, 10);
-    const { data: user, error } = await supabase
-      .from('users')
-      .insert({
-        email,
-        password_hash,
-        name: name?.trim() || email.split('@')[0],
-        display_name: name?.trim() || email.split('@')[0],
-      })
-      .select()
-      .single();
-    if (error) throw error;
+    const user = await insertUserWithCode({
+      email,
+      password_hash,
+      name: name?.trim() || email.split('@')[0],
+      display_name: name?.trim() || email.split('@')[0],
+    });
 
     await supabase.from('email_verifications').delete().eq('email', email);
 
@@ -413,7 +425,7 @@ router.get('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, role, onboarding_completed, badge_level, registered_count, visit_count, user_code')
       .eq('id', decoded.userId)
       .single();
 
@@ -463,7 +475,7 @@ router.put('/profile', async (req, res) => {
       .from('users')
       .update({ display_name, bio })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, role, onboarding_completed, badge_level, registered_count, visit_count, user_code')
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -476,13 +488,14 @@ router.put('/onboarding', async (req, res) => {
   if (!token) return res.status(401).json({ error: '로그인 필요' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const { display_name, birthdate, bio } = req.body;
+    const { display_name, birthdate, bio, role } = req.body;
 
     if (!display_name?.trim()) return res.status(400).json({ error: '별명을 입력해주세요' });
     if (!birthdate) return res.status(400).json({ error: '생년월일을 입력해주세요' });
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthdate)) return res.status(400).json({ error: '생년월일 형식이 올바르지 않아요' });
     const todayStr = new Date().toISOString().split('T')[0];
     if (birthdate > todayStr) return res.status(400).json({ error: '생년월일은 오늘 이전 날짜만 가능해요' });
+    if (!['customer', 'owner'].includes(role)) return res.status(400).json({ error: '고객/사장 중 하나를 선택해주세요' });
 
     const { data, error } = await supabase
       .from('users')
@@ -490,10 +503,11 @@ router.put('/onboarding', async (req, res) => {
         display_name: display_name.trim(),
         birthdate,
         bio: bio?.trim() || null,
+        role,
         onboarding_completed: true,
       })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, role, onboarding_completed, badge_level, registered_count, visit_count, user_code')
       .single();
     if (error) return res.status(500).json({ error: error.message });
     res.json(data);
@@ -524,7 +538,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
       .from('users')
       .update({ avatar_url })
       .eq('id', decoded.userId)
-      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, onboarding_completed, badge_level, registered_count, visit_count')
+      .select('id, name, email, picture, avatar_url, display_name, bio, birthdate, role, onboarding_completed, badge_level, registered_count, visit_count, user_code')
       .single();
     if (error) throw error;
 
@@ -539,7 +553,7 @@ router.post('/profile/avatar', upload.single('avatar'), async (req, res) => {
 router.get('/public-profile/:userId', async (req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, display_name, picture, avatar_url, bio, badge_level, registered_count')
+    .select('id, name, display_name, picture, avatar_url, bio, badge_level, registered_count, user_code')
     .eq('id', req.params.userId)
     .single();
   if (error || !data) return res.status(404).json({ error: '유저 없음' });
