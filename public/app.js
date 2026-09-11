@@ -271,11 +271,15 @@ function placePopupHtml(p) {
   const imgHtml = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
     : `<div style="width:100%;height:60px;background:${getCategoryColor(p.category)}22;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">${getCategoryEmoji(p.category)}</div>`;
+  const ratingHtml = p.naver_rating != null
+    ? `<div style="font-size:12px;font-weight:700;color:#D9A441;margin:2px 0;">⭐ ${p.naver_rating} 네이버 평점${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
+    : '';
   return `
     <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       <b style="font-size:14px;">${escapeHtml(p.name)}</b>
+      ${ratingHtml}
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
@@ -775,11 +779,11 @@ async function geocodeAddress(address) {
     latInput.value = '';
     lngInput.value = '';
     clearPreviewMarkers();
-    return;
+    return false;
   }
 
   statusEl.textContent = '🔍';
-  resultEl.textContent = '주소 검색 중...';
+  resultEl.textContent = '주소 확인 중...';
   resultEl.style.color = '#888';
 
   try {
@@ -792,7 +796,7 @@ async function geocodeAddress(address) {
       latInput.value = '';
       lngInput.value = '';
       clearPreviewMarkers();
-      return;
+      return false;
     }
 
     const { lat, lng, address_name } = await res.json();
@@ -802,10 +806,12 @@ async function geocodeAddress(address) {
     resultEl.textContent = `📍 ${address_name}`;
     resultEl.style.color = '#22c55e';
     showPreviewMarker(lat, lng);
+    return true;
   } catch (err) {
     statusEl.textContent = '❌';
-    resultEl.textContent = '주소 검색 중 오류가 발생했어요';
+    resultEl.textContent = '주소 확인 중 오류가 발생했어요';
     resultEl.style.color = '#ef4444';
+    return false;
   }
 }
 
@@ -858,13 +864,20 @@ function renderPlaceList(items) {
     .map(
       (p) => {
         const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+        const thumbHtml = p.image_url
+          ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
+          : '';
+        const naverRatingHtml = p.naver_rating != null
+          ? `<div class="rating">⭐ ${p.naver_rating} 네이버${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
+          : (p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : '');
         return `
     <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
       ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
+      ${thumbHtml}
       <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
-      ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
+      ${naverRatingHtml}
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
@@ -1024,13 +1037,7 @@ function setupRegisterModal() {
     }
   });
 
-  // 주소 입력 시 디바운스 후 자동 지오코딩
-  addressInput.addEventListener('input', () => {
-    clearTimeout(geocodeTimer);
-    geocodeTimer = setTimeout(() => {
-      geocodeAddress(addressInput.value);
-    }, 600); // 0.6초 후 자동 검색
-  });
+  // 주소는 입력 중에는 검사하지 않고, 제출 버튼을 눌렀을 때 한 번만 확인한다 (아래 submit 핸들러 참고)
 
   document.getElementById('addBtn').addEventListener('click', () => {
     const radio = form.querySelector(`input[name="listing_type"][value="${currentListingType}"]`);
@@ -1045,6 +1052,23 @@ function setupRegisterModal() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // 제출 시점에만 주소 → 좌표 확인 (입력 중에는 아무것도 검사하지 않음)
+    const addressStatusEl = document.getElementById('geocodeStatus');
+    const addressResultEl = document.getElementById('geocodeResult');
+    const addressVal = addressInput.value.trim();
+    if (!addressVal) {
+      alert('주소를 입력해주세요.');
+      return;
+    }
+    addressResultEl.textContent = '주소 확인 중...';
+    addressResultEl.style.color = '#888';
+    const geocodeOk = await geocodeAddress(addressVal);
+    if (!geocodeOk) {
+      alert('주소를 확인할 수 없어요. 정확한 주소로 다시 입력해주세요.');
+      return;
+    }
+
     const fd = new FormData(form);
     const body = Object.fromEntries(fd.entries());
     body.lat = parseFloat(body.lat);
@@ -1062,7 +1086,7 @@ function setupRegisterModal() {
     delete body.map_kakao; delete body.map_naver; delete body.map_google;
 
     if (isNaN(body.lat) || isNaN(body.lng)) {
-      alert('주소를 입력하면 자동으로 위치가 검색됩니다.\n주소를 다시 확인해주세요.');
+      alert('주소를 다시 확인해주세요.');
       return;
     }
 
@@ -1131,7 +1155,12 @@ function setupBottomSheet() {
     return window.matchMedia('(max-width:760px)').matches;
   }
 
-  setHeight(snapPoints().peek, false);
+  // 모바일 레이아웃일 때만 바텀시트로 접어둔다 — 데스크톱/넓은 화면에서는 패널 높이를 건드리지 않음
+  if (isMobileLayout()) {
+    setHeight(snapPoints().peek, false);
+  } else {
+    panel.style.height = '';
+  }
 
   let startY = 0;
   let startHeight = 0;
@@ -1181,9 +1210,11 @@ function setupBottomSheet() {
   handle.addEventListener('pointerup', onEnd);
   handle.addEventListener('pointercancel', onEnd);
 
-  // 화면 회전/크기 변경 시 peek 높이 재조정
+  // 화면 회전/크기 변경 시 peek 높이 재조정 (데스크톱으로 넓어지면 높이 제한 해제)
   window.addEventListener('resize', () => {
-    if (!dragging && isMobileLayout()) setHeight(snapPoints().peek, false);
+    if (dragging) return;
+    if (isMobileLayout()) setHeight(snapPoints().peek, false);
+    else panel.style.height = '';
   });
 
   // 탭해서 펼치기/접기 (드래그 없이 짧게 터치했을 때)
