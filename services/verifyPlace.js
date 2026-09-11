@@ -124,7 +124,10 @@ async function verifyPlace({ name, address, lat, lng }) {
 async function searchNaverPlace(name, lat, lng) {
   const clientId = process.env.NAVER_SEARCH_CLIENT_ID;
   const clientSecret = process.env.NAVER_SEARCH_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
+  if (!clientId || !clientSecret) {
+    console.warn(`[searchNaverPlace] "${name}" — NAVER_SEARCH_CLIENT_ID/SECRET 환경변수 없음, 스킵`);
+    return null;
+  }
 
   try {
     const res = await axios.get('https://naverapihub.apigw.ntruss.com/search/v1/local', {
@@ -135,14 +138,19 @@ async function searchNaverPlace(name, lat, lng) {
       },
     });
     const items = res.data?.items;
-    if (!items?.length) return null;
+    if (!items?.length) {
+      console.log(`[searchNaverPlace] "${name}" — 지역 검색 결과 0건`);
+      return null;
+    }
 
+    let nearest = null;
     for (const item of items) {
       // mapx/mapy는 WGS84 기준 경도/위도 (문서 확인됨, 좌표계 변환 불필요)
       const placeLng = parseFloat(item.mapx);
       const placeLat = parseFloat(item.mapy);
       if (!placeLat || !placeLng) continue;
       const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
+      if (!nearest || dist < nearest) nearest = dist;
       if (dist <= 1000) {
         return {
           place_name: stripHtmlTags(item.title),
@@ -152,6 +160,7 @@ async function searchNaverPlace(name, lat, lng) {
         };
       }
     }
+    console.log(`[searchNaverPlace] "${name}" — ${items.length}건 검색됐지만 1km 이내 매칭 없음 (최근접 ${nearest ? Math.round(nearest) + 'm' : '좌표 없음'})`);
     return null;
   } catch (err) {
     console.error(

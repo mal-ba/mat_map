@@ -90,10 +90,13 @@ async function findNaverPlaceId(name, lat, lng) {
       timeout: 8000,
     });
     const list = res.data?.result?.place?.list;
-    if (!Array.isArray(list) || !list.length) return null;
+    if (!Array.isArray(list) || !list.length) {
+      console.log(`[findNaverPlaceId] "${name}" — 응답 구조: result.place.list 없음/빈 배열. 실제 응답 키: ${Object.keys(res.data?.result || {}).join(',') || '(result 없음)'}`);
+      return null;
+    }
     return list[0]?.id || null;
   } catch (err) {
-    console.error('[findNaverPlaceId]', err.message, '— query:', name);
+    console.error('[findNaverPlaceId]', err.message, '— status:', err.response?.status, '— query:', name);
     return null;
   }
 }
