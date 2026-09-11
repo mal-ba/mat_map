@@ -71,4 +71,31 @@ async function fetchNaverReviewsAndPhotos(naverPlaceId, max = 10) {
   }
 }
 
-module.exports = { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos };
+// 이름+좌표로 네이버 플레이스 고유 ID를 찾는다.
+// (NAVER API HUB의 "지역 검색"은 이름/주소/좌표만 주고 ID는 안 줘서, 리뷰 스크래핑에 쓸
+//  m.place.naver.com/restaurant/{id} 의 {id}를 별도로 구해야 함)
+// map.naver.com이 검색 결과 화면을 그릴 때 내부적으로 호출하는 비공식 API를 사용.
+// ⚠️ 미검증: 이 샌드박스에서는 naver.com 계열 도메인으로 네트워크 요청이 막혀 있어
+//   실제 응답 구조를 직접 확인하지 못했음. 배포 후 콘솔 로그의 [findNaverPlaceId] 줄을
+//   꼭 확인해서 실제로 ID가 잡히는지, 안 잡히면 에러 메시지가 뭔지 점검할 것.
+//   실패해도 null만 반환하고 기존 verified/pending/rejected 판정에는 영향 없음
+//   (리뷰 분석 단계만 계속 스킵될 뿐).
+async function findNaverPlaceId(name, lat, lng) {
+  try {
+    const params = { query: name, type: 'all', page: '1', displayCount: '5' };
+    if (lat != null && lng != null) params.searchCoord = `${lng};${lat}`;
+    const res = await axios.get('https://map.naver.com/p/api/search/allSearch', {
+      params,
+      headers: HEADERS,
+      timeout: 8000,
+    });
+    const list = res.data?.result?.place?.list;
+    if (!Array.isArray(list) || !list.length) return null;
+    return list[0]?.id || null;
+  } catch (err) {
+    console.error('[findNaverPlaceId]', err.message, '— query:', name);
+    return null;
+  }
+}
+
+module.exports = { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos, findNaverPlaceId };

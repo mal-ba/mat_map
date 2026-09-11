@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos } = require('./naverPlaceScraper');
+const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos, findNaverPlaceId } = require('./naverPlaceScraper');
 
 /**
  * 검증 흐름: 네이버 → 카카오 → 구글 (병렬)
@@ -64,6 +64,10 @@ async function verifyPlace({ name, address, lat, lng }) {
   // 리뷰가 있는데 4점 이상 비율이 50% 미만이면 반려 — 리뷰가 아예 없으면(신규 오픈 등) 이 기준을 적용하지 않음
   let ratingGate = { passed: true, reason: '' };
 
+  if (naverResult) {
+    naverResult.id = await findNaverPlaceId(naverResult.place_name || name, lat, lng);
+  }
+
   if (naverResult?.id) {
     const [detail, content] = await Promise.all([
       fetchNaverPlaceDetail(naverResult.id),
@@ -109,35 +113,41 @@ async function verifyPlace({ name, address, lat, lng }) {
   };
 }
 
-// ── 네이버 장소 검색 (NCP) ─────────────────────────────────────
+// ── 네이버 장소 검색 (NAVER API HUB — 지역 검색) ─────────────────
+// 2026-09 기준: 예전에 쓰던 map-place/v1/search(NCP Maps)는 신규 Application에서
+// 더 이상 선택할 수 없게 되어(콘솔 API 선택 목록에서 사라짐) 항상 실패하고 있었음.
+// 대신 NAVER API HUB의 "지역(Local Search)" API로 교체.
+// 주의: 이 API는 네이버 플레이스 고유 ID(naver_place_id)를 반환하지 않음 —
+// 이름/주소/좌표로 실존 여부·거리만 확인 가능하고, 리뷰 스크래핑(m.place.naver.com/restaurant/{id})에
+// 쓸 ID는 별도로 구해야 함. 그 전까지는 naverResult.id가 항상 null이라
+// verifyPlace()의 네이버 리뷰 신뢰도 분석 단계(naverResult?.id 체크)는 계속 스킵됨.
 async function searchNaverPlace(name, lat, lng) {
-  const clientId = process.env.NAVER_MAP_CLIENT_ID;
-  const clientSecret = process.env.NAVER_CLIENT_SECRET;
+  const clientId = process.env.NAVER_SEARCH_CLIENT_ID;
+  const clientSecret = process.env.NAVER_SEARCH_CLIENT_SECRET;
   if (!clientId || !clientSecret) return null;
 
   try {
-    const coord = lat && lng ? `&coordinate=${lng},${lat}` : '';
-    const res = await axios.get(
-      `https://naveropenapi.apigw.ntruss.com/map-place/v1/search?query=${encodeURIComponent(name)}${coord}`,
-      {
-        headers: {
-          'X-NCP-APIGW-API-KEY-ID': clientId,
-          'X-NCP-APIGW-API-KEY': clientSecret,
-        },
-      }
-    );
-    const places = res.data?.places;
-    if (!places?.length) return null;
+    const res = await axios.get('https://naverapihub.apigw.ntruss.com/search/v1/local', {
+      params: { query: name, display: 5, sort: 'random' },
+      headers: {
+        'X-NCP-APIGW-API-KEY-ID': clientId,
+        'X-NCP-APIGW-API-KEY': clientSecret,
+      },
+    });
+    const items = res.data?.items;
+    if (!items?.length) return null;
 
-    for (const item of places) {
-      const placeLat = parseFloat(item.y);
-      const placeLng = parseFloat(item.x);
+    for (const item of items) {
+      // mapx/mapy는 WGS84 기준 경도/위도 (문서 확인됨, 좌표계 변환 불필요)
+      const placeLng = parseFloat(item.mapx);
+      const placeLat = parseFloat(item.mapy);
+      if (!placeLat || !placeLng) continue;
       const dist = getDistanceMeters(lat, lng, placeLat, placeLng);
       if (dist <= 1000) {
         return {
-          place_name: item.name,
+          place_name: stripHtmlTags(item.title),
           category_name: item.category || '',
-          id: item.id,
+          id: null, // 지역 검색 API는 place id를 제공하지 않음 (위 주석 참고)
           distanceMeters: dist,
         };
       }
@@ -151,6 +161,11 @@ async function searchNaverPlace(name, lat, lng) {
     );
     return null;
   }
+}
+
+// 지역 검색 API의 title에는 검색어 매칭 부분에 <b> 태그가 섞여 옴
+function stripHtmlTags(str) {
+  return (str || '').replace(/<[^>]*>/g, '');
 }
 
 // ── 좌표 근처 상호명 조회 (이름 키워드 검색이 실패했을 때 마지막 대조용) ──

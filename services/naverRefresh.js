@@ -1,5 +1,5 @@
 const { searchNaverPlace, analyzeNaverContent } = require('./verifyPlace');
-const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos } = require('./naverPlaceScraper');
+const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos, findNaverPlaceId } = require('./naverPlaceScraper');
 
 // 이미 등록된 가게 하나의 네이버 평점/리뷰/사진을 다시 가져와서 채워 넣는다
 // (naver_place_id가 없으면 이름+좌표로 네이버 재검색부터 시도)
@@ -7,9 +7,12 @@ const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos } = require('./naverPl
 async function refreshNaverContentForPlace(place) {
   let naverPlaceId = place.naver_place_id;
   if (!naverPlaceId) {
+    // searchNaverPlace(지역 검색 API)는 이름/주소/좌표만 확인해줄 뿐 place id는 안 주므로
+    // findNaverPlaceId로 별도 조회 — 이 단계가 실패하면 리뷰 갱신은 스킵됨
     const found = await searchNaverPlace(place.name, place.lat, place.lng);
     if (!found) return { updated: false, reason: '네이버에서 이 가게를 찾지 못했어요' };
-    naverPlaceId = found.id;
+    naverPlaceId = await findNaverPlaceId(found.place_name || place.name, place.lat, place.lng);
+    if (!naverPlaceId) return { updated: false, reason: '네이버에서 이름은 확인됐지만 플레이스 ID를 찾지 못했어요' };
   }
 
   const [detail, content] = await Promise.all([
