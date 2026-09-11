@@ -155,6 +155,7 @@ router.post('/', requireAuth, async (req, res) => {
       review_trust_score: verdict.review_trust_score,
       review_summary: verdict.review_summary,
       photo_authenticity_note: verdict.photo_authenticity_note,
+      naver_reviews: verdict.naver_reviews || null,
       listing_type,
       show_on_maps: show_on_maps || 'kakao,naver,google',
     })
