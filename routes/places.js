@@ -85,8 +85,11 @@ router.get('/mine', requireAuth, async (req, res) => {
 });
 
 // 새 맛집 등록 -> 즉시 공개 X, 자동 검증 로직 통과해야 지도에 뜸
+const LISTING_TYPES = ['verified', 'new_opening'];
+
 router.post('/', requireAuth, async (req, res) => {
   const { name, address, lat, lng, category, comment, image_url, show_on_maps } = req.body;
+  const listing_type = LISTING_TYPES.includes(req.body.listing_type) ? req.body.listing_type : 'verified';
   if (!name || !address || lat == null || lng == null) {
     return res.status(400).json({ error: '이름/주소/좌표는 필수입니다' });
   }
@@ -151,6 +154,7 @@ router.post('/', requireAuth, async (req, res) => {
       review_trust_score: verdict.review_trust_score,
       review_summary: verdict.review_summary,
       photo_authenticity_note: verdict.photo_authenticity_note,
+      listing_type,
       show_on_maps: show_on_maps || 'kakao,naver,google',
     })
     .select()
