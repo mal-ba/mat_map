@@ -144,7 +144,11 @@ async function searchNaverPlace(name, lat, lng) {
     }
     return null;
   } catch (err) {
-    console.error('[searchNaverPlace]', err.message);
+    console.error(
+      '[searchNaverPlace]', err.message,
+      '— 응답 본문:', JSON.stringify(err.response?.data || {}),
+      '— clientId 앞 4자리:', clientId ? clientId.slice(0, 4) : '(없음)'
+    );
     return null;
   }
 }
