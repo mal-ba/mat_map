@@ -34,9 +34,9 @@ const NAVER_HEADERS = () => ({
   'X-NCP-APIGW-API-KEY': process.env.NAVER_CLIENT_SECRET,
 });
 
-// 주소 → 좌표 변환 (네이버 1차 → 카카오 → 구글 fallback)
+// 주소 → 좌표 변환 (네이버 1차 → 카카오 → 구글 → 이름 기반 장소검색 fallback)
 app.get('/api/geocode', async (req, res) => {
-  const { address } = req.query;
+  const { address, name } = req.query;
   if (!address) return res.status(400).json({ error: '주소가 필요합니다' });
 
   try {
@@ -55,8 +55,8 @@ app.get('/api/geocode', async (req, res) => {
       }
     }
 
-    // 2차: 카카오
-    console.log(`[geocode] 네이버 실패, 카카오 시도: ${address}`);
+    // 2차: 카카오 주소 검색
+    console.log(`[geocode] 네이버 실패, 카카오 주소 검색 시도: ${address}`);
     const kakaoRes = await fetch(
       `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
       { headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` } }
@@ -68,6 +68,7 @@ app.get('/api/geocode', async (req, res) => {
     }
 
     // 3차: 구글
+    console.log(`[geocode] 카카오 실패, 구글 시도: ${address}`);
     const googleRes = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.GOOGLE_PLACES_API_KEY}&language=ko&region=KR`
     );
@@ -75,6 +76,26 @@ app.get('/api/geocode', async (req, res) => {
     if (googleData.results?.length) {
       const { lat, lng } = googleData.results[0].geometry.location;
       return res.json({ lat, lng, address_name: googleData.results[0].formatted_address });
+    }
+
+    // 4차: 셋 다 주소로는 못 찾았을 때 — 가게 이름으로 카카오 장소(키워드) 검색해서 좌표를 대신 확보
+    // (신축 복합건물처럼 지번 주소가 지오코딩 DB와 어긋나 있어도, 이미 카카오에 등록된 가게 이름으로는 찾히는 경우가 있음)
+    if (name && process.env.KAKAO_REST_API_KEY) {
+      console.log(`[geocode] 구글도 실패, 이름으로 장소 검색 시도: ${name}`);
+      const kakaoPlaceRes = await fetch(
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(name)}`,
+        { headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` } }
+      );
+      const kakaoPlaceData = await kakaoPlaceRes.json();
+      const doc = kakaoPlaceData.documents?.[0];
+      if (doc) {
+        console.log(`[geocode] 이름 검색 성공: ${doc.place_name} (${doc.road_address_name || doc.address_name})`);
+        return res.json({
+          lat: parseFloat(doc.y),
+          lng: parseFloat(doc.x),
+          address_name: doc.road_address_name || doc.address_name,
+        });
+      }
     }
 
     return res.status(404).json({ error: '주소를 찾을 수 없어요.' });
