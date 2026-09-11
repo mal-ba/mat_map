@@ -274,8 +274,16 @@ function placePopupHtml(p) {
   const ratingHtml = p.naver_rating != null
     ? `<div style="font-size:12px;font-weight:700;color:#D9A441;margin:2px 0;">⭐ ${p.naver_rating} 네이버 평점${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
     : '';
+  const reviewsHtml = (Array.isArray(p.naver_reviews) && p.naver_reviews.length)
+    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;max-height:110px;overflow-y:auto;">
+        ${p.naver_reviews.slice(0, 3).map((r) => `
+          <div style="font-size:11px;line-height:1.4;margin-bottom:5px;color:#444;">
+            ${r.rating != null ? `<span style="color:#D9A441;font-weight:700;">⭐${r.rating}</span> ` : ''}${escapeHtml((r.text || '').slice(0, 80))}${(r.text || '').length > 80 ? '…' : ''}
+          </div>`).join('')}
+      </div>`
+    : '';
   return `
-    <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
+    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;">
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       <b style="font-size:14px;">${escapeHtml(p.name)}</b>
@@ -283,6 +291,7 @@ function placePopupHtml(p) {
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+      ${reviewsHtml}
       <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
         border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
@@ -315,7 +324,7 @@ function renderJjinMarkers(key, places) {
         iconAnchor: [14, 28],
       });
       marker = L.marker([p.lat, p.lng], { icon });
-      marker.bindPopup(placePopupHtml(p), { maxWidth: 240 });
+      marker.bindPopup(placePopupHtml(p), { maxWidth: 280 });
     } else {
       const icon = L.divIcon({
         className: '',
