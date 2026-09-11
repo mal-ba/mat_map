@@ -99,8 +99,7 @@ async function findNaverPlaceId(name, lat, lng) {
     });
     const list = res.data?.place?.list;
     if (!Array.isArray(list) || !list.length) {
-      const placeKeys = res.data?.place ? Object.keys(res.data.place).join(',') : '(place 자체가 없음)';
-      console.log(`[findNaverPlaceId] "${name}" — place.list 없음/빈 배열. place 안의 키: ${placeKeys} — place 내용 일부: ${JSON.stringify(res.data?.place || {}).slice(0, 200)}`);
+      console.log(`[findNaverPlaceId] "${name}" — 실패. ncaptcha: ${JSON.stringify(res.data?.ncaptcha ?? null)} — 원본 응답(최대 1200자): ${JSON.stringify(res.data ?? {}).slice(0, 1200)}`);
       return null;
     }
     return list[0]?.id || null;
