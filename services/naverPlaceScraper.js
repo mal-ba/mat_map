@@ -5,6 +5,14 @@ const HEADERS = {
   'Referer': 'https://m.place.naver.com/',
 };
 
+// map.naver.com은 위 HEADERS의 Referer(m.place.naver.com)와 도메인이 달라 403으로 막힘 —
+// 이 요청 전용으로 Referer/Origin을 map.naver.com에 맞춰서 따로 둠
+const MAP_SEARCH_HEADERS = {
+  'User-Agent': HEADERS['User-Agent'],
+  'Referer': 'https://map.naver.com/',
+  'Origin': 'https://map.naver.com',
+};
+
 // __APOLLO_STATE__ (Apollo GraphQL 클라이언트 상태)가 SSR HTML에 그대로 박혀 있어서 그걸 파싱
 // 주의: 비공식 방식 — 네이버가 페이지 구조를 바꾸면 이 정규식/키 이름을 다시 맞춰야 함
 function extractApolloState(html) {
@@ -86,7 +94,7 @@ async function findNaverPlaceId(name, lat, lng) {
     if (lat != null && lng != null) params.searchCoord = `${lng};${lat}`;
     const res = await axios.get('https://map.naver.com/p/api/search/allSearch', {
       params,
-      headers: HEADERS,
+      headers: MAP_SEARCH_HEADERS,
       timeout: 8000,
     });
     const list = res.data?.result?.place?.list;
@@ -96,7 +104,12 @@ async function findNaverPlaceId(name, lat, lng) {
     }
     return list[0]?.id || null;
   } catch (err) {
-    console.error('[findNaverPlaceId]', err.message, '— status:', err.response?.status, '— query:', name);
+    console.error(
+      '[findNaverPlaceId]', err.message,
+      '— status:', err.response?.status,
+      '— 응답 본문:', typeof err.response?.data === 'string' ? err.response.data.slice(0, 200) : JSON.stringify(err.response?.data || {}).slice(0, 200),
+      '— query:', name
+    );
     return null;
   }
 }
