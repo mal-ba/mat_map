@@ -16,6 +16,42 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// ── 중복 체크용 헬퍼 ─────────────────────────────────────────
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeName(s) {
+  return (s || '').toLowerCase().replace(/[\s·\-_.,()]/g, '');
+}
+
+function levenshtein(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+// 이름이 '비슷한지' — 완전히 같거나, 한쪽이 다른 쪽을 포함하거나(지점명 등), 오타 수준 차이
+function isSimilarName(a, b) {
+  const na = normalizeName(a), nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const dist = levenshtein(na, nb);
+  return dist / Math.max(na.length, nb.length) <= 0.25;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -231,14 +267,17 @@ router.post('/', requireAuth, async (req, res) => {
     .lte('lng', lng + 0.0015);
 
   if (nearbyPlaces?.length) {
-    // 실제 거리 계산 (하버사인)
+    // 아주 가까우면(같은 건물/자리 수준) 이름이 달라도 중복으로 보고,
+    // 애매하게 가까운 정도(같은 골목/거리)면 이름까지 비슷할 때만 중복으로 처리
+    // → 상가가 밀집한 지역에서 서로 다른 가게가 100m 이내에 있는 건 흔한 일이라
+    //   단순 거리만으로 막으면 오탐이 너무 많이 나서 이름 유사도를 같이 봄
+    const TIGHT_RADIUS_M = 25;
+    const LOOSE_RADIUS_M = 100;
     const tooClose = nearbyPlaces.find(p => {
-      const dLat = (p.lat - lat) * Math.PI / 180;
-      const dLng = (p.lng - lng) * Math.PI / 180;
-      const a = Math.sin(dLat/2)**2 +
-        Math.cos(lat*Math.PI/180) * Math.cos(p.lat*Math.PI/180) * Math.sin(dLng/2)**2;
-      const dist = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return dist < 100; // 100m 이내
+      const dist = haversineMeters(lat, lng, p.lat, p.lng);
+      if (dist < TIGHT_RADIUS_M) return true;
+      if (dist < LOOSE_RADIUS_M) return isSimilarName(name, p.name);
+      return false;
     });
     if (tooClose) {
       return res.status(409).json({
