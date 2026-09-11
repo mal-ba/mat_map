@@ -91,6 +91,7 @@ async function verifyPlace({ name, address, lat, lng }) {
       review_summary: contentAnalysis.summary,
       photo_authenticity_note: contentAnalysis.photoNote,
       naver_photo_url: content.photos?.[0] || null, // AI가 네이버에서 직접 가져온 대표 사진
+      naver_reviews: content.reviews.slice(0, 5), // 지도에서 실제 리뷰 내용을 보여주기 위해 원문도 같이 저장
     };
   }
 
