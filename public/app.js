@@ -13,37 +13,59 @@ console.warn = function(...args) {
 
 let currentUser = null;
 let currentProvider = 'jjin';
+let currentListingType = 'verified'; // 'verified' (찐맛집) | 'new_opening' (신규 오픈) — 지도 프로바이더와는 별개 축
 let placesCache = [];
 
-const maps = { jjin: null, kakao: null, naver: null, google: null };
+// 'jjin' 지도만 리스팅 종류별로 완전히 분리된 지도 인스턴스를 둔다 (jjin / jjinNew)
+// 카카오·네이버·구글 탭은 지금은 찐맛집(verified)만 보여준다 — SDK 지도 하나 더 띄우는 건 별도 확장 과제
+const maps = { jjin: null, jjinNew: null, kakao: null, naver: null, google: null };
 let naverClusterMarkers = []; // 네이버 지도에서 그려진 클러스터/단일 마커 오버레이 전체
 let naverPlacesForCluster = [];
-const markers = { jjin: [], kakao: [], naver: [], google: [] };
+const markers = { jjin: [], jjinNew: [], kakao: [], naver: [], google: [] };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
 
+function splitByListingType(places) {
+  const verified = [];
+  const newOpening = [];
+  (places || []).forEach((p) => {
+    if (p.listing_type === 'new_opening') newOpening.push(p);
+    else verified.push(p);
+  });
+  return { verified, newOpening };
+}
+
 // ---------- 찐지도 (Leaflet + OpenStreetMap) ----------
+// currentListingType에 맞는 지도 인스턴스 키 ('jjin' 또는 'jjinNew')
+function activeJjinKey() {
+  return currentListingType === 'new_opening' ? 'jjinNew' : 'jjin';
+}
+
 window.jjinMyLocation = function() {
-  if (!maps.jjin) return;
+  const key = activeJjinKey();
+  const map = maps[key];
+  if (!map) return;
   if (!navigator.geolocation) { alert('위치 정보를 지원하지 않는 브라우저예요.'); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude: lat, longitude: lng } = pos.coords;
-      maps.jjin.setView([lat, lng], 16);
+      map.setView([lat, lng], 16);
       // 내 위치 마커
-      if (window._myLocMarker) maps.jjin.removeLayer(window._myLocMarker);
+      if (window._myLocMarker) map.removeLayer(window._myLocMarker);
       window._myLocMarker = window.L.circleMarker([lat, lng], {
         radius: 10, color: '#1a73e8', fillColor: '#4285f4', fillOpacity: 0.9, weight: 3
-      }).addTo(maps.jjin).bindPopup('📍 현재 내 위치').openPopup();
+      }).addTo(map).bindPopup('📍 현재 내 위치').openPopup();
     },
     () => alert('위치 정보를 가져올 수 없어요. 브라우저 권한을 확인해주세요.')
   );
 };
 
 window.jjinFitAll = function() {
-  if (!maps.jjin || !markers.jjin.length) return;
-  const bounds = window.L.featureGroup(markers.jjin).getBounds();
-  if (bounds.isValid()) maps.jjin.fitBounds(bounds.pad(0.1));
+  const key = activeJjinKey();
+  const map = maps[key];
+  if (!map || !markers[key].length) return;
+  const bounds = window.L.featureGroup(markers[key]).getBounds();
+  if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
 };
 
 function getCategoryEmoji(cat) {
@@ -70,22 +92,25 @@ function getCategoryColor(cat) {
   return '#1C1917';
 }
 
-function initJjinMap() {
-  if (maps.jjin) return;
+// key: 'jjin'(찐맛집) 또는 'jjinNew'(신규 오픈) — 서로 완전히 독립된 Leaflet 인스턴스
+function initJjinMap(key = 'jjin') {
+  if (maps[key]) return;
   if (!window.L) { console.error('[JjinMap] Leaflet 미로드'); return; }
 
+  const divId = key === 'jjinNew' ? 'map-jjin-new' : 'map-jjin';
   const L = window.L;
-  maps.jjin = L.map('map-jjin', {
+  const map = L.map(divId, {
     center: [37.5665, 126.978],
     zoom: 12,
     zoomControl: false,
   });
+  maps[key] = map;
 
   // OpenStreetMap 타일 (한국어 지명 표시, 네이버 지도 스타일)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-  }).addTo(maps.jjin);
+  }).addTo(map);
 
   // 기본 줌 컨트롤 제거하고 커스텀으로
   // L.control.zoom는 이미 false로 꺼둠
@@ -97,10 +122,10 @@ function initJjinMap() {
       const div = L.DomUtil.create('div', '');
       div.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px;margin-right:8px;';
       div.innerHTML = `
-        <button onclick="maps.jjin.zoomIn()" title="확대"
+        <button title="확대"
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">+</button>
-        <button onclick="maps.jjin.zoomOut()" title="축소"
+        <button title="축소"
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">−</button>
         <button onclick="jjinMyLocation()" title="내 위치"
@@ -110,19 +135,30 @@ function initJjinMap() {
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">⊞</button>
       `;
+      const [zoomInBtn, zoomOutBtn] = div.querySelectorAll('button');
+      zoomInBtn.addEventListener('click', () => map.zoomIn());
+      zoomOutBtn.addEventListener('click', () => map.zoomOut());
       L.DomEvent.disableClickPropagation(div);
       return div;
     }
   });
-  new JjinControl().addTo(maps.jjin);
+  new JjinControl().addTo(map);
 
   // 지도 클릭 등록 없음
 
-  renderJjinMarkers(placesCache);
-  setTimeout(() => maps.jjin.invalidateSize(), 200);
+  const dataForKey = key === 'jjinNew'
+    ? splitByListingType(placesCache).newOpening
+    : splitByListingType(placesCache).verified;
+  renderJjinMarkers(key, dataForKey);
+  setTimeout(() => map.invalidateSize(), 200);
 
   // 확대/축소·이동할 때마다 지금 배율 기준으로 다시 묶어서 그리기
-  maps.jjin.on('zoomend moveend', () => renderJjinMarkers(placesCache));
+  map.on('zoomend moveend', () => {
+    const data = key === 'jjinNew'
+      ? splitByListingType(placesCache).newOpening
+      : splitByListingType(placesCache).verified;
+    renderJjinMarkers(key, data);
+  });
 }
 
 // ---------- 화면 배율 기반 클러스터링 (모든 지도 공통) ----------
@@ -139,6 +175,10 @@ function getViewportKmPerCm(provider) {
       const b = maps.jjin.getBounds();
       bounds = { west: b.getWest(), east: b.getEast(), north: b.getNorth(), south: b.getSouth() };
       containerId = 'map-jjin';
+    } else if (provider === 'jjinNew' && maps.jjinNew) {
+      const b = maps.jjinNew.getBounds();
+      bounds = { west: b.getWest(), east: b.getEast(), north: b.getNorth(), south: b.getSouth() };
+      containerId = 'map-jjin-new';
     } else if (provider === 'kakao' && maps.kakao) {
       const b = maps.kakao.getBounds();
       const sw = b.getSouthWest(), ne = b.getNorthEast();
@@ -234,6 +274,7 @@ function placePopupHtml(p) {
   return `
     <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
       ${imgHtml}
+      ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       <b style="font-size:14px;">${escapeHtml(p.name)}</b>
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
@@ -244,20 +285,23 @@ function placePopupHtml(p) {
     </div>`;
 }
 
-function renderJjinMarkers(places) {
-  if (!maps.jjin || !window.L) return;
+// key: 'jjin'(찐맛집 지도) 또는 'jjinNew'(신규 오픈 지도)
+function renderJjinMarkers(key, places) {
+  const map = maps[key];
+  if (!map || !window.L) return;
   const L = window.L;
 
-  markers.jjin.forEach((m) => maps.jjin.removeLayer(m));
-  markers.jjin = [];
+  markers[key].forEach((m) => map.removeLayer(m));
+  markers[key] = [];
 
-  const groups = getGroups('jjin', places);
+  const groups = getGroups(key, places);
+  const isNewOpening = key === 'jjinNew';
 
   groups.forEach((group) => {
     let marker;
     if (group.count === 1) {
       const p = group.places[0];
-      const color = getCategoryColor(p.category);
+      const color = isNewOpening ? '#2E7D32' : getCategoryColor(p.category);
       const icon = L.divIcon({
         className: '',
         html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
@@ -277,11 +321,11 @@ function renderJjinMarkers(places) {
       });
       marker = L.marker([group.lat, group.lng], { icon });
       marker.on('click', () => {
-        maps.jjin.setView([group.lat, group.lng], Math.min(maps.jjin.getZoom() + 3, 18));
+        map.setView([group.lat, group.lng], Math.min(map.getZoom() + 3, 18));
       });
     }
-    marker.addTo(maps.jjin);
-    markers.jjin.push(marker);
+    marker.addTo(map);
+    markers[key].push(marker);
   });
 }
 
@@ -625,10 +669,13 @@ function closeStreetView() {
 }
 
 function renderAllMarkers(places) {
-  renderJjinMarkers(places);
-  renderKakaoMarkers(places);
-  renderNaverMarkers(places);
-  renderGoogleMarkers(places);
+  const { verified, newOpening } = splitByListingType(places);
+  renderJjinMarkers('jjin', verified);
+  if (maps.jjinNew) renderJjinMarkers('jjinNew', newOpening);
+  // 카카오·네이버·구글 지도는 지금은 찐맛집(verified)만 표시
+  renderKakaoMarkers(verified);
+  renderNaverMarkers(verified);
+  renderGoogleMarkers(verified);
 }
 
 
@@ -670,12 +717,16 @@ function setupMapTabs() {
       document.querySelectorAll('.map-tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(`map-${provider}`).classList.add('active');
+      const divId = provider === 'jjin'
+        ? (activeJjinKey() === 'jjinNew' ? 'map-jjin-new' : 'map-jjin')
+        : `map-${provider}`;
+      document.getElementById(divId).classList.add('active');
       currentProvider = provider;
 
       if (provider === 'jjin') {
-        initJjinMap();
-        if (maps.jjin) setTimeout(() => maps.jjin.invalidateSize(), 200);
+        const key = activeJjinKey();
+        initJjinMap(key);
+        if (maps[key]) setTimeout(() => maps[key].invalidateSize(), 200);
       }
       if (provider === 'kakao') await initKakaoMap();
       if (provider === 'naver') {
@@ -698,8 +749,8 @@ function setupMapTabs() {
 }
 
 function panActiveMapTo(lat, lng) {
-  if (currentProvider === 'jjin' && maps.jjin) {
-    maps.jjin.setView([lat, lng], 16);
+  if (currentProvider === 'jjin' && maps[activeJjinKey()]) {
+    maps[activeJjinKey()].setView([lat, lng], 16);
   } else if (currentProvider === 'kakao' && maps.kakao) {
     maps.kakao.panTo(new kakao.maps.LatLng(lat, lng));
   } else if (currentProvider === 'naver' && maps.naver) {
@@ -774,7 +825,7 @@ async function loadPlaces() {
 
     const data = await res.json();
     placesCache = Array.isArray(data) ? data : [];
-    renderPlaceList(placesCache);
+    renderPlaceList(getListForCurrentType());
     renderAllMarkers(placesCache);
 
     // 홈(검색 결과)에서 특정 맛집을 콕 집어 넘어온 경우 해당 위치로 이동
@@ -791,6 +842,12 @@ async function loadPlaces() {
   }
 }
 
+// 현재 토글된 리스팅 종류(찐맛집/신규오픈)에 해당하는 목록만 반환
+function getListForCurrentType() {
+  const { verified, newOpening } = splitByListingType(placesCache);
+  return currentListingType === 'new_opening' ? newOpening : verified;
+}
+
 function renderPlaceList(items) {
   const list = document.getElementById('placeList');
   if (!items.length) {
@@ -803,7 +860,7 @@ function renderPlaceList(items) {
         const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
         return `
     <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
-      <div class="verified-badge">인증</div>
+      <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
       ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
       <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
@@ -827,8 +884,9 @@ function renderPlaceList(items) {
 // 왼쪽 패널에서 등록된 맛집 이름/주소/카테고리로 검색 (지도에 등록을 위한 검색과는 별개)
 function filterPlaceList(query) {
   const q = query.trim().toLowerCase();
-  if (!q) { renderPlaceList(placesCache); return; }
-  const filtered = placesCache.filter((p) =>
+  const base = getListForCurrentType();
+  if (!q) { renderPlaceList(base); return; }
+  const filtered = base.filter((p) =>
     (p.name || '').toLowerCase().includes(q) ||
     (p.address || '').toLowerCase().includes(q) ||
     (p.category || '').toLowerCase().includes(q)
@@ -842,7 +900,41 @@ function filterPlaceList(query) {
 
 function showEmptyState() {
   const list = document.getElementById('placeList');
-  list.innerHTML = '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
+  list.innerHTML = currentListingType === 'new_opening'
+    ? '<li class="empty-state">아직 등록된 신규 오픈 매장이 없어요.<br>새로 생긴 곳을 등록해보세요.</li>'
+    : '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
+}
+
+// ---------- 리스팅 종류 토글 (찐맛집 / 신규 오픈) ----------
+function switchListingType(type) {
+  if (type === currentListingType) return;
+  currentListingType = type;
+
+  document.querySelectorAll('.listing-tab').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.listing === type);
+  });
+  document.getElementById('panelTitle').textContent =
+    type === 'new_opening' ? '신규 오픈' : '공개된 맛집';
+
+  // 지도(jjin) 탭을 보고 있을 때만 지도 인스턴스를 통째로 교체 — 새 지도는 처음 전환될 때 지연 초기화
+  if (currentProvider === 'jjin') {
+    const key = activeJjinKey();
+    document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
+    document.getElementById(key === 'jjinNew' ? 'map-jjin-new' : 'map-jjin').classList.add('active');
+    initJjinMap(key);
+    if (maps[key]) {
+      setTimeout(() => maps[key].invalidateSize(), 200);
+      renderJjinMarkers(key, getListForCurrentType());
+    }
+  }
+
+  renderPlaceList(getListForCurrentType());
+}
+
+function setupListingTypeToggle() {
+  document.querySelectorAll('.listing-tab').forEach((btn) => {
+    btn.addEventListener('click', () => switchListingType(btn.dataset.listing));
+  });
 }
 
 function escapeHtml(str) {
@@ -941,6 +1033,8 @@ function setupRegisterModal() {
   });
 
   document.getElementById('addBtn').addEventListener('click', () => {
+    const radio = form.querySelector(`input[name="listing_type"][value="${currentListingType}"]`);
+    if (radio) radio.checked = true;
     modal.showModal();
   });
 
@@ -1106,8 +1200,9 @@ function setupBottomSheet() {
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
+  setupListingTypeToggle();
   updateMapTabLocks();
-  initJjinMap(); // 찐지도 기본 로드
+  initJjinMap('jjin'); // 찐맛집 지도 기본 로드 (신규 오픈 지도는 처음 토글할 때 지연 초기화)
   setupRegisterModal();
   setupBottomSheet();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원

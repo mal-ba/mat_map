@@ -9,7 +9,15 @@
 <link rel="stylesheet" href="/style.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="/config.js"></script>
-<style>.hidden { display: none !important; }</style>
+<style>
+.hidden { display: none !important; }
+.listing-tab{
+  flex:1; padding:9px; border:1.5px solid var(--line); border-radius:8px;
+  font-weight:700; font-size:13px; cursor:pointer; font-family:'Noto Sans KR',sans-serif;
+  background:#fff; color:#1C1917;
+}
+.listing-tab.active{ background:#1C1917; color:#fff; }
+</style>
 </head>
 <body>
 
@@ -36,8 +44,12 @@
     <div class="sheet-handle" id="sheetHandle"></div>
     <div class="panel-scroll">
       <div class="panel-head">
-        <h2>공개된 맛집</h2>
+        <h2 id="panelTitle">공개된 맛집</h2>
         <button id="addBtn" class="btn-primary" disabled title="로그인 후 등록할 수 있어요">+ 맛집 등록</button>
+      </div>
+      <div class="listing-tabs" style="display:flex;gap:6px;margin-bottom:10px;">
+        <button class="listing-tab active" data-listing="verified">🍽 찐맛집</button>
+        <button class="listing-tab" data-listing="new_opening">🆕 신규 오픈</button>
       </div>
       <div style="margin-bottom:10px;">
         <input id="placeFilterInput" type="text" placeholder="🔍 등록된 맛집 검색"
@@ -100,6 +112,7 @@
          z-index:1200;font-size:12px;color:#E1392A;"></div>
 
     <div id="map-jjin" class="map-instance active"></div>
+    <div id="map-jjin-new" class="map-instance"></div>
     <div id="map-kakao" class="map-instance"></div>
     <div id="map-naver" class="map-instance"></div>
     <div id="map-google" class="map-instance"></div>
@@ -111,6 +124,18 @@
   <form id="registerForm" class="register-form">
     <h3>새 맛집 등록</h3>
     <p class="hint">등록하면 카카오맵 + AI가 실제 존재 여부와 신뢰도를 확인한 뒤 지도에 공개됩니다.</p>
+
+    <label>등록 종류
+      <div style="display:flex;gap:16px;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="radio" name="listing_type" value="verified" checked style="width:16px;height:16px;"> 🍽 찐맛집 (기존/단골 맛집)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
+          <input type="radio" name="listing_type" value="new_opening" style="width:16px;height:16px;"> 🆕 신규 오픈 (최근 문 연 곳)
+        </label>
+      </div>
+      <span style="font-size:12px;color:#8A8580;display:block;margin-top:4px;">신규 오픈은 아직 리뷰가 없어도 괜찮아요 — 실존 여부만 확인해요.</span>
+    </label>
 
     <label>가게 이름
       <input name="name" required placeholder="예: 왕십리곱창골목" />
