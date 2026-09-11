@@ -145,6 +145,12 @@ router.post('/', requireAuth, async (req, res) => {
       status: verdict.status,
       verify_reason: verdict.reason,
       kakao_place_id: verdict.kakao_place_id,
+      naver_place_id: verdict.naver_place_id,
+      naver_rating: verdict.naver_rating,
+      naver_review_count: verdict.naver_review_count,
+      review_trust_score: verdict.review_trust_score,
+      review_summary: verdict.review_summary,
+      photo_authenticity_note: verdict.photo_authenticity_note,
       show_on_maps: show_on_maps || 'kakao,naver,google',
     })
     .select()
