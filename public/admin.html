@@ -93,6 +93,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
     </div>
   </div>
 
+  <!-- 사업자 인증(claim) 대기 -->
+  <div class="section-title" style="cursor:pointer;" onclick="toggleClaimsSection()">
+    🏪 사업자 인증 대기 <span id="claimsCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="claimsToggleIcon">▼</span>
+  </div>
+  <div id="claimsSection" style="margin-bottom:28px;">
+    <div id="claimsList" style="overflow-x:auto;">
+      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+    </div>
+  </div>
+
   <!-- 리뷰 없는 기존 등록 건 -->
   <div class="section-title" style="cursor:pointer;" onclick="toggleMissingReviewsSection()">
     📝 리뷰 없는 기존 등록 건 <span id="missingReviewsCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="missingReviewsToggleIcon">▼</span>
@@ -390,6 +400,71 @@ function toggleRejectedSection() {
   icon.textContent = hidden ? '▼' : '▶';
 }
 
+// ── 사업자 인증(claim) 대기 ──────────────────────────
+async function loadClaims() {
+  const listEl = document.getElementById('claimsList');
+  const countEl = document.getElementById('claimsCountLabel');
+  try {
+    const res = await fetch('/api/places/claims/pending', { credentials: 'include' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      listEl.innerHTML = `<p style="color:red">${body.error || '불러오지 못했어요.'}</p>`;
+      countEl.textContent = '';
+      return;
+    }
+    const claims = await res.json();
+    if (!claims.length) {
+      listEl.innerHTML = '<p style="color:var(--ink-soft);font-size:13px;">대기 중인 인증 신청이 없어요.</p>';
+      countEl.textContent = '(0개)';
+      return;
+    }
+    countEl.textContent = `(${claims.length}개)`;
+    listEl.innerHTML = claims.map(p => `
+      <div id="claim-${p.id}" style="border:1.5px solid var(--line);border-radius:8px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-weight:700;font-size:14px;">${esc(p.name)}</div>
+        <div style="font-size:12px;color:#8A8580;margin:2px 0 6px;">${esc(p.address)}</div>
+        <div style="font-size:12px;margin-bottom:2px;">📞 ${esc(p.owner_claim_phone || '')} · 🧾 ${esc(p.owner_claim_biz_number || '')}</div>
+        <div style="font-size:12px;color:#8A8580;margin-bottom:2px;">신청자: ${esc(p.users?.name || '')} (${esc(p.users?.email || '')})</div>
+        ${p.owner_claim_note ? `<div style="font-size:11px;color:#aaa;margin-bottom:8px;">메모: ${esc(p.owner_claim_note)}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="reviewClaim('${p.id}','approve')" style="flex:1;padding:7px;border:1.5px solid var(--green);
+            color:var(--green);background:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">✅ 승인</button>
+          <button onclick="reviewClaim('${p.id}','reject')" style="flex:1;padding:7px;border:1.5px solid var(--stamp);
+            color:var(--stamp);background:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">🚫 반려</button>
+        </div>
+        <div id="claim-${p.id}-msg" style="font-size:11px;margin-top:6px;"></div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('[admin] loadClaims 실패', err);
+    listEl.innerHTML = '<p style="color:red">불러오는 중 오류가 발생했어요.</p>';
+    countEl.textContent = '';
+  }
+}
+
+async function reviewClaim(id, decision) {
+  const msgEl = document.getElementById(`claim-${id}-msg`);
+  msgEl.textContent = '처리 중...';
+  try {
+    const res = await fetch(`/api/places/${id}/claim/${decision}`, { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) { msgEl.style.color = 'red'; msgEl.textContent = data.error || '실패'; return; }
+    document.getElementById(`claim-${id}`).remove();
+    loadClaims();
+  } catch {
+    msgEl.style.color = 'red';
+    msgEl.textContent = '오류가 발생했어요.';
+  }
+}
+
+function toggleClaimsSection() {
+  const sec = document.getElementById('claimsSection');
+  const icon = document.getElementById('claimsToggleIcon');
+  const hidden = sec.style.display === 'none';
+  sec.style.display = hidden ? 'block' : 'none';
+  icon.textContent = hidden ? '▼' : '▶';
+}
+
 // ── 리뷰 없는 기존 등록 건 ────────────────────────────
 async function loadMissingReviews() {
   const listEl = document.getElementById('missingReviewsList');
@@ -591,6 +666,7 @@ function updateProgress(done, total) {
 initRows();
 loadUsers();
 loadRejected();
+loadClaims();
 loadMissingReviews();
 </script>
 </body>
