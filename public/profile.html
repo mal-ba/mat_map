@@ -113,6 +113,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
         <div class="profile-info">
           <div class="profile-name" id="profileName">—</div>
           <div class="profile-email" id="profileEmail"></div>
+          <div class="profile-code" id="profileCode" style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;"></div>
           <div class="badge-row">
             <span class="badge-chip" id="badgeChip">탐험 시작</span>
             <span class="badge-next" id="badgeNext"></span>
@@ -222,6 +223,9 @@ function renderProfile(u) {
   document.title = `${displayName} — 찐맛집`;
   document.getElementById('profileName').textContent = displayName;
   document.getElementById('profileEmail').textContent = u.email || '';
+  document.getElementById('profileCode').textContent = u.user_code
+    ? (isMyProfile ? `내 고유코드 #${u.user_code} · 친구가 이 코드로 나를 찾을 수 있어요` : `고유코드 #${u.user_code}`)
+    : '';
 
   if (u.picture) {
     const img = document.getElementById('avatarImg');

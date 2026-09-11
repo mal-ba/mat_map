@@ -4,16 +4,17 @@ const requireAuth = require('./requireAuth');
 
 const router = express.Router();
 
-// 유저 검색 (별명/이름으로) — 나 자신은 제외, 팔로우 상태도 같이 내려줌
+// 유저 검색 (별명 또는 고유 코드로만) — 계정 원래 이름(name)은 검색 대상에서 제외
+// 나 자신은 제외, 팔로우 상태도 같이 내려줌
 router.get('/search', requireAuth, async (req, res) => {
-  const q = (req.query.q || '').trim();
+  const q = (req.query.q || '').trim().replace(/[,()%]/g, '');
   if (!q) return res.json([]);
 
   try {
     const { data: found, error } = await supabase
       .from('users')
-      .select('id, name, display_name, picture, avatar_url')
-      .or(`display_name.ilike.%${q}%,name.ilike.%${q}%`)
+      .select('id, name, display_name, picture, avatar_url, user_code')
+      .or(`display_name.ilike.%${q}%,user_code.ilike.%${q}%`)
       .neq('id', req.user.userId)
       .limit(20);
     if (error) throw error;
@@ -34,6 +35,7 @@ router.get('/search', requireAuth, async (req, res) => {
       id: u.id,
       name: u.display_name || u.name,
       avatar_url: u.avatar_url || u.picture,
+      user_code: u.user_code,
       following: followingSet.has(u.id),
       isFriend: followingSet.has(u.id) && followerSet.has(u.id),
     })));
