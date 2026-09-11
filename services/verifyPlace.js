@@ -285,7 +285,18 @@ async function callAiJudge(prompt, imageBlocks = []) {
     return res.data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
   }
 
-  return null; // 둘 다 없음 — 호출부에서 자동승인 등 기본값 처리
+  if (process.env.GROQ_API_KEY) {
+    // 무료 티어(Llama 3.3 70B) — console.groq.com, 구글 계정 가입, 카드/나이 제한 없음
+    // 텍스트 전용 — 사진(imageBlocks)은 분석하지 않고 리뷰 텍스트/이름 판단만 수행
+    const res = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }] },
+      { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, 'content-type': 'application/json' } }
+    );
+    return res.data?.choices?.[0]?.message?.content || '';
+  }
+
+  return null; // 셋 다 없음 — 호출부에서 자동승인 등 기본값 처리
 }
 
 function parseAiJson(text) {
