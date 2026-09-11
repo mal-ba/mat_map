@@ -13,37 +13,62 @@ console.warn = function(...args) {
 
 let currentUser = null;
 let currentProvider = 'jjin';
+let currentListingType = 'verified'; // 'verified' (찐맛집) | 'new_opening' (신규 오픈) — 지도 프로바이더와는 별개 축
 let placesCache = [];
 
-const maps = { jjin: null, kakao: null, naver: null, google: null };
+// 'jjin' 지도만 리스팅 종류별로 완전히 분리된 지도 인스턴스를 둔다 (jjin / jjinNew)
+// 카카오·네이버·구글 탭은 지금은 찐맛집(verified)만 보여준다 — SDK 지도 하나 더 띄우는 건 별도 확장 과제
+const maps = { jjin: null, jjinNew: null, kakao: null, naver: null, google: null };
 let naverClusterMarkers = []; // 네이버 지도에서 그려진 클러스터/단일 마커 오버레이 전체
 let naverPlacesForCluster = [];
-const markers = { jjin: [], kakao: [], naver: [], google: [] };
+const markers = { jjin: [], jjinNew: [], kakao: [], naver: [], google: [] };
+// 지도를 다시 그릴 때(idle 이벤트) 열려있던 정보창을 다시 열어주기 위한 추적용 상태
+const openInfoWindows = { kakao: null, naver: null, google: null };
+const selectedPlaceId = { kakao: null, naver: null, google: null };
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
 
+function splitByListingType(places) {
+  const verified = [];
+  const newOpening = [];
+  (places || []).forEach((p) => {
+    if (p.listing_type === 'new_opening') newOpening.push(p);
+    else verified.push(p);
+  });
+  return { verified, newOpening };
+}
+
 // ---------- 찐지도 (Leaflet + OpenStreetMap) ----------
+// currentListingType에 맞는 지도 인스턴스 키 ('jjin' 또는 'jjinNew')
+function activeJjinKey() {
+  return currentListingType === 'new_opening' ? 'jjinNew' : 'jjin';
+}
+
 window.jjinMyLocation = function() {
-  if (!maps.jjin) return;
+  const key = activeJjinKey();
+  const map = maps[key];
+  if (!map) return;
   if (!navigator.geolocation) { alert('위치 정보를 지원하지 않는 브라우저예요.'); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude: lat, longitude: lng } = pos.coords;
-      maps.jjin.setView([lat, lng], 16);
+      map.setView([lat, lng], 16);
       // 내 위치 마커
-      if (window._myLocMarker) maps.jjin.removeLayer(window._myLocMarker);
+      if (window._myLocMarker) map.removeLayer(window._myLocMarker);
       window._myLocMarker = window.L.circleMarker([lat, lng], {
         radius: 10, color: '#1a73e8', fillColor: '#4285f4', fillOpacity: 0.9, weight: 3
-      }).addTo(maps.jjin).bindPopup('📍 현재 내 위치').openPopup();
+      }).addTo(map).bindPopup('📍 현재 내 위치').openPopup();
     },
     () => alert('위치 정보를 가져올 수 없어요. 브라우저 권한을 확인해주세요.')
   );
 };
 
 window.jjinFitAll = function() {
-  if (!maps.jjin || !markers.jjin.length) return;
-  const bounds = window.L.featureGroup(markers.jjin).getBounds();
-  if (bounds.isValid()) maps.jjin.fitBounds(bounds.pad(0.1));
+  const key = activeJjinKey();
+  const map = maps[key];
+  if (!map || !markers[key].length) return;
+  const bounds = window.L.featureGroup(markers[key]).getBounds();
+  if (bounds.isValid()) map.fitBounds(bounds.pad(0.1));
 };
 
 function getCategoryEmoji(cat) {
@@ -70,22 +95,25 @@ function getCategoryColor(cat) {
   return '#1C1917';
 }
 
-function initJjinMap() {
-  if (maps.jjin) return;
+// key: 'jjin'(찐맛집) 또는 'jjinNew'(신규 오픈) — 서로 완전히 독립된 Leaflet 인스턴스
+function initJjinMap(key = 'jjin') {
+  if (maps[key]) return;
   if (!window.L) { console.error('[JjinMap] Leaflet 미로드'); return; }
 
+  const divId = key === 'jjinNew' ? 'map-jjin-new' : 'map-jjin';
   const L = window.L;
-  maps.jjin = L.map('map-jjin', {
+  const map = L.map(divId, {
     center: [37.5665, 126.978],
     zoom: 12,
     zoomControl: false,
   });
+  maps[key] = map;
 
   // OpenStreetMap 타일 (한국어 지명 표시, 네이버 지도 스타일)
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     maxZoom: 19,
-  }).addTo(maps.jjin);
+  }).addTo(map);
 
   // 기본 줌 컨트롤 제거하고 커스텀으로
   // L.control.zoom는 이미 false로 꺼둠
@@ -97,10 +125,10 @@ function initJjinMap() {
       const div = L.DomUtil.create('div', '');
       div.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-bottom:8px;margin-right:8px;';
       div.innerHTML = `
-        <button onclick="maps.jjin.zoomIn()" title="확대"
+        <button title="확대"
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">+</button>
-        <button onclick="maps.jjin.zoomOut()" title="축소"
+        <button title="축소"
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">−</button>
         <button onclick="jjinMyLocation()" title="내 위치"
@@ -110,25 +138,36 @@ function initJjinMap() {
           style="width:38px;height:38px;background:#fff;border:2px solid rgba(0,0,0,.25);
           border-radius:4px;font-size:18px;cursor:pointer;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.2);">⊞</button>
       `;
+      const [zoomInBtn, zoomOutBtn] = div.querySelectorAll('button');
+      zoomInBtn.addEventListener('click', () => map.zoomIn());
+      zoomOutBtn.addEventListener('click', () => map.zoomOut());
       L.DomEvent.disableClickPropagation(div);
       return div;
     }
   });
-  new JjinControl().addTo(maps.jjin);
+  new JjinControl().addTo(map);
 
   // 지도 클릭 등록 없음
 
-  renderJjinMarkers(placesCache);
-  setTimeout(() => maps.jjin.invalidateSize(), 200);
+  const dataForKey = key === 'jjinNew'
+    ? splitByListingType(placesCache).newOpening
+    : splitByListingType(placesCache).verified;
+  renderJjinMarkers(key, dataForKey);
+  setTimeout(() => map.invalidateSize(), 200);
 
   // 확대/축소·이동할 때마다 지금 배율 기준으로 다시 묶어서 그리기
-  maps.jjin.on('zoomend moveend', () => renderJjinMarkers(placesCache));
+  map.on('zoomend moveend', () => {
+    const data = key === 'jjinNew'
+      ? splitByListingType(placesCache).newOpening
+      : splitByListingType(placesCache).verified;
+    renderJjinMarkers(key, data);
+  });
 }
 
 // ---------- 화면 배율 기반 클러스터링 (모든 지도 공통) ----------
-const CLUSTER_RADIUS_KM = 100;
-// 화면에서 1cm가 실제로 100km 이상을 나타낼 만큼 축소됐을 때부터만 묶는다
-const CLUSTER_TRIGGER_KM_PER_CM = 100;
+const CLUSTER_RADIUS_KM = 30;
+// 화면에서 1cm가 실제로 30km 이상을 나타낼 만큼 축소됐을 때부터 묶는다
+const CLUSTER_TRIGGER_KM_PER_CM = 30;
 const CM_TO_PX = 37.8; // 96dpi 기준 1cm ≈ 37.8px
 
 // 현재 지도 화면에서 1cm가 실제로 몇 km를 의미하는지 계산
@@ -139,6 +178,10 @@ function getViewportKmPerCm(provider) {
       const b = maps.jjin.getBounds();
       bounds = { west: b.getWest(), east: b.getEast(), north: b.getNorth(), south: b.getSouth() };
       containerId = 'map-jjin';
+    } else if (provider === 'jjinNew' && maps.jjinNew) {
+      const b = maps.jjinNew.getBounds();
+      bounds = { west: b.getWest(), east: b.getEast(), north: b.getNorth(), south: b.getSouth() };
+      containerId = 'map-jjin-new';
     } else if (provider === 'kakao' && maps.kakao) {
       const b = maps.kakao.getBounds();
       const sw = b.getSouthWest(), ne = b.getNorthEast();
@@ -231,33 +274,50 @@ function placePopupHtml(p) {
   const imgHtml = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
     : `<div style="width:100%;height:60px;background:${getCategoryColor(p.category)}22;border-radius:4px;margin-bottom:6px;display:flex;align-items:center;justify-content:center;font-size:28px;">${getCategoryEmoji(p.category)}</div>`;
+  const ratingHtml = p.naver_rating != null
+    ? `<div style="font-size:12px;font-weight:700;color:#D9A441;margin:2px 0;">⭐ ${p.naver_rating} 네이버 평점${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
+    : '';
+  const reviewsHtml = (Array.isArray(p.naver_reviews) && p.naver_reviews.length)
+    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;max-height:110px;overflow-y:auto;">
+        ${p.naver_reviews.slice(0, 3).map((r) => `
+          <div style="font-size:11px;line-height:1.4;margin-bottom:5px;color:#444;">
+            ${r.rating != null ? `<span style="color:#D9A441;font-weight:700;">⭐${r.rating}</span> ` : ''}${escapeHtml((r.text || '').slice(0, 80))}${(r.text || '').length > 80 ? '…' : ''}
+          </div>`).join('')}
+      </div>`
+    : '';
   return `
-    <div style="font-family:'Noto Sans KR',sans-serif;min-width:180px;max-width:220px;">
+    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;">
       ${imgHtml}
+      ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       <b style="font-size:14px;">${escapeHtml(p.name)}</b>
+      ${ratingHtml}
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+      ${reviewsHtml}
       <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
         border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
     </div>`;
 }
 
-function renderJjinMarkers(places) {
-  if (!maps.jjin || !window.L) return;
+// key: 'jjin'(찐맛집 지도) 또는 'jjinNew'(신규 오픈 지도)
+function renderJjinMarkers(key, places) {
+  const map = maps[key];
+  if (!map || !window.L) return;
   const L = window.L;
 
-  markers.jjin.forEach((m) => maps.jjin.removeLayer(m));
-  markers.jjin = [];
+  markers[key].forEach((m) => map.removeLayer(m));
+  markers[key] = [];
 
-  const groups = getGroups('jjin', places);
+  const groups = getGroups(key, places);
+  const isNewOpening = key === 'jjinNew';
 
   groups.forEach((group) => {
     let marker;
     if (group.count === 1) {
       const p = group.places[0];
-      const color = getCategoryColor(p.category);
+      const color = isNewOpening ? '#2E7D32' : getCategoryColor(p.category);
       const icon = L.divIcon({
         className: '',
         html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
@@ -267,7 +327,7 @@ function renderJjinMarkers(places) {
         iconAnchor: [14, 28],
       });
       marker = L.marker([p.lat, p.lng], { icon });
-      marker.bindPopup(placePopupHtml(p), { maxWidth: 240 });
+      marker.bindPopup(placePopupHtml(p), { maxWidth: 280 });
     } else {
       const icon = L.divIcon({
         className: '',
@@ -277,11 +337,11 @@ function renderJjinMarkers(places) {
       });
       marker = L.marker([group.lat, group.lng], { icon });
       marker.on('click', () => {
-        maps.jjin.setView([group.lat, group.lng], Math.min(maps.jjin.getZoom() + 3, 18));
+        map.setView([group.lat, group.lng], Math.min(map.getZoom() + 3, 18));
       });
     }
-    marker.addTo(maps.jjin);
-    markers.jjin.push(marker);
+    marker.addTo(map);
+    markers[key].push(marker);
   });
 }
 
@@ -332,6 +392,15 @@ async function initKakaoMap() {
   maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
   renderKakaoMarkers(placesCache);
   kakao.maps.event.addListener(maps.kakao, 'idle', () => renderKakaoMarkers(placesCache));
+
+  // 탭이 활성화되기 전(컨테이너 크기가 0인 상태)에 지도가 만들어지면 타일이 안 그려지는 카카오맵 고질적 버그 —
+  // relayout()으로 크기를 다시 계산시켜줘야 함
+  setTimeout(() => {
+    if (maps.kakao) {
+      maps.kakao.relayout();
+      maps.kakao.setCenter(center);
+    }
+  }, 200);
 }
 
 async function initNaverMap() {
@@ -476,6 +545,7 @@ function shouldShow(place, mapName) {
 
 function renderKakaoMarkers(places) {
   if (!maps.kakao) return;
+  if (openInfoWindows.kakao) { openInfoWindows.kakao.close(); openInfoWindows.kakao = null; }
   markers.kakao.forEach((m) => m.setMap(null));
   markers.kakao = [];
 
@@ -486,20 +556,22 @@ function renderKakaoMarkers(places) {
       const p = group.places[0];
       const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
       const infowindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
-          <b style="font-size:13px;">${escapeHtml(p.name)}</b>
-          <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
-          ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
-          <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
-            style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
-            border:1.5px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;">🚶 거리뷰</button>
-        </div>`,
+        content: `<div style="padding:6px;background:#fff;border-radius:6px;">${placePopupHtml(p)}</div>`,
         removable: true,
+        zIndex: 10000,
       });
       kakao.maps.event.addListener(marker, 'click', () => {
+        if (openInfoWindows.kakao) openInfoWindows.kakao.close();
         infowindow.open(maps.kakao, marker);
+        openInfoWindows.kakao = infowindow;
+        selectedPlaceId.kakao = p.id;
         maps.kakao.panTo(marker.getPosition());
       });
+      // 재렌더링 후에도 선택돼 있던 가게면 정보창을 다시 열어줌 (지도 이동/줌으로 사라지지 않게)
+      if (selectedPlaceId.kakao === p.id) {
+        infowindow.open(maps.kakao, marker);
+        openInfoWindows.kakao = infowindow;
+      }
       markers.kakao.push(marker);
     } else {
       const content = document.createElement('div');
@@ -525,6 +597,7 @@ function renderNaverMarkers(places) {
 
 function drawNaverClusters() {
   if (!maps.naver) return;
+  if (openInfoWindows.naver) { openInfoWindows.naver.close(); openInfoWindows.naver = null; }
   naverClusterMarkers.forEach((m) => m.setMap(null));
   naverClusterMarkers = [];
 
@@ -534,8 +607,32 @@ function drawNaverClusters() {
     const position = new naver.maps.LatLng(group.lat, group.lng);
 
     if (group.count === 1) {
+      const p = group.places[0];
       const marker = new naver.maps.Marker({ position, map: maps.naver });
-      naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
+      const infowindow = new naver.maps.InfoWindow({
+        content: `<div style="padding:6px;background:#fff;border-radius:6px;">${placePopupHtml(p)}</div>`,
+        borderWidth: 0,
+        backgroundColor: '#ffffff',
+        disableAnchor: true,
+        zIndex: 10000,
+      });
+      naver.maps.Event.addListener(marker, 'click', () => {
+        if (openInfoWindows.naver) openInfoWindows.naver.close();
+        if (selectedPlaceId.naver === p.id) {
+          // 같은 마커를 다시 누르면 닫기
+          selectedPlaceId.naver = null;
+          openInfoWindows.naver = null;
+        } else {
+          infowindow.open(maps.naver, marker);
+          openInfoWindows.naver = infowindow;
+          selectedPlaceId.naver = p.id;
+        }
+        maps.naver.panTo(position);
+      });
+      if (selectedPlaceId.naver === p.id) {
+        infowindow.open(maps.naver, marker);
+        openInfoWindows.naver = infowindow;
+      }
       naverClusterMarkers.push(marker);
     } else {
       const marker = new naver.maps.Marker({
@@ -554,6 +651,7 @@ function drawNaverClusters() {
 
 function renderGoogleMarkers(places) {
   if (!maps.google) return;
+  if (openInfoWindows.google) { openInfoWindows.google.close(); openInfoWindows.google = null; }
   markers.google.forEach((m) => m.setMap(null));
   markers.google = [];
 
@@ -564,10 +662,24 @@ function renderGoogleMarkers(places) {
       const p = group.places[0];
       const position = { lat: p.lat, lng: p.lng };
       const marker = new google.maps.Marker({ position, map: maps.google });
-      marker.addListener('click', () => {
-        maps.google.panTo(position);
-        openStreetView(p.lat, p.lng, p.name);
+      const infowindow = new google.maps.InfoWindow({
+        content: `<div style="padding:2px;">${placePopupHtml(p)}</div>`,
       });
+      infowindow.addListener('closeclick', () => {
+        if (selectedPlaceId.google === p.id) selectedPlaceId.google = null;
+        openInfoWindows.google = null;
+      });
+      marker.addListener('click', () => {
+        if (openInfoWindows.google) openInfoWindows.google.close();
+        infowindow.open(maps.google, marker);
+        openInfoWindows.google = infowindow;
+        selectedPlaceId.google = p.id;
+        maps.google.panTo(position);
+      });
+      if (selectedPlaceId.google === p.id) {
+        infowindow.open(maps.google, marker);
+        openInfoWindows.google = infowindow;
+      }
       markers.google.push(marker);
     } else {
       const position = { lat: group.lat, lng: group.lng };
@@ -625,10 +737,13 @@ function closeStreetView() {
 }
 
 function renderAllMarkers(places) {
-  renderJjinMarkers(places);
-  renderKakaoMarkers(places);
-  renderNaverMarkers(places);
-  renderGoogleMarkers(places);
+  const { verified, newOpening } = splitByListingType(places);
+  renderJjinMarkers('jjin', verified);
+  if (maps.jjinNew) renderJjinMarkers('jjinNew', newOpening);
+  // 카카오·네이버·구글 지도는 지금은 찐맛집(verified)만 표시
+  renderKakaoMarkers(verified);
+  renderNaverMarkers(verified);
+  renderGoogleMarkers(verified);
 }
 
 
@@ -670,14 +785,24 @@ function setupMapTabs() {
       document.querySelectorAll('.map-tab').forEach((t) => t.classList.remove('active'));
       document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
       tab.classList.add('active');
-      document.getElementById(`map-${provider}`).classList.add('active');
+      const divId = provider === 'jjin'
+        ? (activeJjinKey() === 'jjinNew' ? 'map-jjin-new' : 'map-jjin')
+        : `map-${provider}`;
+      document.getElementById(divId).classList.add('active');
       currentProvider = provider;
 
       if (provider === 'jjin') {
-        initJjinMap();
-        if (maps.jjin) setTimeout(() => maps.jjin.invalidateSize(), 200);
+        const key = activeJjinKey();
+        initJjinMap(key);
+        if (maps[key]) setTimeout(() => maps[key].invalidateSize(), 200);
       }
-      if (provider === 'kakao') await initKakaoMap();
+      if (provider === 'kakao') {
+        await initKakaoMap();
+        if (maps.kakao) {
+          maps.kakao.relayout();
+          maps.kakao.setCenter(new kakao.maps.LatLng(37.5665, 126.978));
+        }
+      }
       if (provider === 'naver') {
         await initNaverMap();
         if (maps.naver) {
@@ -698,8 +823,8 @@ function setupMapTabs() {
 }
 
 function panActiveMapTo(lat, lng) {
-  if (currentProvider === 'jjin' && maps.jjin) {
-    maps.jjin.setView([lat, lng], 16);
+  if (currentProvider === 'jjin' && maps[activeJjinKey()]) {
+    maps[activeJjinKey()].setView([lat, lng], 16);
   } else if (currentProvider === 'kakao' && maps.kakao) {
     maps.kakao.panTo(new kakao.maps.LatLng(lat, lng));
   } else if (currentProvider === 'naver' && maps.naver) {
@@ -712,7 +837,7 @@ function panActiveMapTo(lat, lng) {
 // ---------- 주소 → 좌표 자동 변환 ----------
 let geocodeTimer = null;
 
-async function geocodeAddress(address) {
+async function geocodeAddress(address, name = '') {
   const statusEl = document.getElementById('geocodeStatus');
   const resultEl = document.getElementById('geocodeResult');
   const latInput = document.getElementById('latInput');
@@ -724,15 +849,16 @@ async function geocodeAddress(address) {
     latInput.value = '';
     lngInput.value = '';
     clearPreviewMarkers();
-    return;
+    return false;
   }
 
   statusEl.textContent = '🔍';
-  resultEl.textContent = '주소 검색 중...';
+  resultEl.textContent = '주소 확인 중...';
   resultEl.style.color = '#888';
 
   try {
-    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
+    const nameParam = name ? `&name=${encodeURIComponent(name)}` : '';
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}${nameParam}`);
     if (!res.ok) {
       const err = await res.json();
       statusEl.textContent = '❌';
@@ -741,7 +867,7 @@ async function geocodeAddress(address) {
       latInput.value = '';
       lngInput.value = '';
       clearPreviewMarkers();
-      return;
+      return false;
     }
 
     const { lat, lng, address_name } = await res.json();
@@ -751,10 +877,12 @@ async function geocodeAddress(address) {
     resultEl.textContent = `📍 ${address_name}`;
     resultEl.style.color = '#22c55e';
     showPreviewMarker(lat, lng);
+    return true;
   } catch (err) {
     statusEl.textContent = '❌';
-    resultEl.textContent = '주소 검색 중 오류가 발생했어요';
+    resultEl.textContent = '주소 확인 중 오류가 발생했어요';
     resultEl.style.color = '#ef4444';
+    return false;
   }
 }
 
@@ -774,7 +902,7 @@ async function loadPlaces() {
 
     const data = await res.json();
     placesCache = Array.isArray(data) ? data : [];
-    renderPlaceList(placesCache);
+    renderPlaceList(getListForCurrentType());
     renderAllMarkers(placesCache);
 
     // 홈(검색 결과)에서 특정 맛집을 콕 집어 넘어온 경우 해당 위치로 이동
@@ -791,6 +919,12 @@ async function loadPlaces() {
   }
 }
 
+// 현재 토글된 리스팅 종류(찐맛집/신규오픈)에 해당하는 목록만 반환
+function getListForCurrentType() {
+  const { verified, newOpening } = splitByListingType(placesCache);
+  return currentListingType === 'new_opening' ? newOpening : verified;
+}
+
 function renderPlaceList(items) {
   const list = document.getElementById('placeList');
   if (!items.length) {
@@ -799,17 +933,28 @@ function renderPlaceList(items) {
   }
   list.innerHTML = items
     .map(
-      (p) => `
+      (p) => {
+        const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+        const thumbHtml = p.image_url
+          ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
+          : '';
+        const naverRatingHtml = p.naver_rating != null
+          ? `<div class="rating">⭐ ${p.naver_rating} 네이버${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
+          : (p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : '');
+        return `
     <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
-      <div class="verified-badge">인증</div>
-      <h3>${escapeHtml(p.name)}</h3>
+      <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
+      ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
+      ${thumbHtml}
+      <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
-      ${p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : ''}
+      ${naverRatingHtml}
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
-    </li>`
+    </li>`;
+      }
     )
     .join('');
 
@@ -823,8 +968,9 @@ function renderPlaceList(items) {
 // 왼쪽 패널에서 등록된 맛집 이름/주소/카테고리로 검색 (지도에 등록을 위한 검색과는 별개)
 function filterPlaceList(query) {
   const q = query.trim().toLowerCase();
-  if (!q) { renderPlaceList(placesCache); return; }
-  const filtered = placesCache.filter((p) =>
+  const base = getListForCurrentType();
+  if (!q) { renderPlaceList(base); return; }
+  const filtered = base.filter((p) =>
     (p.name || '').toLowerCase().includes(q) ||
     (p.address || '').toLowerCase().includes(q) ||
     (p.category || '').toLowerCase().includes(q)
@@ -838,7 +984,41 @@ function filterPlaceList(query) {
 
 function showEmptyState() {
   const list = document.getElementById('placeList');
-  list.innerHTML = '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
+  list.innerHTML = currentListingType === 'new_opening'
+    ? '<li class="empty-state">아직 등록된 신규 오픈 매장이 없어요.<br>새로 생긴 곳을 등록해보세요.</li>'
+    : '<li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>';
+}
+
+// ---------- 리스팅 종류 토글 (찐맛집 / 신규 오픈) ----------
+function switchListingType(type) {
+  if (type === currentListingType) return;
+  currentListingType = type;
+
+  document.querySelectorAll('.listing-tab').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.listing === type);
+  });
+  document.getElementById('panelTitle').textContent =
+    type === 'new_opening' ? '신규 오픈' : '공개된 맛집';
+
+  // 지도(jjin) 탭을 보고 있을 때만 지도 인스턴스를 통째로 교체 — 새 지도는 처음 전환될 때 지연 초기화
+  if (currentProvider === 'jjin') {
+    const key = activeJjinKey();
+    document.querySelectorAll('.map-instance').forEach((el) => el.classList.remove('active'));
+    document.getElementById(key === 'jjinNew' ? 'map-jjin-new' : 'map-jjin').classList.add('active');
+    initJjinMap(key);
+    if (maps[key]) {
+      setTimeout(() => maps[key].invalidateSize(), 200);
+      renderJjinMarkers(key, getListForCurrentType());
+    }
+  }
+
+  renderPlaceList(getListForCurrentType());
+}
+
+function setupListingTypeToggle() {
+  document.querySelectorAll('.listing-tab').forEach((btn) => {
+    btn.addEventListener('click', () => switchListingType(btn.dataset.listing));
+  });
 }
 
 function escapeHtml(str) {
@@ -928,15 +1108,11 @@ function setupRegisterModal() {
     }
   });
 
-  // 주소 입력 시 디바운스 후 자동 지오코딩
-  addressInput.addEventListener('input', () => {
-    clearTimeout(geocodeTimer);
-    geocodeTimer = setTimeout(() => {
-      geocodeAddress(addressInput.value);
-    }, 600); // 0.6초 후 자동 검색
-  });
+  // 주소는 입력 중에는 검사하지 않고, 제출 버튼을 눌렀을 때 한 번만 확인한다 (아래 submit 핸들러 참고)
 
   document.getElementById('addBtn').addEventListener('click', () => {
+    const radio = form.querySelector(`input[name="listing_type"][value="${currentListingType}"]`);
+    if (radio) radio.checked = true;
     modal.showModal();
   });
 
@@ -947,6 +1123,24 @@ function setupRegisterModal() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    // 제출 시점에만 주소 → 좌표 확인 (입력 중에는 아무것도 검사하지 않음)
+    const addressStatusEl = document.getElementById('geocodeStatus');
+    const addressResultEl = document.getElementById('geocodeResult');
+    const addressVal = addressInput.value.trim();
+    const nameVal = form.querySelector('input[name="name"]')?.value.trim() || '';
+    if (!addressVal) {
+      alert('주소를 입력해주세요.');
+      return;
+    }
+    addressResultEl.textContent = '주소 확인 중...';
+    addressResultEl.style.color = '#888';
+    const geocodeOk = await geocodeAddress(addressVal, nameVal);
+    if (!geocodeOk) {
+      alert('주소를 확인할 수 없어요. 정확한 주소로 다시 입력해주세요.');
+      return;
+    }
+
     const fd = new FormData(form);
     const body = Object.fromEntries(fd.entries());
     body.lat = parseFloat(body.lat);
@@ -964,7 +1158,7 @@ function setupRegisterModal() {
     delete body.map_kakao; delete body.map_naver; delete body.map_google;
 
     if (isNaN(body.lat) || isNaN(body.lng)) {
-      alert('주소를 입력하면 자동으로 위치가 검색됩니다.\n주소를 다시 확인해주세요.');
+      alert('주소를 다시 확인해주세요.');
       return;
     }
 
@@ -980,12 +1174,22 @@ function setupRegisterModal() {
       });
       const result = await res.json();
       overlay.classList.add('hidden');
-      resetForm();
 
+      if (!res.ok && !result.duplicate) {
+        // 서버 쪽 오류(스키마/DB 문제 등) — 검증 결과가 아니라 요청 자체가 실패한 경우이니 반려로 표시하면 안 됨
+        alert(`⚠️ 등록 중 오류가 발생했어요.\n${result.error || '알 수 없는 오류'}`);
+        return; // 폼 유지 — 사용자가 다시 시도할 수 있게
+      }
+
+      resetForm();
       if (result.duplicate) {
         alert('⚠️ 중복 등록 불가\n' + result.error);
       } else if (result.status === 'verified') {
         alert('✅ 검증 완료! 지도에 공개되었습니다.\n🏅 등록 뱃지가 업데이트됐어요!');
+      } else if (result.status === 'pending') {
+        alert(`⏳ 검토 대기중: ${result.verify_reason || '사유 없음'}`);
+      } else if (result.status === 'rejected') {
+        alert(`❌ 반려: ${result.verify_reason || '사유 없음'}`);
       } else {
         alert(`검증 보류/반려: ${result.verify_reason || '사유 없음'}`);
       }
@@ -1008,12 +1212,112 @@ function resetForm() {
   clearPreviewMarkers();
 }
 
+// ---------- 하단 서랍(바텀시트) — 모바일에서 맛집 목록 패널을 드래그로 여닫기 ----------
+function setupBottomSheet() {
+  const panel = document.getElementById('panel');
+  const handle = document.getElementById('sheetHandle');
+  if (!panel || !handle) return;
+
+  function snapPoints() {
+    const vh = window.innerHeight;
+    return {
+      peek: 110,
+      half: Math.round(vh * 0.45),
+      full: Math.round(vh * 0.86),
+    };
+  }
+
+  function setHeight(px, animate = true) {
+    panel.classList.toggle('dragging', !animate);
+    panel.style.height = px + 'px';
+  }
+
+  // 화면 폭이 모바일 레이아웃일 때만 동작 (데스크톱은 핸들이 안 보임)
+  function isMobileLayout() {
+    return window.matchMedia('(max-width:760px)').matches;
+  }
+
+  // 모바일 레이아웃일 때만 바텀시트로 접어둔다 — 데스크톱/넓은 화면에서는 패널 높이를 건드리지 않음
+  if (isMobileLayout()) {
+    setHeight(snapPoints().peek, false);
+  } else {
+    panel.style.height = '';
+  }
+
+  let startY = 0;
+  let startHeight = 0;
+  let dragging = false;
+
+  function onStart(clientY) {
+    if (!isMobileLayout()) return;
+    dragging = true;
+    startY = clientY;
+    startHeight = panel.getBoundingClientRect().height;
+    panel.classList.add('dragging');
+  }
+
+  function onMove(clientY) {
+    if (!dragging) return;
+    const sp = snapPoints();
+    const delta = startY - clientY; // 위로 끌면 양수
+    let next = startHeight + delta;
+    next = Math.max(60, Math.min(sp.full, next));
+    panel.style.height = next + 'px';
+  }
+
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('dragging');
+
+    const sp = snapPoints();
+    const current = panel.getBoundingClientRect().height;
+    // 가장 가까운 스냅 지점으로 붙이기
+    const candidates = [sp.peek, sp.half, sp.full];
+    let closest = candidates[0];
+    let minDiff = Infinity;
+    candidates.forEach((c) => {
+      const diff = Math.abs(current - c);
+      if (diff < minDiff) { minDiff = diff; closest = c; }
+    });
+    setHeight(closest, true);
+  }
+
+  handle.addEventListener('touchstart', (e) => onStart(e.touches[0].clientY), { passive: true });
+  handle.addEventListener('touchmove', (e) => onMove(e.touches[0].clientY), { passive: true });
+  handle.addEventListener('touchend', onEnd);
+
+  handle.addEventListener('pointerdown', (e) => { handle.setPointerCapture(e.pointerId); onStart(e.clientY); });
+  handle.addEventListener('pointermove', (e) => onMove(e.clientY));
+  handle.addEventListener('pointerup', onEnd);
+  handle.addEventListener('pointercancel', onEnd);
+
+  // 화면 회전/크기 변경 시 peek 높이 재조정 (데스크톱으로 넓어지면 높이 제한 해제)
+  window.addEventListener('resize', () => {
+    if (dragging) return;
+    if (isMobileLayout()) setHeight(snapPoints().peek, false);
+    else panel.style.height = '';
+  });
+
+  // 탭해서 펼치기/접기 (드래그 없이 짧게 터치했을 때)
+  let tapStartTime = 0;
+  handle.addEventListener('touchstart', () => { tapStartTime = Date.now(); }, { passive: true });
+  handle.addEventListener('touchend', () => {
+    if (Date.now() - tapStartTime > 250) return; // 드래그였으면 무시
+    const sp = snapPoints();
+    const current = Math.round(panel.getBoundingClientRect().height);
+    setHeight(current <= sp.peek + 10 ? sp.half : sp.peek, true);
+  });
+}
+
 // ---------- 시작 ----------
 window.addEventListener('DOMContentLoaded', async () => {
   setupMapTabs();
+  setupListingTypeToggle();
   updateMapTabLocks();
-  initJjinMap(); // 찐지도 기본 로드
+  initJjinMap('jjin'); // 찐맛집 지도 기본 로드 (신규 오픈 지도는 처음 토글할 때 지연 초기화)
   setupRegisterModal();
+  setupBottomSheet();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
   loadPlaces();
 });
