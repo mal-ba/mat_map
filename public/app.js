@@ -1104,12 +1104,22 @@ function setupRegisterModal() {
       });
       const result = await res.json();
       overlay.classList.add('hidden');
-      resetForm();
 
+      if (!res.ok && !result.duplicate) {
+        // 서버 쪽 오류(스키마/DB 문제 등) — 검증 결과가 아니라 요청 자체가 실패한 경우이니 반려로 표시하면 안 됨
+        alert(`⚠️ 등록 중 오류가 발생했어요.\n${result.error || '알 수 없는 오류'}`);
+        return; // 폼 유지 — 사용자가 다시 시도할 수 있게
+      }
+
+      resetForm();
       if (result.duplicate) {
         alert('⚠️ 중복 등록 불가\n' + result.error);
       } else if (result.status === 'verified') {
         alert('✅ 검증 완료! 지도에 공개되었습니다.\n🏅 등록 뱃지가 업데이트됐어요!');
+      } else if (result.status === 'pending') {
+        alert(`⏳ 검토 대기중: ${result.verify_reason || '사유 없음'}`);
+      } else if (result.status === 'rejected') {
+        alert(`❌ 반려: ${result.verify_reason || '사유 없음'}`);
       } else {
         alert(`검증 보류/반려: ${result.verify_reason || '사유 없음'}`);
       }
