@@ -552,14 +552,7 @@ function renderKakaoMarkers(places) {
       const p = group.places[0];
       const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.lat, p.lng), map: maps.kakao });
       const infowindow = new kakao.maps.InfoWindow({
-        content: `<div style="padding:8px 12px;font-family:'Noto Sans KR',sans-serif;min-width:140px;">
-          <b style="font-size:13px;">${escapeHtml(p.name)}</b>
-          <div style="font-size:11px;color:#8A8580;margin-top:2px;">${escapeHtml(p.category||'')}</div>
-          ${p.comment ? `<div style="font-size:11px;margin-top:3px;">${escapeHtml(p.comment)}</div>` : ''}
-          <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
-            style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
-            border:1.5px solid #ccc;border-radius:4px;padding:4px;cursor:pointer;">🚶 거리뷰</button>
-        </div>`,
+        content: `<div style="padding:6px;">${placePopupHtml(p)}</div>`,
         removable: true,
       });
       kakao.maps.event.addListener(marker, 'click', () => {
@@ -600,8 +593,19 @@ function drawNaverClusters() {
     const position = new naver.maps.LatLng(group.lat, group.lng);
 
     if (group.count === 1) {
+      const p = group.places[0];
       const marker = new naver.maps.Marker({ position, map: maps.naver });
-      naver.maps.Event.addListener(marker, 'click', () => maps.naver.panTo(position));
+      const infowindow = new naver.maps.InfoWindow({
+        content: `<div style="padding:6px;">${placePopupHtml(p)}</div>`,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+        disableAnchor: true,
+      });
+      naver.maps.Event.addListener(marker, 'click', () => {
+        if (infowindow.getMap()) infowindow.close();
+        else infowindow.open(maps.naver, marker);
+        maps.naver.panTo(position);
+      });
       naverClusterMarkers.push(marker);
     } else {
       const marker = new naver.maps.Marker({
@@ -630,9 +634,12 @@ function renderGoogleMarkers(places) {
       const p = group.places[0];
       const position = { lat: p.lat, lng: p.lng };
       const marker = new google.maps.Marker({ position, map: maps.google });
+      const infowindow = new google.maps.InfoWindow({
+        content: `<div style="padding:2px;">${placePopupHtml(p)}</div>`,
+      });
       marker.addListener('click', () => {
+        infowindow.open(maps.google, marker);
         maps.google.panTo(position);
-        openStreetView(p.lat, p.lng, p.name);
       });
       markers.google.push(marker);
     } else {
