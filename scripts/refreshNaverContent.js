@@ -23,6 +23,7 @@ async function main() {
   }
 
   console.log(`[refreshNaverContent] 시작 — 모드: ${MODE}, 대상: ${places.length}개`);
+  console.log(`[refreshNaverContent] 키 상태 — NAVER_SEARCH_CLIENT_ID: ${process.env.NAVER_SEARCH_CLIENT_ID ? 'O' : '❌ 없음'}, NAVER_SEARCH_CLIENT_SECRET: ${process.env.NAVER_SEARCH_CLIENT_SECRET ? 'O' : '❌ 없음'}`);
 
   let updated = 0, skipped = 0, failed = 0;
   for (const place of places) {
