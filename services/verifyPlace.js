@@ -251,11 +251,49 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// ── AI 호출 (Claude → Gemini → 없으면 null 반환) ────────────────
+// imageBlocks: [{ media_type, base64 }] 형태의 배열 (선택)
+// JSON 문자열을 그대로 반환 — 호출부에서 JSON.parse 처리
+async function callAiJudge(prompt, imageBlocks = []) {
+  if (process.env.ANTHROPIC_API_KEY) {
+    const content = [
+      ...imageBlocks.map((img) => ({
+        type: 'image',
+        source: { type: 'base64', media_type: img.media_type, data: img.base64 },
+      })),
+      { type: 'text', text: prompt },
+    ];
+    const res = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      { model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content }] },
+      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }
+    );
+    return res.data.content.map((b) => b.text || '').join('');
+  }
+
+  if (process.env.GEMINI_API_KEY) {
+    // 무료 티어(Gemini 2.5 Flash) — 카드 등록 없이 aistudio.google.com에서 키 발급 가능
+    const parts = [
+      ...imageBlocks.map((img) => ({ inline_data: { mime_type: img.media_type, data: img.base64 } })),
+      { text: prompt },
+    ];
+    const res = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      { contents: [{ parts }] },
+      { headers: { 'content-type': 'application/json' } }
+    );
+    return res.data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+  }
+
+  return null; // 둘 다 없음 — 호출부에서 자동승인 등 기본값 처리
+}
+
+function parseAiJson(text) {
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
 // ── AI 최종 판단 (실존 여부 / 명백히 이상한 등록인지) ───────────
 async function aiDoubleCheck({ name, address, foundName, category, source }) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return { approve: true, reason: `${source} 확인으로 자동 승인 (AI 키 미설정)` };
-  }
   const prompt = `다음 장소가 실제로 존재하는 신뢰할 만한 음식점/카페인지 판단해줘.
 등록된 이름: ${name}
 등록된 주소: ${address}
@@ -264,13 +302,11 @@ async function aiDoubleCheck({ name, address, foundName, category, source }) {
 이름이 명백히 다른 업종이거나 완전히 다른 상호면 반려.
 JSON으로만 답해: {"approve": true|false, "reason": "한 문장 이유"}`;
   try {
-    const res = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      { model: 'claude-sonnet-4-6', max_tokens: 200, messages: [{ role: 'user', content: prompt }] },
-      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }
-    );
-    const text = res.data.content.map(b => b.text || '').join('');
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
+    const text = await callAiJudge(prompt);
+    if (text == null) {
+      return { approve: true, reason: `${source} 확인으로 자동 승인 (AI 키 미설정)` };
+    }
+    return parseAiJson(text);
   } catch (err) {
     console.error('[aiDoubleCheck]', err.message);
     return { approve: true, reason: 'AI 오류로 기본 승인' };
@@ -279,7 +315,7 @@ JSON으로만 답해: {"approve": true|false, "reason": "한 문장 이유"}`;
 
 // ── AI 리뷰/사진 신뢰도 분석 (네이버 콘텐츠 기반) ────────────────
 async function analyzeNaverContent({ reviews, photoUrls }) {
-  if (!process.env.ANTHROPIC_API_KEY || (!reviews.length && !photoUrls.length)) {
+  if (!reviews.length && !photoUrls.length) {
     return { trustScore: null, adLikeCount: 0, photoNote: '분석할 데이터 없음', summary: '' };
   }
 
@@ -289,12 +325,8 @@ async function analyzeNaverContent({ reviews, photoUrls }) {
     try {
       const img = await axios.get(url, { responseType: 'arraybuffer', timeout: 5000 });
       imageBlocks.push({
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: img.headers['content-type'] || 'image/jpeg',
-          data: Buffer.from(img.data).toString('base64'),
-        },
+        media_type: img.headers['content-type'] || 'image/jpeg',
+        base64: Buffer.from(img.data).toString('base64'),
       });
     } catch (err) {
       console.error('[analyzeNaverContent photo]', err.message);
@@ -315,17 +347,11 @@ JSON으로만 답해:
 {"trustScore": 0-100, "adLikeCount": 숫자, "photoNote": "사진 판단 한 문장", "summary": "전체 한 문장 요약"}`;
 
   try {
-    const res = await axios.post(
-      'https://api.anthropic.com/v1/messages',
-      {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: [...imageBlocks, { type: 'text', text: prompt }] }],
-      },
-      { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' } }
-    );
-    const text = res.data.content.map(b => b.text || '').join('');
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
+    const text = await callAiJudge(prompt, imageBlocks);
+    if (text == null) {
+      return { trustScore: null, adLikeCount: 0, photoNote: 'AI 키 미설정', summary: '' };
+    }
+    return parseAiJson(text);
   } catch (err) {
     console.error('[analyzeNaverContent]', err.message);
     return { trustScore: null, adLikeCount: 0, photoNote: 'AI 오류', summary: 'AI 분석 오류' };
