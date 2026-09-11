@@ -48,8 +48,11 @@ async function verifyPlace({ name, address, lat, lng }) {
     source: sources.join('·'),
   });
 
-  // 네이버에서 잡힌 경우, 평점/리뷰/사진을 가져와 AI 리뷰 신뢰도 분석 (실존 여부 판단과는 별개)
+  // 네이버에서 잡힌 경우, 평점/리뷰/사진을 가져와 AI 리뷰 신뢰도 분석 + 평점 게이트 적용
   let naverExtra = {};
+  // 리뷰가 있는데 4점 이상 비율이 50% 미만이면 반려 — 리뷰가 아예 없으면(신규 오픈 등) 이 기준을 적용하지 않음
+  let ratingGate = { passed: true, reason: '' };
+
   if (naverResult?.id) {
     const [detail, content] = await Promise.all([
       fetchNaverPlaceDetail(naverResult.id),
@@ -59,18 +62,35 @@ async function verifyPlace({ name, address, lat, lng }) {
       reviews: content.reviews,
       photoUrls: content.photos,
     });
+
+    const ratedReviews = content.reviews.filter(r => typeof r.rating === 'number');
+    if (ratedReviews.length > 0) {
+      const highCount = ratedReviews.filter(r => r.rating >= 4).length;
+      const highRatio = highCount / ratedReviews.length;
+      ratingGate = {
+        passed: highRatio >= 0.5,
+        reason: `리뷰 ${ratedReviews.length}개 중 4점 이상 ${highCount}개(${Math.round(highRatio * 100)}%)`,
+      };
+    }
+
     naverExtra = {
       naver_rating: detail?.rating ?? null,
       naver_review_count: detail?.reviewCount ?? null,
       review_trust_score: contentAnalysis.trustScore,
       review_summary: contentAnalysis.summary,
       photo_authenticity_note: contentAnalysis.photoNote,
+      naver_photo_url: content.photos?.[0] || null, // AI가 네이버에서 직접 가져온 대표 사진
     };
   }
 
+  const finalApprove = aiVerdict.approve && ratingGate.passed;
+  const reasonParts = [aiVerdict.reason];
+  if (!ratingGate.passed) reasonParts.push(`평점 기준 미달 — ${ratingGate.reason}`);
+  else if (ratingGate.reason) reasonParts.push(ratingGate.reason);
+
   return {
-    status: aiVerdict.approve ? 'verified' : 'rejected',
-    reason: `${sources.join('·')} 확인 / ${aiVerdict.reason}`,
+    status: finalApprove ? 'verified' : 'rejected',
+    reason: `${sources.join('·')} 확인 / ${reasonParts.filter(Boolean).join(' / ')}`,
     naver_place_id: naverResult?.id,
     kakao_place_id: kakaoResult?.id,
     ...naverExtra,
