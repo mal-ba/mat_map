@@ -133,6 +133,7 @@ router.post('/', requireAuth, async (req, res) => {
   // ─────────────────────────────────────────────────────────
 
   const verdict = await verifyPlace({ name, address, lat, lng });
+  const finalImageUrl = image_url || verdict.naver_photo_url || null; // 사용자 업로드 우선, 없으면 AI가 네이버에서 가져온 사진
 
   const { data, error } = await supabase
     .from('places')
@@ -143,7 +144,7 @@ router.post('/', requireAuth, async (req, res) => {
       lng,
       category,
       comment,
-      image_url,
+      image_url: finalImageUrl,
       submitted_by: req.user.userId,
       status: verdict.status,
       verify_reason: verdict.reason,
