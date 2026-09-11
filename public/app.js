@@ -767,7 +767,7 @@ function panActiveMapTo(lat, lng) {
 // ---------- 주소 → 좌표 자동 변환 ----------
 let geocodeTimer = null;
 
-async function geocodeAddress(address) {
+async function geocodeAddress(address, name = '') {
   const statusEl = document.getElementById('geocodeStatus');
   const resultEl = document.getElementById('geocodeResult');
   const latInput = document.getElementById('latInput');
@@ -787,7 +787,8 @@ async function geocodeAddress(address) {
   resultEl.style.color = '#888';
 
   try {
-    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
+    const nameParam = name ? `&name=${encodeURIComponent(name)}` : '';
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}${nameParam}`);
     if (!res.ok) {
       const err = await res.json();
       statusEl.textContent = '❌';
@@ -1057,13 +1058,14 @@ function setupRegisterModal() {
     const addressStatusEl = document.getElementById('geocodeStatus');
     const addressResultEl = document.getElementById('geocodeResult');
     const addressVal = addressInput.value.trim();
+    const nameVal = form.querySelector('input[name="name"]')?.value.trim() || '';
     if (!addressVal) {
       alert('주소를 입력해주세요.');
       return;
     }
     addressResultEl.textContent = '주소 확인 중...';
     addressResultEl.style.color = '#888';
-    const geocodeOk = await geocodeAddress(addressVal);
+    const geocodeOk = await geocodeAddress(addressVal, nameVal);
     if (!geocodeOk) {
       alert('주소를 확인할 수 없어요. 정확한 주소로 다시 입력해주세요.');
       return;
