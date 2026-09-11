@@ -389,6 +389,15 @@ async function initKakaoMap() {
   maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
   renderKakaoMarkers(placesCache);
   kakao.maps.event.addListener(maps.kakao, 'idle', () => renderKakaoMarkers(placesCache));
+
+  // 탭이 활성화되기 전(컨테이너 크기가 0인 상태)에 지도가 만들어지면 타일이 안 그려지는 카카오맵 고질적 버그 —
+  // relayout()으로 크기를 다시 계산시켜줘야 함
+  setTimeout(() => {
+    if (maps.kakao) {
+      maps.kakao.relayout();
+      maps.kakao.setCenter(center);
+    }
+  }, 200);
 }
 
 async function initNaverMap() {
@@ -741,7 +750,13 @@ function setupMapTabs() {
         initJjinMap(key);
         if (maps[key]) setTimeout(() => maps[key].invalidateSize(), 200);
       }
-      if (provider === 'kakao') await initKakaoMap();
+      if (provider === 'kakao') {
+        await initKakaoMap();
+        if (maps.kakao) {
+          maps.kakao.relayout();
+          maps.kakao.setCenter(new kakao.maps.LatLng(37.5665, 126.978));
+        }
+      }
       if (provider === 'naver') {
         await initNaverMap();
         if (maps.naver) {
