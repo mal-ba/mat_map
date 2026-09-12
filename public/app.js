@@ -270,6 +270,20 @@ function clusterBubbleHtml(count) {
     font-family:'Noto Sans KR',sans-serif;">${count}</div>`;
 }
 
+// "최근 확인됨" 배지 — 네이버 재검증(naver_reviews_updated_at)이 언제 마지막으로
+// 성공했는지 보여준다. 폐업 여부를 직접 판별하는 건 아니고, "이 정보가 언제 기준인지"를
+// 솔직하게 알려주는 용도 (검증 방법론 페이지의 설명과 짝을 이룸).
+function recentCheckBadgeHtml(p) {
+  const checkedAt = p.naver_reviews_updated_at;
+  if (!checkedAt) return '';
+  const days = Math.floor((Date.now() - new Date(checkedAt).getTime()) / 86400000);
+  let label, color;
+  if (days <= 30) { label = days <= 0 ? '오늘 확인됨' : `${days}일 전 확인됨`; color = '#2E7D32'; }
+  else if (days <= 90) { label = `${days}일 전 확인됨`; color = '#B58900'; }
+  else { label = `확인된 지 ${days}일 지남`; color = '#8A8580'; }
+  return `<span title="네이버 정보를 마지막으로 재확인한 시점" style="display:inline-block;font-size:10px;font-weight:700;color:${color};border:1px solid ${color};border-radius:999px;padding:1px 7px;margin:2px 0;">🕓 ${label}</span>`;
+}
+
 function placePopupHtml(p) {
   const imgHtml = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:6px;" onerror="this.style.display='none'" />`
@@ -294,6 +308,7 @@ function placePopupHtml(p) {
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
+      <div>${recentCheckBadgeHtml(p)}</div>
       ${reviewsHtml}
       <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
@@ -955,6 +970,7 @@ function renderPlaceList(items) {
       <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${naverRatingHtml}
+      <div>${recentCheckBadgeHtml(p)}</div>
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
       ${tagsHtml}
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"

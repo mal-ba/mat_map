@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검증 방법론 | 찐맛집</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.7;
+    color: #222;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    background: #fafafa;
+  }
+  h1 {
+    font-size: 1.6rem;
+    border-bottom: 3px solid #2E7D32;
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+  }
+  .meta { color: #666; font-size: 0.9rem; margin-bottom: 32px; }
+  h2 { font-size: 1.15rem; margin-top: 36px; margin-bottom: 10px; color: #1e5631; }
+  h3 { font-size: 1rem; margin-top: 20px; margin-bottom: 6px; }
+  .step {
+    background: #fff;
+    border: 1px solid #E7E4DF;
+    border-left: 4px solid #2E7D32;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 12px 0;
+  }
+  .step .num {
+    display: inline-block;
+    font-weight: 900;
+    color: #2E7D32;
+    margin-right: 6px;
+  }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .note {
+    background: #fff7ed;
+    border-left: 4px solid #f59e0b;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  .badge-demo {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-right: 4px;
+  }
+  a { color: #2E7D32; }
+</style>
+</head>
+<body>
+
+<h1>🕵️ 찐맛집은 어떻게 검증하나요</h1>
+<p class="meta">
+  <strong>서비스명:</strong> 찐맛집 (mat-map)<br>
+  <strong>최종 수정일:</strong> 2026년 9월 13일
+</p>
+
+<p>
+  찐맛집은 등록된 가게를 사람이 하나하나 심사하지 않습니다. 대신 지도 3사 데이터와 AI를 이용해
+  아래 단계를 자동으로 거치고, 그 결과(승인/반려 사유)를 그대로 남깁니다. 이 페이지는 그 단계를
+  숨김없이 설명하기 위한 페이지입니다. 완벽한 필터는 아니며, 아래 "한계" 항목도 함께 읽어주세요.
+</p>
+
+<h2>검증 4단계</h2>
+
+<div class="step"><span class="num">1</span><strong>실존 여부 3중 대조</strong>
+  <p>등록된 이름과 좌표를 네이버·카카오·구글 세 곳에서 동시에 검색합니다. 한 곳도 못 찾으면
+  일단 "검토중(pending)"으로 두고, 등록 좌표 근처 50m 이내에 같은 상호가 있는지 한 번 더
+  대조해 신규 오픈처럼 아직 검색에 안 잡히는 가게를 구제합니다.</p>
+</div>
+
+<div class="step"><span class="num">2</span><strong>위치 거리 검증</strong>
+  <p>지도 서비스에서 찾은 위치와 사용자가 등록한 위치가 500m 이내인지 확인합니다. 너무 멀면
+  "이름은 맞는데 실제 등록 위치가 아닌 것 같다"고 판단해 반려합니다.</p>
+</div>
+
+<div class="step"><span class="num">3</span><strong>평점 게이트</strong>
+  <p>네이버에 리뷰가 있는 경우, 평점이 매겨진 리뷰 중 4점 이상 비율이 50% 미만이면 반려합니다.
+  리뷰가 아예 없는 신규 가게는 이 기준을 적용하지 않습니다.</p>
+</div>
+
+<div class="step"><span class="num">4</span><strong>AI 리뷰·사진 신뢰도 분석</strong>
+  <p>네이버 리뷰 원문과 사진을 AI에게 보여주고 두 가지를 판단하게 합니다.</p>
+  <ul>
+    <li><strong>광고성 리뷰 판별</strong> — 상투적 칭찬 반복, 구체적 방문 디테일 부재 등은 광고성 신호로,
+      대기시간·특정 메뉴 맛·단점 언급 등은 실제 방문 신호로 봅니다.</li>
+    <li><strong>사진 진위 판단</strong> — 실제 방문객이 찍은 사진인지, 업체가 올린 홍보용/스튜디오
+      사진에 가까운지 구분합니다.</li>
+  </ul>
+  <p>이 과정에서 신뢰도 점수(0~100)와 상황별 태그(혼밥·데이트·회식·가족모임·심야·주차가능·가성비·분위기좋음)도
+  함께 뽑아 지도 카드에 표시합니다.</p>
+</div>
+
+<h2>"최근 확인됨" 배지는 무슨 뜻인가요</h2>
+<p>
+  가게 카드에 붙는
+  <span class="badge-demo" style="color:#2E7D32;border:1px solid #2E7D32;">🕓 12일 전 확인됨</span>
+  배지는 <strong>찐맛집이 네이버 정보를 마지막으로 다시 확인한 시점</strong>을 뜻합니다.
+  폐업 여부를 실시간으로 감지하는 기능은 아직 아니고, "이 평점·리뷰 정보가 언제 기준인지"를
+  솔직하게 알려드리기 위한 표시입니다. 확인된 지 오래됐다면(90일 이상) 회색으로 표시되니,
+  방문 전 최신 영업 여부는 별도로 확인하시는 걸 권장합니다.
+</p>
+
+<h2>검증 배지는 돈으로 살 수 없습니다</h2>
+<p>
+  업주가 결제하는 '끌어올리기'는 검증을 통과한 가게가 지도·검색 결과 상단에 노출되게 해주는
+  기능일 뿐, 검증 배지 자체를 부여하지 않습니다. "광고비를 낸 곳"과 "실제로 검증된 곳"이라는
+  두 가지 신호를 분리해두는 것이 찐맛집의 핵심 원칙입니다.
+</p>
+
+<h2>한계 — 아직 못 하는 것</h2>
+<div class="note">
+  <ul>
+    <li>AI 판단이므로 오탐(잘못된 승인/반려)이 있을 수 있습니다. 오탐을 발견하면 신고해 주세요.</li>
+    <li>가게가 실제로 폐업했는데 지도 서비스에 정보가 남아 있는 경우, 찐맛집도 이를 바로 걸러내지
+      못할 수 있습니다. 위의 "최근 확인됨" 배지로 정보의 신선도를 참고해 주세요.</li>
+    <li>현재는 네이버 리뷰를 기준으로 신뢰도를 분석합니다. 카카오·구글 리뷰까지 분석에 포함하는
+      것은 다음 단계 목표입니다.</li>
+  </ul>
+</div>
+
+<p style="margin-top:32px;">
+  <a href="/map.html">← 지도로 돌아가기</a>
+</p>
+
+</body>
+</html>
