@@ -288,7 +288,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
   // ─────────────────────────────────────────────────────────
 
-  const verdict = await verifyPlace({ name, address, lat, lng });
+  const verdict = await verifyPlace({ name, address, lat, lng, comment });
   const finalImageUrl = image_url || verdict.naver_photo_url || null; // 사용자 업로드 우선, 없으면 AI가 네이버에서 가져온 사진
 
   const { data, error } = await supabase
@@ -312,6 +312,7 @@ router.post('/', requireAuth, async (req, res) => {
       review_summary: verdict.review_summary,
       photo_authenticity_note: verdict.photo_authenticity_note,
       naver_reviews: verdict.naver_reviews || null,
+      tags: verdict.tags || [],
       listing_type,
       show_on_maps: show_on_maps || 'kakao,naver,google',
     })
@@ -487,6 +488,15 @@ router.post('/refresh-naver-content-all', requireAuth, requireAdmin, async (req,
     await new Promise((r) => setTimeout(r, 300)); // 네이버/카카오 호출 과부하 방지용 딜레이
   }
   res.json(summary);
+});
+
+// 개인화 추천 근거로 쓰기 위한 조회 로그 — 실패해도 화면 흐름엔 영향 없음
+router.post('/:id/view', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('place_views')
+    .insert({ user_id: req.user.userId, place_id: req.params.id });
+  if (error) console.error('[places/:id/view]', error.message);
+  res.json({ ok: true });
 });
 
 module.exports = router;
