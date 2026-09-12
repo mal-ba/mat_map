@@ -904,6 +904,7 @@ async function loadPlaces() {
     placesCache = Array.isArray(data) ? data : [];
     renderPlaceList(getListForCurrentType());
     renderAllMarkers(placesCache);
+    renderTagFilterBar();
 
     // 홈(검색 결과)에서 특정 맛집을 콕 집어 넘어온 경우 해당 위치로 이동
     const focusId = new URLSearchParams(location.search).get('focus');
@@ -941,8 +942,13 @@ function renderPlaceList(items) {
         const naverRatingHtml = p.naver_rating != null
           ? `<div class="rating">⭐ ${p.naver_rating} 네이버${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
           : (p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : '');
+        const tagsHtml = (p.tags && p.tags.length)
+          ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${p.tags.map(t =>
+              `<span style="font-size:11px;background:#F5F3EF;border:1px solid var(--line,#E7E4DF);border-radius:999px;padding:2px 8px;">#${escapeHtml(t)}</span>`
+            ).join('')}</div>`
+          : '';
         return `
-    <li class="place-card" data-lat="${p.lat}" data-lng="${p.lng}">
+    <li class="place-card" data-id="${p.id}" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
       ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
       ${thumbHtml}
@@ -950,6 +956,7 @@ function renderPlaceList(items) {
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${naverRatingHtml}
       ${p.comment ? `<div class="comment">${escapeHtml(p.comment)}</div>` : ''}
+      ${tagsHtml}
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
@@ -961,6 +968,31 @@ function renderPlaceList(items) {
   list.querySelectorAll('.place-card').forEach((card) => {
     card.addEventListener('click', () => {
       panActiveMapTo(parseFloat(card.dataset.lat), parseFloat(card.dataset.lng));
+      fetch(`/api/places/${card.dataset.id}/view`, { method: 'POST' }).catch(() => {});
+    });
+  });
+}
+
+// ---------- 상황별 태그 필터 ----------
+let activeTagFilters = new Set();
+
+function renderTagFilterBar() {
+  const bar = document.getElementById('tagFilterBar');
+  if (!bar) return;
+  const allTags = new Set();
+  getListForCurrentType().forEach(p => (p.tags || []).forEach(t => allTags.add(t)));
+  bar.innerHTML = [...allTags].map(t =>
+    `<button class="tag-filter-chip${activeTagFilters.has(t) ? ' active' : ''}" data-tag="${t}"
+      style="font-size:12px;padding:4px 10px;border-radius:999px;border:1.5px solid var(--line,#E7E4DF);
+      background:${activeTagFilters.has(t) ? '#1C1917' : '#fff'};color:${activeTagFilters.has(t) ? '#fff' : '#1C1917'};
+      cursor:pointer;">#${t}</button>`
+  ).join('');
+  bar.querySelectorAll('.tag-filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.tag;
+      activeTagFilters.has(t) ? activeTagFilters.delete(t) : activeTagFilters.add(t);
+      renderTagFilterBar();
+      filterPlaceList(document.getElementById('placeFilterInput').value);
     });
   });
 }
@@ -968,7 +1000,9 @@ function renderPlaceList(items) {
 // 왼쪽 패널에서 등록된 맛집 이름/주소/카테고리로 검색 (지도에 등록을 위한 검색과는 별개)
 function filterPlaceList(query) {
   const q = query.trim().toLowerCase();
-  const base = getListForCurrentType();
+  const base = getListForCurrentType().filter((p) =>
+    activeTagFilters.size === 0 || [...activeTagFilters].every(t => (p.tags || []).includes(t))
+  );
   if (!q) { renderPlaceList(base); return; }
   const filtered = base.filter((p) =>
     (p.name || '').toLowerCase().includes(q) ||
