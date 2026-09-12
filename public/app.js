@@ -980,25 +980,41 @@ const SIDO_LIST = [
 function classifyRegion(address) {
   const addr = (address || '').trim();
   const sido = SIDO_LIST.find((s) => s.aliases.some((a) => addr.includes(a)));
-  if (!sido) return { l1: '기타', l2: '기타' };
+  if (!sido) return { l1: '기타', l2: '기타', l3: '기타' };
 
   const matchedAlias = sido.aliases.find((a) => addr.includes(a));
   const rest = addr.slice(addr.indexOf(matchedAlias) + matchedAlias.length);
   const tokens = rest.trim().split(/\s+/).filter(Boolean);
-  let l2 = '기타';
-  for (const t of tokens) {
-    if (t.length >= 2 && /[시군구]$/.test(t)) { l2 = t; break; }
+
+  let l2 = '기타', l2Index = -1;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.length >= 2 && /[시군구]$/.test(t)) { l2 = t; l2Index = i; break; }
   }
-  return { l1: sido.key, l2 };
+
+  // 시/군/구 다음에 이어지는 읍/면/동을 3단계로 사용 (도로명 주소라 읍/면/동이 없는 경우엔 '기타')
+  let l3 = '기타';
+  if (l2Index !== -1) {
+    for (let i = l2Index + 1; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.length >= 2 && /[읍면동]$/.test(t)) { l3 = t; break; }
+      if (/[로길]$/.test(t)) break; // 도로명이 나오면 더 이상 읍/면/동을 찾지 않음
+    }
+  }
+
+  return { l1: sido.key, l2, l3 };
 }
 
 function groupItemsByRegion(items) {
   const tree = {};
+  // 등록된 곳이 없어도 전국 17개 시/도는 항상 그룹으로 보여준다
+  SIDO_LIST.forEach((s) => { tree[s.key] = {}; });
   items.forEach((p) => {
-    const { l1, l2 } = classifyRegion(p.address);
+    const { l1, l2, l3 } = classifyRegion(p.address);
     if (!tree[l1]) tree[l1] = {};
-    if (!tree[l1][l2]) tree[l1][l2] = [];
-    tree[l1][l2].push(p);
+    if (!tree[l1][l2]) tree[l1][l2] = {};
+    if (!tree[l1][l2][l3]) tree[l1][l2][l3] = [];
+    tree[l1][l2][l3].push(p);
   });
   return tree;
 }
@@ -1023,6 +1039,9 @@ function orderedL2Keys(sub) {
   });
 }
 
+// 읍/면/동도 가나다순, '기타'는 맨 뒤로 (orderedL2Keys와 동일한 규칙)
+const orderedL3Keys = orderedL2Keys;
+
 // 펼쳐진 지역 그룹 키 목록 (필터링/재검색으로 다시 그려도 펼침 상태 유지)
 const expandedRegionGroups = new Set();
 let lastPlaceListItems = [];
@@ -1033,13 +1052,16 @@ function toggleRegionGroup(key) {
   renderPlaceList(lastPlaceListItems);
 }
 
-function regionHeaderHtml(key, label, count, indent) {
+function regionHeaderHtml(key, label, count, level) {
   const isOpen = expandedRegionGroups.has(key);
+  const marginLeft = level * 14;
+  const bg = level === 0 ? '#F5F3EF' : level === 1 ? '#FAFAF8' : '#FFFFFF';
+  const fontSize = level === 0 ? 14 : level === 1 ? 13 : 12;
   return `
     <li class="region-header" onclick="toggleRegionGroup('${key}')"
-      style="list-style:none;cursor:pointer;padding:10px 12px;margin:${indent ? '4px 0 4px 14px' : '0'};
-      background:${indent ? '#FAFAF8' : '#F5F3EF'};border:1.5px solid var(--line,#E7E4DF);border-radius:8px;
-      display:flex;align-items:center;gap:6px;font-weight:700;font-size:${indent ? 13 : 14}px;">
+      style="list-style:none;cursor:pointer;padding:${level === 0 ? '10px 12px' : '8px 12px'};margin:${level === 0 ? '0' : `4px 0 4px ${marginLeft}px`};
+      background:${bg};border:1.5px solid var(--line,#E7E4DF);border-radius:8px;
+      display:flex;align-items:center;gap:6px;font-weight:700;font-size:${fontSize}px;">
       <span>${isOpen ? '▼' : '▶'}</span> ${label} <span style="color:#8A8580;font-weight:400;">(${count}개)</span>
     </li>`;
 }
@@ -1086,17 +1108,37 @@ function renderPlaceList(items) {
   let html = '';
 
   orderedL1Keys(tree).forEach((l1) => {
-    const sub = tree[l1];
-    const l1Total = Object.values(sub).reduce((sum, arr) => sum + arr.length, 0);
+    const sub = tree[l1]; // { [l2]: { [l3]: [places] } }
+    const l1Total = Object.values(sub).reduce(
+      (sum, l3map) => sum + Object.values(l3map).reduce((s2, arr) => s2 + arr.length, 0),
+      0
+    );
     const l1Label = l1 === '기타' ? '기타 지역' : l1;
-    html += regionHeaderHtml(l1, l1Label, l1Total, false);
+    html += regionHeaderHtml(l1, l1Label, l1Total, 0); // 전국 17개 시/도는 등록 0개여도 항상 표시
+
     if (expandedRegionGroups.has(l1)) {
       orderedL2Keys(sub).forEach((l2) => {
-        const arr = sub[l2];
-        if (!arr.length) return;
-        const subKey = `${l1}:${l2}`;
-        html += regionHeaderHtml(subKey, l2, arr.length, true);
-        if (expandedRegionGroups.has(subKey)) html += arr.map(placeCardHtmlForList).join('');
+        const l3map = sub[l2];
+        const l2Total = Object.values(l3map).reduce((s, arr) => s + arr.length, 0);
+        if (!l2Total) return; // 시/군/구는 실제 등록된 곳이 있을 때만 표시
+        const l2Key = `${l1}:${l2}`;
+        html += regionHeaderHtml(l2Key, l2, l2Total, 1);
+
+        if (expandedRegionGroups.has(l2Key)) {
+          const l3Keys = orderedL3Keys(l3map).filter((k) => l3map[k].length);
+          const onlyMisc = l3Keys.length === 1 && l3Keys[0] === '기타';
+          if (onlyMisc) {
+            // 읍/면/동으로 더 나눌 게 없으면(도로명 주소 등) 바로 카드 목록을 보여준다
+            html += l3map['기타'].map(placeCardHtmlForList).join('');
+          } else {
+            l3Keys.forEach((l3) => {
+              const arr = l3map[l3];
+              const l3Key = `${l1}:${l2}:${l3}`;
+              html += regionHeaderHtml(l3Key, l3, arr.length, 2);
+              if (expandedRegionGroups.has(l3Key)) html += arr.map(placeCardHtmlForList).join('');
+            });
+          }
+        }
       });
     }
   });
