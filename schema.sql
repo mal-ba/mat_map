@@ -36,3 +36,15 @@ create table if not exists likes (
 
 -- 지도에는 verified 상태만 노출
 create index if not exists idx_places_status on places(status);
+
+-- 상황별 태그 (혼밥/데이트/회식 등) — AI 검증 단계에서 자동으로 채워짐
+alter table places add column if not exists tags text[] default '{}';
+
+-- 개인화 추천 근거 강화용 조회 로그 (좋아요는 기존 likes 테이블 그대로 재사용)
+create table if not exists place_views (
+  id bigserial primary key,
+  user_id uuid references users(id),
+  place_id uuid references places(id),
+  created_at timestamptz default now()
+);
+create index if not exists idx_place_views_user on place_views(user_id, created_at desc);
