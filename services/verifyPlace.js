@@ -7,7 +7,28 @@ const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos, findNaverPlaceId } = 
  * 셋 다 못 찾으면 → pending
  * + 네이버에서 잡힌 경우, 평점/리뷰/사진까지 가져와 AI가 리뷰 신뢰도를 별도로 분석
  */
-async function verifyPlace({ name, address, lat, lng }) {
+// ── 상황별 맥락 태그 — 리뷰/한줄평 텍스트에서 규칙 기반으로 뽑아내는 1차 후보 ──
+const TAG_KEYWORDS = {
+  '혼밥': ['혼밥', '혼자', '1인석', '바 테이블'],
+  '데이트': ['데이트', '분위기 좋', '커플', '기념일'],
+  '회식': ['회식', '단체', '룸 있', '대형 테이블', '단체석'],
+  '가족모임': ['가족', '아이', '유아의자', '노키즈존 아님'],
+  '심야': ['새벽', '24시', '심야', '늦게까지', '야식'],
+  '주차가능': ['주차', '발렛'],
+  '가성비': ['가성비', '저렴', '양 많'],
+  '분위기좋음': ['인테리어', '뷰 맛집', '감성'],
+};
+
+function extractTagsFromText(text) {
+  if (!text) return [];
+  const found = new Set();
+  for (const [tag, keywords] of Object.entries(TAG_KEYWORDS)) {
+    if (keywords.some((k) => text.includes(k))) found.add(tag);
+  }
+  return [...found];
+}
+
+async function verifyPlace({ name, address, lat, lng, comment }) {
   const [naverResult, kakaoResult, googleResult] = await Promise.all([
     searchNaverPlace(name, lat, lng),
     searchKakaoPlace(name, lat, lng),
@@ -96,6 +117,7 @@ async function verifyPlace({ name, address, lat, lng }) {
       photo_authenticity_note: contentAnalysis.photoNote,
       naver_photo_url: content.photos?.[0] || null, // AI가 네이버에서 직접 가져온 대표 사진
       naver_reviews: content.reviews.slice(0, 5), // 지도에서 실제 리뷰 내용을 보여주기 위해 원문도 같이 저장
+      ai_tags: contentAnalysis.tags || [], // AI가 리뷰 내용에서 뽑은 상황 태그 (아래 tags 계산에만 쓰고 응답엔 안 남김)
     };
   }
 
@@ -104,11 +126,20 @@ async function verifyPlace({ name, address, lat, lng }) {
   if (!ratingGate.passed) reasonParts.push(`평점 기준 미달 — ${ratingGate.reason}`);
   else if (ratingGate.reason) reasonParts.push(ratingGate.reason);
 
+  // 규칙 기반(한줄평 + 리뷰요약) + AI가 리뷰 분석 중 뽑은 태그(있으면) 병합
+  const tags = Array.from(new Set([
+    ...extractTagsFromText(comment),
+    ...extractTagsFromText(naverExtra.review_summary),
+    ...(naverExtra.ai_tags || []),
+  ]));
+  delete naverExtra.ai_tags; // 최종 응답 객체에는 안 남기고 tags로 통합
+
   return {
     status: finalApprove ? 'verified' : 'rejected',
     reason: `${sources.join('·')} 확인 / ${reasonParts.filter(Boolean).join(' / ')}`,
     naver_place_id: naverResult?.id,
     kakao_place_id: kakaoResult?.id,
+    tags,
     ...naverExtra,
   };
 }
@@ -390,8 +421,11 @@ async function analyzeNaverContent({ reviews, photoUrls }) {
 리뷰 목록:
 ${reviewTexts || '(리뷰 없음)'}
 
+아래 목록 중 리뷰 내용상 실제로 해당하는 상황 태그도 골라줘(해당 없으면 빈 배열):
+["혼밥","데이트","회식","가족모임","심야","주차가능","가성비","분위기좋음"]
+
 JSON으로만 답해:
-{"trustScore": 0-100, "adLikeCount": 숫자, "photoNote": "사진 판단 한 문장", "summary": "전체 한 문장 요약"}`;
+{"trustScore": 0-100, "adLikeCount": 숫자, "photoNote": "사진 판단 한 문장", "summary": "전체 한 문장 요약", "tags": ["위 목록 중 해당하는 것만"]}`;
 
   try {
     const text = await callAiJudge(prompt, imageBlocks);
@@ -410,4 +444,5 @@ module.exports = {
   searchNaverPlace,
   getDistanceMeters,
   analyzeNaverContent,
+  extractTagsFromText,
 };
