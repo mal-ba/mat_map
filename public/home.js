@@ -155,10 +155,8 @@ async function initAuthArea() {
         <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
       </a>
     `;
-    const boostLink = document.getElementById('boostNavLink');
-    if (boostLink && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) boostLink.style.display = 'inline-block';
-    const claimLink = document.getElementById('claimNavLink');
-    if (claimLink && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) claimLink.style.display = 'inline-block';
+    const ownerMenuBtn = document.getElementById('ownerMenuBtn');
+    if (ownerMenuBtn && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) ownerMenuBtn.style.display = 'inline-block';
   } catch {
     area.innerHTML = `
       <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
