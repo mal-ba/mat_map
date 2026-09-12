@@ -954,28 +954,72 @@ function getListForCurrentType() {
   return currentListingType === 'new_opening' ? newOpening : verified;
 }
 
-function renderPlaceList(items) {
-  const list = document.getElementById('placeList');
-  if (!items.length) {
-    showEmptyState();
-    return;
-  }
-  list.innerHTML = items
-    .map(
-      (p) => {
-        const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
-        const thumbHtml = p.image_url
-          ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
-          : '';
-        const naverRatingHtml = p.naver_rating != null
-          ? `<div class="rating">⭐ ${p.naver_rating} 네이버${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
-          : (p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : '');
-        const tagsHtml = (p.tags && p.tags.length)
-          ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${p.tags.map(t =>
-              `<span style="font-size:11px;background:#F5F3EF;border:1px solid var(--line,#E7E4DF);border-radius:999px;padding:2px 8px;">#${escapeHtml(t)}</span>`
-            ).join('')}</div>`
-          : '';
-        return `
+// ---------- 목록을 지역별로 묶어서 보여주기 (많이 등록될수록 스크롤이 길어지는 것 방지) ----------
+// 1단계: 시/도 구분
+const REGION_L1 = [
+  { key: '서울', label: '서울', match: (addr) => addr.includes('서울') },
+  { key: '경기', label: '경기도', match: (addr) => addr.includes('경기') },
+  { key: '강원', label: '강원도', match: (addr) => addr.includes('강원') },
+];
+// 2단계: 경기도 안에서 지역 구분 (망포가 화성/수원 주소와 겹칠 수 있어 먼저 확인)
+const GYEONGGI_L2 = [
+  { key: '망포', match: (addr) => addr.includes('망포') },
+  { key: '화성', match: (addr) => addr.includes('화성') },
+  { key: '수원', match: (addr) => addr.includes('수원') },
+  { key: '용인', match: (addr) => addr.includes('용인') },
+];
+
+function groupItemsByRegion(items) {
+  const buckets = { '서울': [], '경기': { '용인': [], '망포': [], '화성': [], '수원': [], '기타': [] }, '강원': [], '기타': [] };
+  items.forEach((p) => {
+    const addr = p.address || '';
+    const l1 = REGION_L1.find((r) => r.match(addr));
+    if (!l1) { buckets['기타'].push(p); return; }
+    if (l1.key === '경기') {
+      const l2 = GYEONGGI_L2.find((r) => r.match(addr));
+      buckets['경기'][l2 ? l2.key : '기타'].push(p);
+    } else {
+      buckets[l1.key].push(p);
+    }
+  });
+  return buckets;
+}
+
+// 펼쳐진 지역 그룹 키 목록 (필터링/재검색으로 다시 그려도 펼침 상태 유지)
+const expandedRegionGroups = new Set();
+let lastPlaceListItems = [];
+
+function toggleRegionGroup(key) {
+  if (expandedRegionGroups.has(key)) expandedRegionGroups.delete(key);
+  else expandedRegionGroups.add(key);
+  renderPlaceList(lastPlaceListItems);
+}
+
+function regionHeaderHtml(key, label, count, indent) {
+  const isOpen = expandedRegionGroups.has(key);
+  return `
+    <li class="region-header" onclick="toggleRegionGroup('${key}')"
+      style="list-style:none;cursor:pointer;padding:10px 12px;margin:${indent ? '4px 0 4px 14px' : '0'};
+      background:${indent ? '#FAFAF8' : '#F5F3EF'};border:1.5px solid var(--line,#E7E4DF);border-radius:8px;
+      display:flex;align-items:center;gap:6px;font-weight:700;font-size:${indent ? 13 : 14}px;">
+      <span>${isOpen ? '▼' : '▶'}</span> ${label} <span style="color:#8A8580;font-weight:400;">(${count}개)</span>
+    </li>`;
+}
+
+function placeCardHtmlForList(p) {
+  const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+  const thumbHtml = p.image_url
+    ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
+    : '';
+  const naverRatingHtml = p.naver_rating != null
+    ? `<div class="rating">⭐ ${p.naver_rating} 네이버${p.naver_review_count != null ? ` (리뷰 ${p.naver_review_count}개)` : ''}${p.review_trust_score != null ? ` · 신뢰도 ${p.review_trust_score}%` : ''}</div>`
+    : (p.rating ? `<div class="rating">⭐ ${p.rating} (리뷰 ${p.review_count ?? 0}개)</div>` : '');
+  const tagsHtml = (p.tags && p.tags.length)
+    ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${p.tags.map(t =>
+        `<span style="font-size:11px;background:#F5F3EF;border:1px solid var(--line,#E7E4DF);border-radius:999px;padding:2px 8px;">#${escapeHtml(t)}</span>`
+      ).join('')}</div>`
+    : '';
+  return `
     <li class="place-card" data-id="${p.id}" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
       ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
@@ -990,9 +1034,49 @@ function renderPlaceList(items) {
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
     </li>`;
-      }
-    )
-    .join('');
+}
+
+function renderPlaceList(items) {
+  const list = document.getElementById('placeList');
+  lastPlaceListItems = items;
+  if (!items.length) {
+    showEmptyState();
+    return;
+  }
+
+  const groups = groupItemsByRegion(items);
+  let html = '';
+
+  if (groups['서울'].length) {
+    html += regionHeaderHtml('서울', '서울', groups['서울'].length, false);
+    if (expandedRegionGroups.has('서울')) html += groups['서울'].map(placeCardHtmlForList).join('');
+  }
+
+  const gy = groups['경기'];
+  const gyTotal = Object.values(gy).reduce((sum, arr) => sum + arr.length, 0);
+  if (gyTotal) {
+    html += regionHeaderHtml('경기', '경기도', gyTotal, false);
+    if (expandedRegionGroups.has('경기')) {
+      ['용인', '망포', '화성', '수원', '기타'].forEach((k) => {
+        if (!gy[k].length) return;
+        const subKey = `경기:${k}`;
+        html += regionHeaderHtml(subKey, k, gy[k].length, true);
+        if (expandedRegionGroups.has(subKey)) html += gy[k].map(placeCardHtmlForList).join('');
+      });
+    }
+  }
+
+  if (groups['강원'].length) {
+    html += regionHeaderHtml('강원', '강원도', groups['강원'].length, false);
+    if (expandedRegionGroups.has('강원')) html += groups['강원'].map(placeCardHtmlForList).join('');
+  }
+
+  if (groups['기타'].length) {
+    html += regionHeaderHtml('기타', '기타 지역', groups['기타'].length, false);
+    if (expandedRegionGroups.has('기타')) html += groups['기타'].map(placeCardHtmlForList).join('');
+  }
+
+  list.innerHTML = html;
 
   list.querySelectorAll('.place-card').forEach((card) => {
     card.addEventListener('click', () => {
