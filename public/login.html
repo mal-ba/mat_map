@@ -21,7 +21,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
 
 .wrap{width:100%;max-width:360px;padding:48px 20px;margin:0 auto;}
 h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;margin-bottom:6px;}
-.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:32px;}
+.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:24px;}
+
+/* 개인정보 동의 */
+.consent-box{margin-bottom:18px;padding:12px 14px;background:#FAFAF8;border:1px solid var(--line);border-radius:8px;}
+.consent-box label{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;line-height:1.5;}
+.consent-box input[type="checkbox"]{margin-top:2px;flex-shrink:0;width:16px;height:16px;cursor:pointer;}
+.consent-box a{color:var(--stamp);font-weight:700;text-decoration:underline;}
+
+#loginActions{transition:opacity .15s;}
+#loginActions.locked{opacity:.45;pointer-events:none;user-select:none;}
 
 .social-btn{width:100%;padding:13px;border-radius:8px;border:1.5px solid var(--line);
   font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;
@@ -58,25 +67,36 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;marg
   <h1>로그인</h1>
   <p class="sub">찐맛집에 로그인하고 맛집을 등록해보세요</p>
 
-  <button class="social-btn kakao" onclick="location.href='/api/auth/kakao'">카카오로 로그인</button>
-  <button class="social-btn naver" onclick="location.href='/api/auth/naver'">네이버로 로그인</button>
-  <div id="googleBtnWrap"></div>
+  <div class="consent-box">
+    <label>
+      <input type="checkbox" id="privacyConsent" />
+      <span>(필수) 이름·이메일·프로필 사진 등 개인정보 수집 및 이용에 동의합니다.
+        <a href="/privacy.html" target="_blank">[처리방침 보기]</a>
+      </span>
+    </label>
+  </div>
 
-  <div class="divider">또는</div>
+  <div id="loginActions" class="locked">
+    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')">카카오로 로그인</button>
+    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')">네이버로 로그인</button>
+    <div id="googleBtnWrap"></div>
 
-  <form id="loginForm">
-    <div class="field">
-      <label>이메일</label>
-      <input type="email" name="email" required placeholder="you@example.com" />
-    </div>
-    <div class="field">
-      <label>비밀번호</label>
-      <input type="password" name="password" required placeholder="비밀번호" />
-    </div>
-    <button type="submit" class="submit-btn">이메일로 로그인</button>
-    <p class="error-msg" id="errorMsg"></p>
-  </form>
+    <div class="divider">또는</div>
 
+    <form id="loginForm">
+      <div class="field">
+        <label>이메일</label>
+        <input type="email" name="email" required placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input type="password" name="password" required placeholder="비밀번호" />
+      </div>
+      <button type="submit" class="submit-btn">이메일로 로그인</button>
+    </form>
+  </div>
+
+  <p class="error-msg" id="errorMsg"></p>
   <p class="bottom-link">아직 계정이 없나요? <a href="/signup.html">회원가입</a></p>
 </div>
 
@@ -87,18 +107,43 @@ if (params.get('error')) {
   document.getElementById('errorMsg').textContent = '소셜 로그인에 실패했어요. 다시 시도해주세요.';
 }
 
+const consentCheckbox = document.getElementById('privacyConsent');
+const loginActions = document.getElementById('loginActions');
+let googleReady = false;
+
+consentCheckbox.addEventListener('change', () => {
+  loginActions.classList.toggle('locked', !consentCheckbox.checked);
+  if (consentCheckbox.checked && googleReady) renderGoogleBtn();
+});
+
+function handleSocialClick(url) {
+  if (!consentCheckbox.checked) {
+    document.getElementById('errorMsg').textContent = '개인정보 수집·이용에 먼저 동의해주세요.';
+    return;
+  }
+  location.href = url;
+}
+
 function initGoogle() {
   if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
   google.accounts.id.initialize({
     client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
     callback: onGoogleCredential,
   });
-  google.accounts.id.renderButton(document.getElementById('googleBtnWrap'), {
+  googleReady = true;
+  if (consentCheckbox.checked) renderGoogleBtn();
+}
+
+function renderGoogleBtn() {
+  const wrap = document.getElementById('googleBtnWrap');
+  wrap.innerHTML = '';
+  google.accounts.id.renderButton(wrap, {
     theme: 'outline', size: 'large', width: 320, text: 'signin_with', locale: 'ko',
   });
 }
 
 async function onGoogleCredential(response) {
+  if (!consentCheckbox.checked) return;
   const res = await fetch('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -114,6 +159,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errEl = document.getElementById('errorMsg');
   errEl.textContent = '';
+  if (!consentCheckbox.checked) { errEl.textContent = '개인정보 수집·이용에 먼저 동의해주세요.'; return; }
   const fd = new FormData(e.target);
   const res = await fetch('/api/auth/login', {
     method: 'POST',

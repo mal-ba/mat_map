@@ -21,7 +21,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#ffffff;color:var(--ink);
 
 .wrap{width:100%;max-width:360px;padding:48px 20px;margin:0 auto;}
 h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;margin-bottom:6px;}
-.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:32px;}
+.sub{text-align:center;color:var(--ink-soft);font-size:13px;margin-bottom:24px;}
+
+/* 개인정보 동의 */
+.consent-box{margin-bottom:18px;padding:12px 14px;background:#FAFAF8;border:1px solid var(--line);border-radius:8px;}
+.consent-box label{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--ink-soft);cursor:pointer;line-height:1.5;}
+.consent-box input[type="checkbox"]{margin-top:2px;flex-shrink:0;width:16px;height:16px;cursor:pointer;}
+.consent-box a{color:var(--stamp);font-weight:700;text-decoration:underline;}
+
+#signupActions{transition:opacity .15s;}
+#signupActions.locked{opacity:.45;pointer-events:none;user-select:none;}
 
 .social-btn{width:100%;padding:13px;border-radius:8px;border:1.5px solid var(--line);
   font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;
@@ -68,62 +77,98 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;marg
   <h1>회원가입</h1>
   <p class="sub">찐맛집 계정을 만들어보세요</p>
 
-  <button class="social-btn kakao" onclick="location.href='/api/auth/kakao'">카카오로 시작하기</button>
-  <button class="social-btn naver" onclick="location.href='/api/auth/naver'">네이버로 시작하기</button>
-  <div id="googleBtnWrap"></div>
+  <div class="consent-box">
+    <label>
+      <input type="checkbox" id="privacyConsent" />
+      <span>(필수) 이름·이메일·프로필 사진 등 개인정보 수집 및 이용에 동의합니다.
+        <a href="/privacy.html" target="_blank">[처리방침 보기]</a>
+      </span>
+    </label>
+  </div>
 
-  <div class="divider">또는 이메일로 가입</div>
+  <div id="signupActions" class="locked">
+    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')">카카오로 시작하기</button>
+    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')">네이버로 시작하기</button>
+    <div id="googleBtnWrap"></div>
 
-  <form id="signupForm">
-    <div class="field">
-      <label>이름</label>
-      <input type="text" name="name" id="nameInput" required placeholder="닉네임" maxlength="20" />
-    </div>
+    <div class="divider">또는 이메일로 가입</div>
 
-    <div class="field">
-      <label>이메일</label>
-      <div class="field-row">
-        <input type="email" name="email" id="emailInput" required placeholder="you@example.com" />
-        <button type="button" class="small-btn" id="sendCodeBtn">인증코드 받기</button>
+    <form id="signupForm">
+      <div class="field">
+        <label>이름</label>
+        <input type="text" name="name" id="nameInput" required placeholder="닉네임" maxlength="20" />
       </div>
-      <p class="hint" id="emailHint"></p>
-    </div>
 
-    <div class="field" id="codeField" style="display:none;">
-      <label>인증코드</label>
-      <div class="field-row">
-        <input type="text" name="code" id="codeInput" placeholder="6자리 숫자" maxlength="6" inputmode="numeric" />
-        <button type="button" class="small-btn" id="verifyCodeBtn">확인</button>
+      <div class="field">
+        <label>이메일</label>
+        <div class="field-row">
+          <input type="email" name="email" id="emailInput" required placeholder="you@example.com" />
+          <button type="button" class="small-btn" id="sendCodeBtn">인증코드 받기</button>
+        </div>
+        <p class="hint" id="emailHint"></p>
       </div>
-      <p class="hint" id="codeHint"></p>
-    </div>
 
-    <div class="field" id="passwordField" style="display:none;">
-      <label>비밀번호</label>
-      <input type="password" name="password" id="passwordInput" placeholder="6자 이상" minlength="6" />
-    </div>
+      <div class="field" id="codeField" style="display:none;">
+        <label>인증코드</label>
+        <div class="field-row">
+          <input type="text" name="code" id="codeInput" placeholder="6자리 숫자" maxlength="6" inputmode="numeric" />
+          <button type="button" class="small-btn" id="verifyCodeBtn">확인</button>
+        </div>
+        <p class="hint" id="codeHint"></p>
+      </div>
 
-    <button type="submit" class="submit-btn" id="signupBtn" disabled>가입하기</button>
-    <p class="error-msg" id="errorMsg"></p>
-  </form>
+      <div class="field" id="passwordField" style="display:none;">
+        <label>비밀번호</label>
+        <input type="password" name="password" id="passwordInput" placeholder="6자 이상" minlength="6" />
+      </div>
 
+      <button type="submit" class="submit-btn" id="signupBtn" disabled>가입하기</button>
+    </form>
+  </div>
+
+  <p class="error-msg" id="errorMsg"></p>
   <p class="bottom-link">이미 계정이 있나요? <a href="/login.html">로그인</a></p>
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
 <script>
+const consentCheckbox = document.getElementById('privacyConsent');
+const signupActions = document.getElementById('signupActions');
+let googleReady = false;
+
+consentCheckbox.addEventListener('change', () => {
+  signupActions.classList.toggle('locked', !consentCheckbox.checked);
+  if (consentCheckbox.checked && googleReady) renderGoogleBtn();
+});
+
+function handleSocialClick(url) {
+  if (!consentCheckbox.checked) {
+    document.getElementById('errorMsg').textContent = '개인정보 수집·이용에 먼저 동의해주세요.';
+    return;
+  }
+  location.href = url;
+}
+
 function initGoogle() {
   if (!window.__CONFIG__?.GOOGLE_CLIENT_ID) return;
   google.accounts.id.initialize({
     client_id: window.__CONFIG__.GOOGLE_CLIENT_ID,
     callback: onGoogleCredential,
   });
-  google.accounts.id.renderButton(document.getElementById('googleBtnWrap'), {
+  googleReady = true;
+  if (consentCheckbox.checked) renderGoogleBtn();
+}
+
+function renderGoogleBtn() {
+  const wrap = document.getElementById('googleBtnWrap');
+  wrap.innerHTML = '';
+  google.accounts.id.renderButton(wrap, {
     theme: 'outline', size: 'large', width: 320, text: 'signup_with', locale: 'ko',
   });
 }
 
 async function onGoogleCredential(response) {
+  if (!consentCheckbox.checked) return;
   const res = await fetch('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -208,6 +253,7 @@ verifyCodeBtn.addEventListener('click', async () => {
 document.getElementById('signupForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   errorMsg.textContent = '';
+  if (!consentCheckbox.checked) { errorMsg.textContent = '개인정보 수집·이용에 먼저 동의해주세요.'; return; }
   if (!emailVerified) { errorMsg.textContent = '이메일 인증을 먼저 완료해주세요'; return; }
 
   const res = await fetch('/api/auth/signup', {
