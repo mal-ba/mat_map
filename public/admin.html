@@ -83,6 +83,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
     </div>
   </div>
 
+  <!-- 지역별 등록 현황 -->
+  <div class="section-title" style="cursor:pointer;" onclick="toggleRegionSection()">
+    🗺️ 지역별 등록 현황 <span id="regionCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="regionToggleIcon">▼</span>
+  </div>
+  <div id="regionSection" style="margin-bottom:28px;">
+    <div id="regionOverview">
+      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+    </div>
+  </div>
+
   <!-- 반려된 가게 -->
   <div class="section-title" style="cursor:pointer;" onclick="toggleRejectedSection()">
     🚫 반려된 가게 <span id="rejectedCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="rejectedToggleIcon">▼</span>
@@ -325,6 +335,107 @@ function toggleUserSection() {
   const hidden = sec.style.display === 'none';
   sec.style.display = hidden ? 'block' : 'none';
   icon.textContent = hidden ? '▼' : '▶';
+}
+
+// ── 지역별 등록 현황 ────────────────────────
+function toggleRegionSection() {
+  const sec = document.getElementById('regionSection');
+  const icon = document.getElementById('regionToggleIcon');
+  const hidden = sec.style.display === 'none';
+  sec.style.display = hidden ? 'block' : 'none';
+  icon.textContent = hidden ? '▼' : '▶';
+}
+
+// 1단계: 시/도 구분
+const REGION_L1 = [
+  { key: '서울', label: '서울', match: (addr) => addr.includes('서울') },
+  { key: '경기', label: '경기도', match: (addr) => addr.includes('경기') },
+  { key: '강원', label: '강원도', match: (addr) => addr.includes('강원') },
+];
+// 2단계: 경기도 안에서 지역 구분 (먼저 매치되는 순서대로 우선순위 적용 — 망포가 화성/수원과 겹칠 수 있어서 먼저 확인)
+const GYEONGGI_L2 = [
+  { key: '망포', match: (addr) => addr.includes('망포') },
+  { key: '화성', match: (addr) => addr.includes('화성') },
+  { key: '수원', match: (addr) => addr.includes('수원') },
+  { key: '용인', match: (addr) => addr.includes('용인') },
+];
+
+function groupPlacesByRegion(places) {
+  const groups = { '서울': [], '경기': { '용인': [], '망포': [], '화성': [], '수원': [], '기타': [] }, '강원': [], '기타': [] };
+  places.forEach((p) => {
+    const addr = p.address || '';
+    const l1 = REGION_L1.find((r) => r.match(addr));
+    if (!l1) { groups['기타'].push(p); return; }
+    if (l1.key === '경기') {
+      const l2 = GYEONGGI_L2.find((r) => r.match(addr));
+      groups['경기'][l2 ? l2.key : '기타'].push(p);
+    } else {
+      groups[l1.key].push(p);
+    }
+  });
+  return groups;
+}
+
+function regionPlaceRowHtml(p) {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">
+      <div style="min-width:0;">
+        <div style="font-weight:700;font-size:13px;">${esc(p.name)}</div>
+        <div style="font-size:11px;color:var(--ink-soft);">${esc(p.address)}</div>
+      </div>
+      <button onclick="deleteVerifiedPlace('${p.id}')" style="flex-shrink:0;padding:4px 8px;border:1.5px solid #999;
+        color:#666;background:none;border-radius:6px;font-size:11px;cursor:pointer;">🗑</button>
+    </div>`;
+}
+
+function regionGroupHtml(label, list, opts = {}) {
+  const open = opts.open ? ' open' : '';
+  const marginLeft = opts.indent ? 'margin:8px 0 8px 12px;' : 'margin-bottom:10px;';
+  return `
+    <details${open} style="${marginLeft}border:1.5px solid var(--line);border-radius:8px;padding:8px 12px;">
+      <summary style="cursor:pointer;font-weight:700;font-size:${opts.indent ? 13 : 14}px;">${label} <span style="color:var(--ink-soft);font-weight:400;">(${list.length}개)</span></summary>
+      <div style="margin-top:8px;">${list.length ? list.map(regionPlaceRowHtml).join('') : '<p style="color:var(--ink-soft);font-size:12px;">등록된 곳이 없어요.</p>'}</div>
+    </details>`;
+}
+
+async function loadRegionOverview() {
+  const wrapEl = document.getElementById('regionOverview');
+  const countEl = document.getElementById('regionCountLabel');
+  try {
+    const res = await fetch('/api/places');
+    if (!res.ok) { wrapEl.innerHTML = '<p style="color:red">불러오지 못했어요.</p>'; return; }
+    const places = await res.json();
+    countEl.textContent = `(${places.length}개)`;
+    const groups = groupPlacesByRegion(places);
+    const gGroup = groups['경기'];
+    const gTotal = ['용인', '망포', '화성', '수원', '기타'].reduce((sum, k) => sum + gGroup[k].length, 0);
+    const gyeonggiInner = ['용인', '망포', '화성', '수원', '기타']
+      .map((k) => regionGroupHtml(k, gGroup[k], { indent: true }))
+      .join('');
+
+    wrapEl.innerHTML =
+      regionGroupHtml('서울', groups['서울']) +
+      `<details open style="margin-bottom:10px;border:1.5px solid var(--line);border-radius:8px;padding:8px 12px;">
+        <summary style="cursor:pointer;font-weight:700;font-size:14px;">경기도 <span style="color:var(--ink-soft);font-weight:400;">(${gTotal}개)</span></summary>
+        <div>${gyeonggiInner}</div>
+      </details>` +
+      regionGroupHtml('강원도', groups['강원']) +
+      regionGroupHtml('기타 지역', groups['기타']);
+  } catch (err) {
+    console.error('[admin] loadRegionOverview 실패', err);
+    wrapEl.innerHTML = '<p style="color:red">불러오는 중 오류가 발생했어요.</p>';
+  }
+}
+
+async function deleteVerifiedPlace(id) {
+  if (!confirm('이 가게를 완전히 삭제할까요?')) return;
+  try {
+    const res = await fetch(`/api/places/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) { alert('삭제 실패'); return; }
+    loadRegionOverview();
+  } catch {
+    alert('삭제 중 오류가 발생했어요.');
+  }
 }
 
 // ── 반려된 가게 ────────────────────────────
@@ -675,6 +786,7 @@ loadUsers();
 loadRejected();
 loadClaims();
 loadMissingReviews();
+loadRegionOverview();
 </script>
 </body>
 </html>

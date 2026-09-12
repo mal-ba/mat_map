@@ -157,6 +157,8 @@ async function initAuthArea() {
     `;
     const ownerMenuBtn = document.getElementById('ownerMenuBtn');
     if (ownerMenuBtn && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) ownerMenuBtn.style.display = 'inline-block';
+    const adminMenuBtn = document.getElementById('adminMenuBtn');
+    if (adminMenuBtn && ADMIN_EMAILS.includes(profile.email)) adminMenuBtn.style.display = 'inline-block';
   } catch {
     area.innerHTML = `
       <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
