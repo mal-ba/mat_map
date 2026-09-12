@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>찐맛집 - 끌어올리기 결제 데모</title>
+  <script src="https://js.tosspayments.com/v2/standard"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
+    h2 { margin-bottom: 4px; }
+    p.desc { color: #666; margin-top: 0; }
+    .price { font-size: 28px; font-weight: bold; margin: 24px 0; }
+    button {
+      width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
+      background: #3182f6; color: white; border: none; border-radius: 8px; cursor: pointer;
+    }
+    button:hover { background: #1b64da; }
+  </style>
+</head>
+<body>
+  <h2>가게 끌어올리기 (1주)</h2>
+  <p class="desc">지도·검색 결과 상단에 1주간 우선 노출됩니다.</p>
+  <div class="price">5,000원</div>
+  <button id="payment-button">결제하기 (테스트)</button>
+
+  <script>
+    // ⚠️ 아래 clientKey는 발급받은 "테스트" 클라이언트 키로 교체하세요.
+    // https://developers.tosspayments.com 에서 사업자등록 없이 즉시 발급 가능합니다.
+    const clientKey = "test_ck_여기에_본인_테스트_클라이언트_키";
+
+    // 결제창을 여는 사용자(가게 점장)를 구분하는 키. 실제 서비스에서는 로그인한 유저 id로 대체하세요.
+    const customerKey = "guest_" + Math.random().toString(36).slice(2, 12);
+
+    const tossPayments = TossPayments(clientKey);
+    const payment = tossPayments.payment({ customerKey });
+
+    function generateOrderId() {
+      return "order_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+    }
+
+    document.getElementById("payment-button").addEventListener("click", async () => {
+      try {
+        await payment.requestPayment({
+          method: "CARD",
+          amount: {
+            currency: "KRW",
+            value: 5000,
+          },
+          orderId: generateOrderId(),
+          orderName: "찐맛집 끌어올리기 1주",
+          successUrl: window.location.origin + "/payment/success",
+          failUrl: window.location.origin + "/payment/fail",
+          customerEmail: "test@example.com",
+          customerName: "테스트 사용자",
+          card: {
+            useEscrow: false,
+          },
+        });
+      } catch (err) {
+        console.error(err);
+        alert("결제 요청 중 오류가 발생했습니다: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
