@@ -312,15 +312,47 @@ router.post('/recommend', requireAuth, async (req, res) => {
 
   const { data: places } = await supabase
     .from('places')
-    .select('id, name, category, address, comment, rating')
+    .select('id, name, category, address, comment, rating, tags')
     .eq('status', 'verified')
     .limit(150);
 
   if (!places?.length) return res.json({ recommendations: [] });
 
+  // ── 실제 행동 데이터(좋아요=강한 신호, 최근 조회=약한 신호) 기반 선호 태그/카테고리 집계 ──
+  const [{ data: likedRows }, { data: viewedRows }] = await Promise.all([
+    supabase.from('likes').select('places(category, tags)').eq('user_id', req.user.userId),
+    supabase.from('place_views').select('places(category, tags)')
+      .eq('user_id', req.user.userId).order('created_at', { ascending: false }).limit(30),
+  ]);
+
+  function tallyInto(counts, rows, weight) {
+    for (const row of rows || []) {
+      const p = row.places;
+      if (!p) continue;
+      for (const item of [p.category, ...(p.tags || [])].filter(Boolean)) {
+        counts[item] = (counts[item] || 0) + weight;
+      }
+    }
+  }
+  const tagCounts = {};
+  tallyInto(tagCounts, likedRows, 3);   // 좋아요는 조회보다 3배 가중
+  tallyInto(tagCounts, viewedRows, 1);
+  const behaviorSummary = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 8).map(([tag]) => tag).join(', ');
+
   try {
-    const placeList = places.map(p => `- id:${p.id} | ${p.name} | ${p.category || '분류없음'} | ${p.comment || ''}`).join('\n');
-    const prompt = `사용자 취향: "${pref.content}"\n\n아래 가게 목록 중 사용자 취향에 가장 잘 맞는 가게를 최대 5개 골라주세요.\n각 가게마다 왜 추천하는지 한 줄 이유도 같이 적어주세요.\n\n가게 목록:\n${placeList}\n\n반드시 아래 JSON 배열 형식으로만 답하세요. 다른 텍스트는 포함하지 마세요.\n[{"id": "가게id", "reason": "추천 이유 한 줄"}]`;
+    const placeList = places.map(p => `- id:${p.id} | ${p.name} | ${p.category || '분류없음'} | ${(p.tags || []).join(',') || '태그없음'} | ${p.comment || ''}`).join('\n');
+    const prompt = `사용자가 직접 입력한 취향: "${pref.content}"
+${behaviorSummary ? `사용자의 실제 이용 패턴에서 나온 선호 태그/카테고리(좋아요·조회 기반): ${behaviorSummary}` : '(아직 이용 기록이 없어 취향 텍스트만 참고)'}
+
+아래 가게 목록 중, 사용자가 적은 취향과 실제 이용 패턴을 함께 고려해 가장 잘 맞는 가게를 최대 5개 골라주세요.
+각 가게마다 왜 추천하는지 한 줄 이유도 같이 적어주세요.
+
+가게 목록:
+${placeList}
+
+반드시 아래 JSON 배열 형식으로만 답하세요. 다른 텍스트는 포함하지 마세요.
+[{"id": "가게id", "reason": "추천 이유 한 줄"}]`;
 
     const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
