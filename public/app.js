@@ -955,34 +955,72 @@ function getListForCurrentType() {
 }
 
 // ---------- 목록을 지역별로 묶어서 보여주기 (많이 등록될수록 스크롤이 길어지는 것 방지) ----------
-// 1단계: 시/도 구분
-const REGION_L1 = [
-  { key: '서울', label: '서울', match: (addr) => addr.includes('서울') },
-  { key: '경기', label: '경기도', match: (addr) => addr.includes('경기') },
-  { key: '강원', label: '강원도', match: (addr) => addr.includes('강원') },
-];
-// 2단계: 경기도 안에서 지역 구분 (망포가 화성/수원 주소와 겹칠 수 있어 먼저 확인)
-const GYEONGGI_L2 = [
-  { key: '망포', match: (addr) => addr.includes('망포') },
-  { key: '화성', match: (addr) => addr.includes('화성') },
-  { key: '수원', match: (addr) => addr.includes('수원') },
-  { key: '용인', match: (addr) => addr.includes('용인') },
+// 대한민국 광역시·도 전체 (17개 시/도) — 주소 문자열 매칭용. 정식 명칭이 바뀐 경우(강원특별자치도 등)도 함께 인식
+const SIDO_LIST = [
+  { key: '서울', aliases: ['서울특별시', '서울'] },
+  { key: '부산', aliases: ['부산광역시', '부산'] },
+  { key: '대구', aliases: ['대구광역시', '대구'] },
+  { key: '인천', aliases: ['인천광역시', '인천'] },
+  { key: '광주', aliases: ['광주광역시', '광주'] },
+  { key: '대전', aliases: ['대전광역시', '대전'] },
+  { key: '울산', aliases: ['울산광역시', '울산'] },
+  { key: '세종', aliases: ['세종특별자치시', '세종시', '세종'] },
+  { key: '경기', aliases: ['경기도', '경기'] },
+  { key: '강원', aliases: ['강원특별자치도', '강원도', '강원'] },
+  { key: '충북', aliases: ['충청북도', '충북'] },
+  { key: '충남', aliases: ['충청남도', '충남'] },
+  { key: '전북', aliases: ['전북특별자치도', '전라북도', '전북'] },
+  { key: '전남', aliases: ['전라남도', '전남'] },
+  { key: '경북', aliases: ['경상북도', '경북'] },
+  { key: '경남', aliases: ['경상남도', '경남'] },
+  { key: '제주', aliases: ['제주특별자치도', '제주도', '제주'] },
 ];
 
+// 주소 하나에서 (시/도, 시·군·구) 두 단계를 뽑아낸다. 시/도 뒤에 나오는 첫 "○○시/○○군/○○구" 토큰을 2단계로 사용
+function classifyRegion(address) {
+  const addr = (address || '').trim();
+  const sido = SIDO_LIST.find((s) => s.aliases.some((a) => addr.includes(a)));
+  if (!sido) return { l1: '기타', l2: '기타' };
+
+  const matchedAlias = sido.aliases.find((a) => addr.includes(a));
+  const rest = addr.slice(addr.indexOf(matchedAlias) + matchedAlias.length);
+  const tokens = rest.trim().split(/\s+/).filter(Boolean);
+  let l2 = '기타';
+  for (const t of tokens) {
+    if (t.length >= 2 && /[시군구]$/.test(t)) { l2 = t; break; }
+  }
+  return { l1: sido.key, l2 };
+}
+
 function groupItemsByRegion(items) {
-  const buckets = { '서울': [], '경기': { '용인': [], '망포': [], '화성': [], '수원': [], '기타': [] }, '강원': [], '기타': [] };
+  const tree = {};
   items.forEach((p) => {
-    const addr = p.address || '';
-    const l1 = REGION_L1.find((r) => r.match(addr));
-    if (!l1) { buckets['기타'].push(p); return; }
-    if (l1.key === '경기') {
-      const l2 = GYEONGGI_L2.find((r) => r.match(addr));
-      buckets['경기'][l2 ? l2.key : '기타'].push(p);
-    } else {
-      buckets[l1.key].push(p);
-    }
+    const { l1, l2 } = classifyRegion(p.address);
+    if (!tree[l1]) tree[l1] = {};
+    if (!tree[l1][l2]) tree[l1][l2] = [];
+    tree[l1][l2].push(p);
   });
-  return buckets;
+  return tree;
+}
+
+// 시/도는 익숙한 순서(서울→광역시들→도)로, '기타'는 항상 맨 뒤로
+function orderedL1Keys(tree) {
+  const order = SIDO_LIST.map((s) => s.key);
+  return Object.keys(tree).sort((a, b) => {
+    if (a === '기타') return 1;
+    if (b === '기타') return -1;
+    const ai = order.indexOf(a), bi = order.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+}
+
+// 시/군/구는 가나다순, '기타'는 맨 뒤로
+function orderedL2Keys(sub) {
+  return Object.keys(sub).sort((a, b) => {
+    if (a === '기타') return 1;
+    if (b === '기타') return -1;
+    return a.localeCompare(b, 'ko');
+  });
 }
 
 // 펼쳐진 지역 그룹 키 목록 (필터링/재검색으로 다시 그려도 펼침 상태 유지)
@@ -1044,37 +1082,24 @@ function renderPlaceList(items) {
     return;
   }
 
-  const groups = groupItemsByRegion(items);
+  const tree = groupItemsByRegion(items);
   let html = '';
 
-  if (groups['서울'].length) {
-    html += regionHeaderHtml('서울', '서울', groups['서울'].length, false);
-    if (expandedRegionGroups.has('서울')) html += groups['서울'].map(placeCardHtmlForList).join('');
-  }
-
-  const gy = groups['경기'];
-  const gyTotal = Object.values(gy).reduce((sum, arr) => sum + arr.length, 0);
-  if (gyTotal) {
-    html += regionHeaderHtml('경기', '경기도', gyTotal, false);
-    if (expandedRegionGroups.has('경기')) {
-      ['용인', '망포', '화성', '수원', '기타'].forEach((k) => {
-        if (!gy[k].length) return;
-        const subKey = `경기:${k}`;
-        html += regionHeaderHtml(subKey, k, gy[k].length, true);
-        if (expandedRegionGroups.has(subKey)) html += gy[k].map(placeCardHtmlForList).join('');
+  orderedL1Keys(tree).forEach((l1) => {
+    const sub = tree[l1];
+    const l1Total = Object.values(sub).reduce((sum, arr) => sum + arr.length, 0);
+    const l1Label = l1 === '기타' ? '기타 지역' : l1;
+    html += regionHeaderHtml(l1, l1Label, l1Total, false);
+    if (expandedRegionGroups.has(l1)) {
+      orderedL2Keys(sub).forEach((l2) => {
+        const arr = sub[l2];
+        if (!arr.length) return;
+        const subKey = `${l1}:${l2}`;
+        html += regionHeaderHtml(subKey, l2, arr.length, true);
+        if (expandedRegionGroups.has(subKey)) html += arr.map(placeCardHtmlForList).join('');
       });
     }
-  }
-
-  if (groups['강원'].length) {
-    html += regionHeaderHtml('강원', '강원도', groups['강원'].length, false);
-    if (expandedRegionGroups.has('강원')) html += groups['강원'].map(placeCardHtmlForList).join('');
-  }
-
-  if (groups['기타'].length) {
-    html += regionHeaderHtml('기타', '기타 지역', groups['기타'].length, false);
-    if (expandedRegionGroups.has('기타')) html += groups['기타'].map(placeCardHtmlForList).join('');
-  }
+  });
 
   list.innerHTML = html;
 
