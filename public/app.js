@@ -25,6 +25,7 @@ const markers = { jjin: [], jjinNew: [], kakao: [], naver: [], google: [] };
 // 지도를 다시 그릴 때(idle 이벤트) 열려있던 정보창을 다시 열어주기 위한 추적용 상태
 const openInfoWindows = { kakao: null, naver: null, google: null };
 const selectedPlaceId = { kakao: null, naver: null, google: null };
+const skipRenderUntil = { kakao: 0, naver: 0, google: 0 }; // 마커 클릭 직후 panTo가 부른 idle 재렌더링을 잠깐 건너뛰기 위한 값
 const previewMarkers = { jjin: null, kakao: null, naver: null, google: null }; // 등록 모달용 미리보기 마커
 const sdkPromises = {};
 
@@ -406,7 +407,10 @@ async function initKakaoMap() {
   const center = new kakao.maps.LatLng(37.5665, 126.978);
   maps.kakao = new kakao.maps.Map(document.getElementById('map-kakao'), { center, level: 6 });
   renderKakaoMarkers(placesCache);
-  kakao.maps.event.addListener(maps.kakao, 'idle', () => renderKakaoMarkers(placesCache));
+  kakao.maps.event.addListener(maps.kakao, 'idle', () => {
+    if (Date.now() < skipRenderUntil.kakao) return;
+    renderKakaoMarkers(placesCache);
+  });
 
   // 탭이 활성화되기 전(컨테이너 크기가 0인 상태)에 지도가 만들어지면 타일이 안 그려지는 카카오맵 고질적 버그 —
   // relayout()으로 크기를 다시 계산시켜줘야 함
@@ -464,7 +468,10 @@ async function initNaverMap() {
   }, 100);
 
   renderNaverMarkers(placesCache);
-  naver.maps.Event.addListener(maps.naver, 'idle', () => renderNaverMarkers(placesCache));
+  naver.maps.Event.addListener(maps.naver, 'idle', () => {
+    if (Date.now() < skipRenderUntil.naver) return;
+    renderNaverMarkers(placesCache);
+  });
 }
 
 // 컨테이너에 실제 크기가 생길 때까지 대기
@@ -495,7 +502,10 @@ async function initGoogleMap() {
   maps.google.setStreetView(maps.streetview);
 
   renderGoogleMarkers(placesCache);
-  google.maps.event.addListener(maps.google, 'idle', () => renderGoogleMarkers(placesCache));
+  google.maps.event.addListener(maps.google, 'idle', () => {
+    if (Date.now() < skipRenderUntil.google) return;
+    renderGoogleMarkers(placesCache);
+  });
 }
 
 // 구글맵 탭을 열지 않아도(등급 잠김 상태여도) 거리뷰 자체는 바로 쓸 수 있도록 분리
@@ -580,6 +590,7 @@ function renderKakaoMarkers(places) {
         infowindow.open(maps.kakao, marker);
         openInfoWindows.kakao = infowindow;
         selectedPlaceId.kakao = p.id;
+        skipRenderUntil.kakao = Date.now() + 600;
         maps.kakao.panTo(marker.getPosition());
       });
       // 재렌더링 후에도 선택돼 있던 가게면 정보창을 다시 열어줌 (지도 이동/줌으로 사라지지 않게)
@@ -642,6 +653,7 @@ function drawNaverClusters() {
           openInfoWindows.naver = infowindow;
           selectedPlaceId.naver = p.id;
         }
+        skipRenderUntil.naver = Date.now() + 600;
         maps.naver.panTo(position);
       });
       if (selectedPlaceId.naver === p.id) {
@@ -689,6 +701,7 @@ function renderGoogleMarkers(places) {
         infowindow.open(maps.google, marker);
         openInfoWindows.google = infowindow;
         selectedPlaceId.google = p.id;
+        skipRenderUntil.google = Date.now() + 600;
         maps.google.panTo(position);
       });
       if (selectedPlaceId.google === p.id) {
