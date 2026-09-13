@@ -499,4 +499,84 @@ router.post('/:id/view', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── 찜하기(즐겨찾기) ─────────────────────────────────────────
+// 찜 추가 (이미 찜한 상태에서 다시 눌러도 에러 없이 그대로 유지)
+router.post('/:id/like', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('likes')
+    .upsert({ user_id: req.user.userId, place_id: req.params.id }, { onConflict: 'user_id,place_id' });
+  if (error) {
+    console.error('[places/:id/like]', error.message);
+    return res.status(500).json({ error: '찜하기에 실패했어요' });
+  }
+  res.json({ liked: true });
+});
+
+// 찜 취소
+router.delete('/:id/like', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('likes')
+    .delete()
+    .eq('user_id', req.user.userId)
+    .eq('place_id', req.params.id);
+  if (error) {
+    console.error('[places/:id/unlike]', error.message);
+    return res.status(500).json({ error: '찜 취소에 실패했어요' });
+  }
+  res.json({ liked: false });
+});
+
+// 내가 찜한 가게 id 목록 — 홈/지도 화면에서 하트 아이콘 상태 표시용 (가볍게)
+router.get('/my-likes', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('place_id')
+    .eq('user_id', req.user.userId);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data ?? []).map((r) => r.place_id));
+});
+
+// 내가 찜한 가게 전체 정보 — 마이페이지 "찜한 가게" 탭용
+router.get('/liked', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('created_at, places(*)')
+    .eq('user_id', req.user.userId)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data ?? []).map((r) => r.places).filter(Boolean));
+});
+
+// ── 랭킹/트렌드 ─────────────────────────────────────────────
+// 최근 7일 조회수 + 찜(가중치 3배)을 합산해 인기 급상승 맛집 TOP 10을 반환
+router.get('/trending', async (req, res) => {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: views, error: viewErr }, { data: likesData, error: likeErr }] = await Promise.all([
+    supabase.from('place_views').select('place_id').gte('created_at', since),
+    supabase.from('likes').select('place_id').gte('created_at', since),
+  ]);
+  if (viewErr) console.error('[places/trending] views', viewErr.message);
+  if (likeErr) console.error('[places/trending] likes', likeErr.message);
+
+  const score = new Map();
+  (views ?? []).forEach((v) => score.set(v.place_id, (score.get(v.place_id) || 0) + 1));
+  (likesData ?? []).forEach((l) => score.set(l.place_id, (score.get(l.place_id) || 0) + 3));
+
+  const topIds = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id]) => id);
+  if (!topIds.length) return res.json([]);
+
+  const { data: places, error } = await supabase
+    .from('places')
+    .select('*')
+    .in('id', topIds)
+    .eq('status', 'verified');
+  if (error) return res.status(500).json({ error: error.message });
+
+  // score 순서 그대로 정렬해서 반환 (Supabase in() 결과는 순서가 보장되지 않음)
+  const order = new Map(topIds.map((id, i) => [id, i]));
+  const sorted = (places ?? []).sort((a, b) => order.get(a.id) - order.get(b.id));
+  res.json(sorted);
+});
+
 module.exports = router;

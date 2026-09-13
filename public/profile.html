@@ -157,6 +157,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
     <div class="places-grid" id="placesList">
       <div class="empty-places">등록한 맛집이 없어요.</div>
     </div>
+
+    <!-- 찜한 가게 목록 (본인 프로필에서만 표시) -->
+    <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;">❤️ 찜한 가게</div>
+    <div class="places-grid" id="likedList" style="display:none;"></div>
   </div>
 </div>
 
@@ -213,6 +217,13 @@ async function init() {
   const placesRes = await fetch(`/api/auth/public-places/${userId}`);
   const places = placesRes.ok ? await placesRes.json() : [];
   renderPlaces(places);
+
+  // 찜한 가게 목록 (본인 프로필일 때만 — 남의 찜 목록은 공개하지 않음)
+  if (isMyProfile) {
+    const likedRes = await fetch('/api/places/liked', { credentials: 'include' });
+    const liked = likedRes.ok ? await likedRes.json() : [];
+    renderLikedPlaces(liked);
+  }
 
   document.getElementById('loading').style.display = 'none';
   document.getElementById('profileWrap').style.display = 'block';
@@ -282,6 +293,26 @@ function renderPlaces(places) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#E1392A;color:#fff;font-weight:700;">인증</span>
+      </div>
+      <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
+      ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function renderLikedPlaces(places) {
+  document.getElementById('likedSectionTitle').style.display = 'block';
+  const list = document.getElementById('likedList');
+  list.style.display = 'flex'; // .places-grid는 flex column 레이아웃이라 block이 아닌 flex로 보여야 gap이 유지됨
+  if (!places.length) {
+    list.innerHTML = '<div class="empty-places">아직 찜한 가게가 없어요.</div>';
+    return;
+  }
+  list.innerHTML = places.map(p => `
+    <div class="place-card" onclick="location.href='/map.html?focus=${p.id}'" style="cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="place-name">${escapeHtml(p.name)}</div>
+        <span style="font-size:14px;">❤️</span>
       </div>
       <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
       ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}

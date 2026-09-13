@@ -12,6 +12,7 @@ console.warn = function(...args) {
 };
 
 let currentUser = null;
+let myLikedIds = new Set();
 let currentProvider = 'jjin';
 let currentListingType = 'verified'; // 'verified' (찐맛집) | 'new_opening' (신규 오픈) — 지도 프로바이더와는 별개 축
 let placesCache = [];
@@ -1073,6 +1074,7 @@ function regionHeaderHtml(key, label, count, level) {
 
 function placeCardHtmlForList(p) {
   const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+  const liked = myLikedIds.has(p.id);
   const thumbHtml = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
     : '';
@@ -1088,6 +1090,10 @@ function placeCardHtmlForList(p) {
     <li class="place-card" data-id="${p.id}" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
       ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
+      <button type="button" onclick="toggleLike('${p.id}', this, event)"
+        style="position:absolute;top:10px;right:54px;background:rgba(255,255,255,.92);border:none;
+        border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+        box-shadow:0 1px 4px rgba(0,0,0,.15);">${liked ? '❤️' : '🤍'}</button>
       ${thumbHtml}
       <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
@@ -1103,6 +1109,37 @@ function placeCardHtmlForList(p) {
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚩 신고</button>
     </li>`;
 }
+
+// ---------- 찜하기 ----------
+async function loadMyLikes() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch('/api/places/my-likes', { credentials: 'include' });
+    if (res.ok) myLikedIds = new Set(await res.json());
+  } catch {
+    // 실패해도 하트 상태만 못 채우는 것이라 화면 흐름엔 영향 없음
+  }
+}
+
+window.toggleLike = async function (id, btn, ev) {
+  if (ev) ev.stopPropagation();
+  if (!currentUser) { location.href = '/login.html'; return; }
+  const liked = myLikedIds.has(id);
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/places/${id}/like`, {
+      method: liked ? 'DELETE' : 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error();
+    if (liked) { myLikedIds.delete(id); btn.textContent = '🤍'; }
+    else { myLikedIds.add(id); btn.textContent = '❤️'; }
+  } catch {
+    alert('찜하기 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 // ---------- 맛집 신고하기 ----------
 const REPORT_REASONS = [
@@ -1613,6 +1650,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupRegisterModal();
   setupBottomSheet();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
+  await loadMyLikes();    // 카드가 그려지기 전에 하트 상태를 먼저 채워둠
   loadPlaces();
 });
 

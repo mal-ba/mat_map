@@ -1,5 +1,6 @@
 let allPlaces = [];
 let currentUser = null;
+let myLikedIds = new Set();
 
 // 관리자는 역할과 무관하게 끌어올리기 이용 가능
 const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
@@ -48,6 +49,7 @@ function placeCardHtml(p) {
   const emoji = getCategoryEmoji(p.category);
   const color = getCategoryColor(p.category);
   const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
+  const liked = myLikedIds.has(p.id);
   const photo = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" onerror="this.style.display='none'" />`
     : `<div style="width:100%;height:120px;background:${color}18;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px;">${emoji}</div>`;
@@ -55,6 +57,10 @@ function placeCardHtml(p) {
   return `
     <div class="place-tile" data-id="${p.id}" onclick="goToMapWith('${p.id}')" style="position:relative;">
       ${boosted ? `<span style="position:absolute;top:6px;left:6px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;z-index:2;">🚀 추천</span>` : ''}
+      <button type="button" onclick="toggleLike('${p.id}', this, event)"
+        style="position:absolute;top:6px;right:6px;z-index:2;background:rgba(255,255,255,.92);border:none;
+        border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+        box-shadow:0 1px 4px rgba(0,0,0,.15);">${liked ? '❤️' : '🤍'}</button>
       ${photo}
       <div style="padding:10px 12px;">
         <div style="font-weight:700;font-size:14px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(p.name)}</div>
@@ -67,6 +73,50 @@ function placeCardHtml(p) {
 window.goToMapWith = function (id) {
   location.href = `/map.html?focus=${encodeURIComponent(id)}`;
 };
+
+// ---------- 찜하기 ----------
+async function loadMyLikes() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch('/api/places/my-likes', { credentials: 'include' });
+    if (res.ok) myLikedIds = new Set(await res.json());
+  } catch {
+    // 실패해도 하트 상태만 못 채우는 것이라 화면 흐름엔 영향 없음
+  }
+}
+
+window.toggleLike = async function (id, btn, ev) {
+  ev.stopPropagation();
+  if (!currentUser) { location.href = '/login.html'; return; }
+  const liked = myLikedIds.has(id);
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/places/${id}/like`, {
+      method: liked ? 'DELETE' : 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error();
+    if (liked) { myLikedIds.delete(id); btn.textContent = '🤍'; }
+    else { myLikedIds.add(id); btn.textContent = '❤️'; }
+  } catch {
+    alert('찜하기 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ---------- 이번 주 인기 맛집 ----------
+async function loadTrending() {
+  const wrap = document.getElementById('trendingRow');
+  if (!wrap) return;
+  try {
+    const res = await fetch('/api/places/trending');
+    const places = res.ok ? await res.json() : [];
+    wrap.innerHTML = places.length ? categoryRowHtml('🔥 이번 주 인기 맛집', places) : '';
+  } catch {
+    wrap.innerHTML = '';
+  }
+}
 
 function renderCategoryRows(places) {
   const wrap = document.getElementById('categoryRows');
@@ -103,10 +153,12 @@ function runSearch(query) {
   const q = query.trim().toLowerCase();
   const resultsWrap = document.getElementById('searchResults');
   const browseWrap = document.getElementById('categoryRows');
+  const trendingWrap = document.getElementById('trendingRow');
 
   if (!q) {
     resultsWrap.style.display = 'none';
     browseWrap.style.display = 'block';
+    if (trendingWrap) trendingWrap.style.display = 'block';
     return;
   }
 
@@ -117,6 +169,7 @@ function runSearch(query) {
   );
 
   browseWrap.style.display = 'none';
+  if (trendingWrap) trendingWrap.style.display = 'none';
   resultsWrap.style.display = 'block';
   resultsWrap.innerHTML = matched.length
     ? `<h2 style="font-family:'Black Han Sans',sans-serif;font-size:19px;margin:0 0 14px;">검색 결과 ${matched.length}개</h2>
@@ -174,5 +227,9 @@ document.getElementById('homeSearchForm').addEventListener('submit', (e) => {
   runSearch(document.getElementById('homeSearchInput').value);
 });
 
-initAuthArea();
-loadPlaces();
+(async function initHome() {
+  await initAuthArea();
+  await loadMyLikes(); // 로그인 상태를 안 뒤에 불러와야 하트 상태가 정확함
+  await loadPlaces();  // 카드가 그려질 때 이미 myLikedIds가 채워져 있도록 순서를 맞춤
+  loadTrending();       // 트렌드 행은 별도 API라 병렬로 늦게 떠도 무방
+})();
