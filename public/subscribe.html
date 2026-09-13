@@ -90,13 +90,18 @@ async function loadPreferences() {
 }
 
 document.getElementById('subscribeBtn').addEventListener('click', async () => {
-  const meRes = await fetch('/api/auth/profile', { credentials: 'include' });
-  if (!meRes.ok) { location.href = '/login.html'; return; }
-  const me = await meRes.json();
-
-  const customerKey = 'user_' + me.id;
-  const payment = tossPayments.payment({ customerKey });
   try {
+    if (!tossPayments) {
+      alert('결제 시스템이 아직 초기화되지 않았어요. (config: ' + JSON.stringify(config) + ')');
+      return;
+    }
+
+    const meRes = await fetch('/api/auth/profile', { credentials: 'include' });
+    if (!meRes.ok) { location.href = '/login.html'; return; }
+    const me = await meRes.json();
+
+    const customerKey = 'user_' + me.id;
+    const payment = tossPayments.payment({ customerKey });
     await payment.requestBillingAuth({
       method: 'CARD',
       successUrl: `${location.origin}/pay-success.html?kind=subscribe`,
@@ -105,7 +110,10 @@ document.getElementById('subscribeBtn').addEventListener('click', async () => {
       customerName: me.display_name || me.name || '고객',
     });
   } catch (err) {
-    if (err.code !== 'USER_CANCEL') alert('카드 등록 요청에 실패했어요: ' + (err.message || ''));
+    console.error('[subscribeBtn]', err);
+    if (err.code !== 'USER_CANCEL') {
+      alert('카드 등록 요청에 실패했어요: [' + (err.code || '코드없음') + '] ' + (err.message || err));
+    }
   }
 });
 
@@ -173,18 +181,26 @@ async function initAuthArea() {
 }
 
 async function init() {
-  const res = await fetch('/api/payments/config');
-  config = await res.json();
-  tossPayments = TossPayments(config.clientKey);
-  await initAuthArea();
+  try {
+    const res = await fetch('/api/payments/config');
+    config = await res.json();
+    console.log('[init] config:', config);
+    tossPayments = TossPayments(config.clientKey);
+    await initAuthArea();
 
-  const meRes = await fetch('/api/auth/profile', { credentials: 'include' });
-  if (!meRes.ok) {
-    document.getElementById('subscribeCard').innerHTML = '<p class="empty">로그인 후 구독할 수 있어요. <a href="/login.html">로그인</a></p>';
+    const meRes = await fetch('/api/auth/profile', { credentials: 'include' });
+    if (!meRes.ok) {
+      document.getElementById('subscribeCard').innerHTML = '<p class="empty">로그인 후 구독할 수 있어요. <a href="/login.html">로그인</a></p>';
+      document.getElementById('subscribeCard').style.display = 'block';
+      return;
+    }
+    checkSubscription();
+  } catch (err) {
+    console.error('[init] 실패:', err);
+    document.getElementById('subscribeCard').innerHTML =
+      '<p class="empty">초기화 실패: ' + escapeHtml(err.message || String(err)) + '</p>';
     document.getElementById('subscribeCard').style.display = 'block';
-    return;
   }
-  checkSubscription();
 }
 init();
 </script>
