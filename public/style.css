@@ -11,6 +11,21 @@
 }
 
 *{box-sizing:border-box}
+
+/* 텍스트 드래그 선택 방지 — 입력창/텍스트영역은 예외 처리해서 타이핑은 그대로 가능 */
+body{
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+}
+input, textarea, [contenteditable="true"]{
+  -webkit-user-select:text;
+  -moz-user-select:text;
+  -ms-user-select:text;
+  user-select:text;
+}
+
 body{
   margin:0;
   font-family:'Noto Sans KR', sans-serif;

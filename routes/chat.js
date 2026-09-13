@@ -1,0 +1,60 @@
+const express = require('express');
+const axios = require('axios');
+
+const router = express.Router();
+
+const SYSTEM_PROMPT = `당신은 '찐맛집' 서비스의 안내 챗봇입니다. 사용자의 질문에 친절하고 짧게(3~5문장 이내) 한국어로 답하세요.
+
+[찐맛집 서비스 안내]
+- 찐맛집은 카카오맵을 기반으로 한 맛집 지도 서비스이며, AI와 카카오/네이버/구글 데이터로 실존 여부와 신뢰도를 이중 검증합니다.
+- 등록 방법: 로그인 후 지도에서 '+' 버튼(가게 등록)을 눌러 이름, 주소, 카테고리, 한줄평, 사진(선택)을 입력하면 자동으로 검증이 진행됩니다. 검증을 통과하면 'verified' 상태로 지도에 노출됩니다.
+- 검증 기준: 등록한 주소 근처(약 500m~1km 이내)에 네이버/카카오/구글 중 한 곳 이상에 실제로 존재하는 장소인지 확인하고, AI가 이름·주소·카테고리 일치 여부를 재검토합니다. 거리가 너무 멀거나 실존을 확인할 수 없으면 반려됩니다.
+- 지도 3사(카카오맵/네이버지도/구글맵) 전환이 가능하고, 로그인은 구글/카카오/네이버/이메일을 지원합니다.
+- 수익 모델: (1) '끌어올리기' — 검증된 매장의 업주가 비용을 지불하면 지도/검색 상단에 우선 노출됩니다. 검증 배지 자체는 구매할 수 없습니다. (2) '맞춤추천' — 월 구독료를 낸 사용자에게 AI가 취향 기반으로 맛집을 우선 추천합니다.
+- 등록된 맛집에 폐업/정보 오류/허위 리뷰 등 문제가 있다고 생각되면 각 맛집 카드의 '신고하기' 버튼으로 제보할 수 있습니다.
+- 사이트 자체의 버그나 개선 아이디어가 있다면 화면 우측 하단의 '문의/제보' 버튼 → '버그/건의 제보' 탭에서 보낼 수 있습니다.
+- 개인정보 처리 방침은 /privacy.html, 검증 방법론은 /verification.html 에서 확인할 수 있습니다.
+
+위 안내에 없는 내용이거나 계정별 개인 문의(결제 오류, 특정 신고 처리 현황 등)라면, 안내에서 답을 찾기 어렵다고 솔직히 말하고 '문의/제보' 버튼의 버그/건의 제보 탭으로 남겨달라고 안내하세요. 모르는 것을 지어내지 마세요.`;
+
+router.post('/', async (req, res) => {
+  const { message, history } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: '메시지를 입력해주세요' });
+  }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: '챗봇이 아직 준비되지 않았어요. 버그/건의 제보로 문의해주세요.' });
+  }
+
+  // history: [{role:'user'|'assistant', content:'...'}] — 최근 몇 턴만 사용
+  const messages = [
+    ...(Array.isArray(history) ? history.slice(-6) : []),
+    { role: 'user', content: message.slice(0, 1000) },
+  ];
+
+  try {
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        system: SYSTEM_PROMPT,
+        messages,
+      },
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+      }
+    );
+    const text = response.data.content.map(b => b.text || '').join('');
+    res.json({ reply: text });
+  } catch (err) {
+    console.error('[chat]', err.response?.data || err.message);
+    res.status(500).json({ error: '답변을 가져오지 못했어요. 잠시 후 다시 시도해주세요.' });
+  }
+});
+
+module.exports = router;

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>관리자 — 신고/제보함</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#B23A2E;--mustard:#D9A441;--green:#22c55e;--line:#E7E4DF;--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
+.topbar{display:flex;align-items:center;gap:12px;padding:16px 28px;border-bottom:3px solid var(--ink);}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:24px;width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);color:var(--paper);
+  border-radius:50%;border:2px solid var(--ink);transform:rotate(-6deg);}
+.topbar h1{font-family:'Black Han Sans',sans-serif;font-size:20px;}
+.topbar a{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;}
+.topbar a:hover{text-decoration:underline;}
+.container{max-width:960px;margin:0 auto;padding:28px 24px;}
+.tabs{display:flex;gap:8px;margin-bottom:16px;}
+.tab-btn{padding:8px 18px;border:2px solid var(--ink);border-radius:99px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;}
+.tab-btn.active{background:var(--ink);color:var(--paper);}
+.filter-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.filter-btn{padding:5px 12px;border:1.5px solid var(--line);border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--ink-soft);}
+.filter-btn.active{background:var(--stamp);color:#fff;border-color:var(--stamp);}
+.row{background:white;border:1.5px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;}
+.row-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.row-title{font-weight:700;font-size:14px;}
+.row-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.row-desc{font-size:13px;margin-top:8px;white-space:pre-wrap;}
+.badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+.badge.pending, .badge.new{background:#fffbeb;color:#92610a;border:1px solid var(--mustard);}
+.badge.reviewing, .badge.in_progress{background:#eff6ff;color:#1e40af;border:1px solid #93c5fd;}
+.badge.resolved, .badge.done{background:#f0fdf4;color:#166534;border:1px solid var(--green);}
+.badge.dismissed{background:#f5f5f5;color:#888;border:1px solid #ccc;}
+.row-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+.row-actions button{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;border:1.5px solid var(--line);background:none;cursor:pointer;}
+.row-actions button:hover{background:var(--paper-deep);}
+.empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:40px 0;}
+.error-banner{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);padding:12px 16px;font-size:13px;display:none;margin-bottom:16px;}
+.error-banner.show{display:block;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand-mark">찐</div>
+  <h1>신고/제보함</h1>
+  <a href="/">← 사이트로</a>
+</header>
+<div class="container">
+  <div id="errorBanner" class="error-banner"></div>
+  <div class="tabs">
+    <button class="tab-btn active" data-kind="reports">🚩 맛집 신고</button>
+    <button class="tab-btn" data-kind="feedback">💬 버그/건의 제보</button>
+  </div>
+  <div class="filter-bar" id="filterBar"></div>
+  <div id="list"></div>
+</div>
+
+<script>
+const REPORT_STATUSES = ['pending', 'reviewing', 'resolved', 'dismissed'];
+const FEEDBACK_STATUSES = ['new', 'in_progress', 'done'];
+const REPORT_REASON_LABEL = { closed:'폐업/이전', wrong_info:'정보 오류', fake_review:'허위/광고성', bad_photo:'부적절한 사진', other:'기타' };
+const FEEDBACK_TYPE_LABEL = { bug:'버그', suggestion:'건의', other:'기타' };
+
+let currentKind = 'reports';
+let currentFilter = '';
+
+function statusesFor(kind) { return kind === 'reports' ? REPORT_STATUSES : FEEDBACK_STATUSES; }
+
+function renderFilterBar() {
+  const bar = document.getElementById('filterBar');
+  const statuses = statusesFor(currentKind);
+  bar.innerHTML = `<button class="filter-btn ${currentFilter === '' ? 'active' : ''}" data-status="">전체</button>` +
+    statuses.map(s => `<button class="filter-btn ${currentFilter === s ? 'active' : ''}" data-status="${s}">${s}</button>`).join('');
+  bar.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => { currentFilter = btn.dataset.status; load(); });
+  });
+}
+
+async function load() {
+  renderFilterBar();
+  const listEl = document.getElementById('list');
+  const errBanner = document.getElementById('errorBanner');
+  errBanner.classList.remove('show');
+  listEl.innerHTML = '<div class="empty">불러오는 중...</div>';
+
+  const url = `/api/${currentKind}${currentFilter ? `?status=${currentFilter}` : ''}`;
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) {
+      errBanner.textContent = data.error || '불러오지 못했어요';
+      errBanner.classList.add('show');
+      listEl.innerHTML = '';
+      return;
+    }
+    if (!data.length) { listEl.innerHTML = '<div class="empty">항목이 없어요.</div>'; return; }
+    listEl.innerHTML = data.map(item => currentKind === 'reports' ? reportRowHtml(item) : feedbackRowHtml(item)).join('');
+    wireActions();
+  } catch (err) {
+    errBanner.textContent = '네트워크 오류가 발생했어요';
+    errBanner.classList.add('show');
+    listEl.innerHTML = '';
+  }
+}
+
+function reportRowHtml(r) {
+  const placeName = r.places?.name || '(삭제된 맛집)';
+  return `
+    <div class="row" data-id="${r.id}">
+      <div class="row-top">
+        <div>
+          <div class="row-title">${placeName}</div>
+          <div class="row-meta">${REPORT_REASON_LABEL[r.reason_type] || r.reason_type} · ${new Date(r.created_at).toLocaleString()}</div>
+        </div>
+        <span class="badge ${r.status}">${r.status}</span>
+      </div>
+      ${r.description ? `<div class="row-desc">${escapeHtml(r.description)}</div>` : ''}
+      <div class="row-actions">
+        ${REPORT_STATUSES.filter(s => s !== r.status).map(s => `<button data-action="${s}">${s}로 변경</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function feedbackRowHtml(f) {
+  const who = f.users?.name || f.users?.email || '비로그인';
+  return `
+    <div class="row" data-id="${f.id}">
+      <div class="row-top">
+        <div>
+          <div class="row-title">${FEEDBACK_TYPE_LABEL[f.type] || f.type} — ${who}</div>
+          <div class="row-meta">${f.page_url ? escapeHtml(f.page_url) + ' · ' : ''}${new Date(f.created_at).toLocaleString()}${f.contact_email ? ' · ' + escapeHtml(f.contact_email) : ''}</div>
+        </div>
+        <span class="badge ${f.status}">${f.status}</span>
+      </div>
+      <div class="row-desc">${escapeHtml(f.content)}</div>
+      <div class="row-actions">
+        ${FEEDBACK_STATUSES.filter(s => s !== f.status).map(s => `<button data-action="${s}">${s}로 변경</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function wireActions() {
+  document.querySelectorAll('.row').forEach(row => {
+    row.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const res = await fetch(`/api/${currentKind}/${row.dataset.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ status: btn.dataset.action }),
+          });
+          if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+          load();
+        } catch (err) {
+          alert('업데이트 실패: ' + err.message);
+        }
+      });
+    });
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentKind = btn.dataset.kind;
+    currentFilter = '';
+    load();
+  });
+});
+
+load();
+</script>
+</body>
+</html>

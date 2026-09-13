@@ -1093,8 +1093,83 @@ function placeCardHtmlForList(p) {
       <button onclick="event.stopPropagation(); viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
         style="margin-top:8px;font-size:12px;font-weight:700;background:none;border:1.5px solid var(--line,#E7E4DF);
         border-radius:6px;padding:5px 10px;cursor:pointer;">🚶 거리뷰</button>
+      <button onclick="event.stopPropagation(); openReportModal(${JSON.stringify(p.id)}, ${JSON.stringify(p.name)})"
+        style="margin-top:8px;margin-left:6px;font-size:12px;font-weight:700;background:none;color:#B23A2E;border:1.5px solid #E1B8B2;
+        border-radius:6px;padding:5px 10px;cursor:pointer;">🚩 신고</button>
     </li>`;
 }
+
+// ---------- 맛집 신고하기 ----------
+const REPORT_REASONS = [
+  { value: 'closed', label: '폐업/이전했어요' },
+  { value: 'wrong_info', label: '정보가 틀렸어요 (주소·영업시간 등)' },
+  { value: 'fake_review', label: '허위/광고성 정보 같아요' },
+  { value: 'bad_photo', label: '사진이 부적절해요' },
+  { value: 'other', label: '기타' },
+];
+
+function ensureReportDialog() {
+  let dialog = document.getElementById('reportDialog');
+  if (dialog) return dialog;
+
+  dialog = document.createElement('dialog');
+  dialog.id = 'reportDialog';
+  dialog.style.cssText = 'border:none;border-radius:12px;padding:0;max-width:360px;width:90vw;';
+  dialog.innerHTML = `
+    <form id="reportForm" style="padding:20px;font-family:'Noto Sans KR',sans-serif;">
+      <h3 style="margin:0 0 4px;font-size:16px;">🚩 <span id="reportPlaceName"></span> 신고</h3>
+      <p style="font-size:12px;color:#8A8580;margin:0 0 14px;">신고 내용은 관리자가 확인 후 조치해요.</p>
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">신고 사유</label>
+      <select id="reportReason" style="width:100%;padding:8px 10px;border:1.5px solid #E7E4DF;border-radius:8px;font-size:13px;margin-bottom:10px;">
+        ${REPORT_REASONS.map(r => `<option value="${r.value}">${r.label}</option>`).join('')}
+      </select>
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">상세 설명 (선택)</label>
+      <textarea id="reportDesc" rows="3" placeholder="구체적으로 알려주시면 처리에 도움이 돼요"
+        style="width:100%;padding:8px 10px;border:1.5px solid #E7E4DF;border-radius:8px;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+      <div id="reportStatus" style="font-size:12px;min-height:16px;margin-top:8px;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button type="button" id="reportCancelBtn" style="flex:1;padding:9px;border:1.5px solid #E7E4DF;border-radius:8px;background:none;font-size:13px;cursor:pointer;">취소</button>
+        <button type="submit" style="flex:1;padding:9px;border:none;border-radius:8px;background:#B23A2E;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">신고하기</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dialog);
+
+  dialog.querySelector('#reportCancelBtn').addEventListener('click', () => dialog.close());
+  dialog.querySelector('#reportForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = dialog.querySelector('#reportStatus');
+    status.textContent = '전송 중...'; status.style.color = '#8A8580';
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          place_id: dialog.dataset.placeId,
+          reason_type: dialog.querySelector('#reportReason').value,
+          description: dialog.querySelector('#reportDesc').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '신고 접수에 실패했어요');
+      status.textContent = '✅ 신고가 접수되었어요. 감사합니다!'; status.style.color = '#2E7D32';
+      setTimeout(() => dialog.close(), 1200);
+    } catch (err) {
+      status.textContent = '❌ ' + err.message; status.style.color = '#B23A2E';
+    }
+  });
+
+  return dialog;
+}
+
+window.openReportModal = function (placeId, placeName) {
+  const dialog = ensureReportDialog();
+  dialog.dataset.placeId = placeId;
+  dialog.querySelector('#reportPlaceName').textContent = placeName;
+  dialog.querySelector('#reportDesc').value = '';
+  dialog.querySelector('#reportStatus').textContent = '';
+  dialog.showModal();
+};
 
 function renderPlaceList(items) {
   const list = document.getElementById('placeList');
@@ -1747,6 +1822,7 @@ window.openDiagPanel = function() {
           <a href="/config.js" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">config.js</a>
           <a href="/naver-test.html" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">네이버 테스트</a>
           <a href="/admin.html" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">관리자 페이지</a>
+          <a href="/inbox.html" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">신고/제보함</a>
           <a href="/api/places" target="_blank" style="color:#0ff;text-decoration:none;border:1px solid #0ff;padding:4px 10px;border-radius:4px">API 확인</a>
         </div>
       </div>
