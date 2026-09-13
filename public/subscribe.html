@@ -185,7 +185,7 @@ async function init() {
     const res = await fetch('/api/payments/config');
     config = await res.json();
     console.log('[init] config:', config);
-    tossPayments = TossPayments(config.clientKey);
+    tossPayments = TossPayments(config.billingClientKey);
     await initAuthArea();
 
     const meRes = await fetch('/api/auth/profile', { credentials: 'include' });

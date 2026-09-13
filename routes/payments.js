@@ -13,8 +13,15 @@ const SUBSCRIPTION_PRICE = 4900; // 소비자 맞춤 추천 월 구독
 // '저매출' 판단 기준 — 리뷰 수가 이 값 미만이면 부스트 신청 가능 (없음/null도 허용)
 const LOW_SALES_REVIEW_THRESHOLD = 10;
 
+// 끌어올리기(일반결제) — "결제위젯 연동 키" 세트
 function tossAuthHeader() {
   const key = process.env.TOSS_SECRET_KEY || '';
+  return 'Basic ' + Buffer.from(key + ':').toString('base64');
+}
+
+// 구독(자동결제/빌링) — "API 개별 연동 키" 세트. 결제위젯 키와 다른 키입니다.
+function tossBillingAuthHeader() {
+  const key = process.env.TOSS_BILLING_SECRET_KEY || '';
   return 'Basic ' + Buffer.from(key + ':').toString('base64');
 }
 
@@ -44,10 +51,11 @@ async function tossConfirmPayment({ paymentKey, orderId, amount }) {
   return data;
 }
 
-// 프론트엔드 결제위젯 초기화용 공개 키 전달
+// 프론트엔드 결제위젯/빌링 초기화용 공개 키 전달
 router.get('/config', (req, res) => {
   res.json({
-    clientKey: process.env.TOSS_CLIENT_KEY,
+    clientKey: process.env.TOSS_CLIENT_KEY,               // 끌어올리기(일반결제)용
+    billingClientKey: process.env.TOSS_BILLING_CLIENT_KEY, // 맞춤추천 구독(자동결제)용
     boostPrice: BOOST_PRICE,
     boostDays: BOOST_DAYS,
     subscriptionPrice: SUBSCRIPTION_PRICE,
@@ -146,10 +154,7 @@ router.post('/boost/confirm', requireAuth, async (req, res) => {
 });
 
 // ============================================================
-// 소비자 맞춤 추천 — 월 구독 (토스 빌링/자동결제)
-// ※ 실제 서비스로 쓰려면 토스페이먼츠에 '빌링(정기결제)' 서비스를
-//   별도로 신청/승인받아야 해요 (사업자등록 필요). 그 전까지는
-//   테스트 키로만 동작을 확인할 수 있어요.
+// 소비자 맞춤 추천 — 월 구독 (토스 빌링/자동결제, API 개별연동 키 사용)
 // ============================================================
 
 // 카드 등록(빌링키 발급) 완료 후 authKey를 받아 실제 빌링키로 교환 + 첫 달 결제
@@ -158,7 +163,7 @@ router.post('/subscribe/confirm', requireAuth, async (req, res) => {
   try {
     const issueRes = await fetch('https://api.tosspayments.com/v1/billing/authorizations/issue', {
       method: 'POST',
-      headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+      headers: { Authorization: tossBillingAuthHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ authKey, customerKey }),
     });
     const issued = await issueRes.json();
@@ -167,7 +172,7 @@ router.post('/subscribe/confirm', requireAuth, async (req, res) => {
     const orderId = 'sub_' + crypto.randomUUID();
     const chargeRes = await fetch(`https://api.tosspayments.com/v1/billing/${issued.billingKey}`, {
       method: 'POST',
-      headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+      headers: { Authorization: tossBillingAuthHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customerKey,
         amount: SUBSCRIPTION_PRICE,
@@ -243,7 +248,7 @@ router.post('/subscribe/run-billing', async (req, res) => {
       const orderId = 'sub_' + crypto.randomUUID();
       const chargeRes = await fetch(`https://api.tosspayments.com/v1/billing/${sub.billing_key}`, {
         method: 'POST',
-        headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+        headers: { Authorization: tossBillingAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerKey: sub.customer_key,
           amount: SUBSCRIPTION_PRICE,
