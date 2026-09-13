@@ -310,10 +310,15 @@ function placePopupHtml(p) {
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
       <div>${recentCheckBadgeHtml(p)}</div>
-      ${reviewsHtml}
-      <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
-        style="margin-top:6px;width:100%;font-size:12px;font-weight:700;background:none;
-        border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
+      <div>${reviewsHtml}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
+          style="flex:1;font-size:12px;font-weight:700;background:none;
+          border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">🚶 거리뷰</button>
+        <button onclick="openReportModal(${JSON.stringify(p.id)}, ${JSON.stringify(p.name)})"
+          style="flex:1;font-size:12px;font-weight:700;background:none;color:#B23A2E;
+          border:1.5px solid #E1B8B2;border-radius:4px;padding:5px;cursor:pointer;">🚩 신고/수정요청</button>
+      </div>
     </div>`;
 }
 

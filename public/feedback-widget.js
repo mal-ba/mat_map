@@ -1,23 +1,20 @@
 // ---------- 찐맛집 문의/제보 위젯 (챗봇 + 버그·건의 제보) ----------
-// 아무 페이지에나 <script src="/feedback-widget.js"></script> 한 줄만 추가하면 동작합니다.
+// <script src="/feedback-widget.js"></script> 를 넣고, 푸터 등에서
+// <a href="#" onclick="jjinOpenFeedbackWidget(); return false;">문의/제보</a> 처럼 호출하면 열립니다.
 (function () {
   const STYLE = `
-  #jjinFabBtn{
-    position:fixed; right:18px; bottom:18px; z-index:9000;
-    width:52px; height:52px; border-radius:50%;
-    background:#B23A2E; color:#E7DCC3; border:none;
-    box-shadow:0 4px 14px rgba(0,0,0,.28); font-size:22px; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
-  }
   #jjinFabPanel{
-    position:fixed; right:18px; bottom:82px; z-index:9000;
+    position:fixed; right:18px; bottom:18px; z-index:9000;
     width:320px; max-width:calc(100vw - 36px); height:440px; max-height:70vh;
     background:#FFFFFF; border:1px solid #E7E4DF; border-radius:14px;
     box-shadow:0 8px 28px rgba(0,0,0,.25); display:none; flex-direction:column; overflow:hidden;
     font-family:'Noto Sans KR',sans-serif;
   }
   #jjinFabPanel.open{ display:flex; }
-  #jjinFabTabs{ display:flex; border-bottom:1px solid #E7E4DF; }
+  #jjinFabHeader{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px 0; }
+  #jjinFabHeader b{ font-size:13px; }
+  #jjinFabCloseBtn{ background:none; border:none; font-size:16px; cursor:pointer; color:#8A8580; padding:2px 6px; }
+  #jjinFabTabs{ display:flex; border-bottom:1px solid #E7E4DF; margin-top:4px; }
   #jjinFabTabs button{
     flex:1; padding:10px 6px; border:none; background:#F6F4F1; color:#8A8580;
     font-size:13px; font-weight:700; cursor:pointer;
@@ -49,6 +46,9 @@
     background:#B23A2E; color:#fff; border:none; border-radius:8px; padding:10px; font-size:13px; font-weight:700; cursor:pointer;
   }
   #jjinFeedbackStatus{ font-size:12px; min-height:16px; }
+  @media (max-width:480px){
+    #jjinFabPanel{ right:8px; left:8px; bottom:8px; width:auto; height:min(70vh,520px); }
+  }
   `;
 
   function el(html) {
@@ -64,9 +64,12 @@
   }
 
   function buildUI() {
-    const fab = el(`<button id="jjinFabBtn" title="문의/제보">💬</button>`);
     const panel = el(`
       <div id="jjinFabPanel">
+        <div id="jjinFabHeader">
+          <b>💬 문의/제보</b>
+          <button id="jjinFabCloseBtn" title="닫기">✕</button>
+        </div>
         <div id="jjinFabTabs">
           <button data-tab="chat" class="active">챗봇에게 물어보기</button>
           <button data-tab="feedback">버그/건의 제보</button>
@@ -93,10 +96,9 @@
         </div>
       </div>
     `);
-    document.body.appendChild(fab);
     document.body.appendChild(panel);
 
-    fab.addEventListener('click', () => panel.classList.toggle('open'));
+    panel.querySelector('#jjinFabCloseBtn').addEventListener('click', () => panel.classList.remove('open'));
 
     panel.querySelectorAll('#jjinFabTabs button').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -109,6 +111,14 @@
 
     setupChat(panel);
     setupFeedback(panel);
+
+    window.jjinOpenFeedbackWidget = function (tab) {
+      panel.classList.add('open');
+      if (tab) {
+        const btn = panel.querySelector(`#jjinFabTabs button[data-tab="${tab}"]`);
+        if (btn) btn.click();
+      }
+    };
   }
 
   function appendChatBubble(log, role, text) {
