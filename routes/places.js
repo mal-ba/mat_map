@@ -4,6 +4,7 @@ const supabase = require('../services/supabase');
 const requireAuth = require('./requireAuth');
 const { verifyPlace, searchNaverPlace } = require('../services/verifyPlace');
 const { refreshNaverContentForPlace } = require('../services/naverRefresh');
+const { regionKey, regionLabel } = require('../services/region');
 
 const router = express.Router();
 
@@ -94,8 +95,40 @@ router.get('/', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
+  const places = data ?? [];
+
+  // 가게별 추천수 집계 + 같은 지역(시/도+시군구) 안에서의 순위 계산
+  // (추천을 가장 많이 받은 가게가 그 지역 1위 = region_rank === 1)
+  const { data: recData, error: recError } = await supabase
+    .from('recommends')
+    .select('place_id');
+  if (recError) console.error('[places GET] recommends 집계 에러:', recError.message);
+
+  const recommendCounts = new Map();
+  (recData ?? []).forEach((r) => {
+    recommendCounts.set(r.place_id, (recommendCounts.get(r.place_id) || 0) + 1);
+  });
+
+  const byRegion = new Map();
+  places.forEach((p) => {
+    p.recommend_count = recommendCounts.get(p.id) || 0;
+    p.region_label = regionLabel(p.address);
+    const key = regionKey(p.address);
+    if (!byRegion.has(key)) byRegion.set(key, []);
+    byRegion.get(key).push(p);
+  });
+  byRegion.forEach((group) => {
+    group
+      .slice()
+      .sort((a, b) =>
+        b.recommend_count - a.recommend_count ||
+        new Date(a.created_at) - new Date(b.created_at)
+      )
+      .forEach((p, i) => { p.region_rank = i + 1; });
+  });
+
   const now = Date.now();
-  const sorted = (data ?? []).sort((a, b) => {
+  const sorted = places.sort((a, b) => {
     const aBoosted = a.boosted_until && new Date(a.boosted_until).getTime() > now;
     const bBoosted = b.boosted_until && new Date(b.boosted_until).getTime() > now;
     if (aBoosted && !bBoosted) return -1;
@@ -545,6 +578,44 @@ router.get('/liked', requireAuth, async (req, res) => {
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json((data ?? []).map((r) => r.places).filter(Boolean));
+});
+
+// ── 추천하기 ─────────────────────────────────────────────────
+// 찜(개인 보관함, 위의 likes)과는 별개의 신호. 한 사용자가 같은 가게를 여러 번
+// 추천해도 1표로만 집계되며(upsert), 이 추천수가 GET '/'의 region_rank 계산에 쓰인다.
+router.post('/:id/recommend', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('recommends')
+    .upsert({ user_id: req.user.userId, place_id: req.params.id }, { onConflict: 'user_id,place_id' });
+  if (error) {
+    console.error('[places/:id/recommend]', error.message);
+    return res.status(500).json({ error: '추천에 실패했어요' });
+  }
+  res.json({ recommended: true });
+});
+
+// 추천 취소
+router.delete('/:id/recommend', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('recommends')
+    .delete()
+    .eq('user_id', req.user.userId)
+    .eq('place_id', req.params.id);
+  if (error) {
+    console.error('[places/:id/unrecommend]', error.message);
+    return res.status(500).json({ error: '추천 취소에 실패했어요' });
+  }
+  res.json({ recommended: false });
+});
+
+// 내가 추천한 가게 id 목록 — 지도/목록 화면에서 추천 버튼 상태 표시용
+router.get('/my-recommends', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('recommends')
+    .select('place_id')
+    .eq('user_id', req.user.userId);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data ?? []).map((r) => r.place_id));
 });
 
 // ── 랭킹/트렌드 ─────────────────────────────────────────────
