@@ -4,6 +4,7 @@ const supabase = require('../services/supabase');
 const requireAuth = require('./requireAuth');
 const { verifyPlace, searchNaverPlace } = require('../services/verifyPlace');
 const { refreshNaverContentForPlace } = require('../services/naverRefresh');
+const { refreshPlaceDetailsForPlace } = require('../services/googlePlaceDetails');
 const { regionKey, regionLabel } = require('../services/region');
 
 const router = express.Router();
@@ -324,6 +325,15 @@ router.post('/', requireAuth, async (req, res) => {
   const verdict = await verifyPlace({ name, address, lat, lng, comment });
   const finalImageUrl = image_url || verdict.naver_photo_url || null; // 사용자 업로드 우선, 없으면 AI가 네이버에서 가져온 사진
 
+  // 가격대/영업시간은 구글에서 못 찾아도 등록 자체는 막지 않음 — 실패하면 조용히 스킵
+  let placeDetails = {};
+  try {
+    const detailResult = await refreshPlaceDetailsForPlace({ name, lat, lng, google_place_id: null });
+    if (detailResult.updated) placeDetails = detailResult.fields;
+  } catch (err) {
+    console.error('[places POST] 구글 상세정보 조회 실패:', err.message);
+  }
+
   const { data, error } = await supabase
     .from('places')
     .insert({
@@ -348,6 +358,11 @@ router.post('/', requireAuth, async (req, res) => {
       tags: verdict.tags || [],
       listing_type,
       show_on_maps: show_on_maps || 'kakao,naver,google',
+      google_place_id: placeDetails.google_place_id || null,
+      price_level: placeDetails.price_level ?? null,
+      opening_hours: placeDetails.opening_hours || null,
+      business_status: placeDetails.business_status || null,
+      place_details_updated_at: placeDetails.place_details_updated_at || null,
     })
     .select()
     .single();
@@ -519,6 +534,71 @@ router.post('/refresh-naver-content-all', requireAuth, requireAdmin, async (req,
       summary.failed++;
     }
     await new Promise((r) => setTimeout(r, 300)); // 네이버/카카오 호출 과부하 방지용 딜레이
+  }
+  res.json(summary);
+});
+
+// price_level/opening_hours가 비어있는 verified 가게 목록 (관리자 페이지에서 백필 대상 확인용)
+router.get('/missing-place-details', requireAuth, requireAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('places')
+    .select('id, name, address, price_level, opening_hours')
+    .eq('status', 'verified')
+    .is('place_details_updated_at', null)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? []);
+});
+
+// 이미 등록된 가게 하나의 가격대/영업시간을 다시 가져와 채움 (관리자용)
+router.post('/:id/refresh-place-details', requireAuth, requireAdmin, async (req, res) => {
+  const { data: place, error: findError } = await supabase
+    .from('places')
+    .select('*')
+    .eq('id', req.params.id)
+    .single();
+  if (findError || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+
+  try {
+    const result = await refreshPlaceDetailsForPlace(place);
+    if (!result.updated) return res.json({ updated: false, message: result.reason });
+
+    const { data: updated, error } = await supabase
+      .from('places')
+      .update(result.fields)
+      .eq('id', place.id)
+      .select()
+      .single();
+    if (error) throw error;
+    res.json({ updated: true, place: updated });
+  } catch (err) {
+    console.error('[places/refresh-place-details]', err.message);
+    res.status(500).json({ error: '가격대/영업시간을 가져오는 중 오류가 발생했어요' });
+  }
+});
+
+// price_level/opening_hours가 비어있는 verified 가게 전체를 순회하며 일괄 백필 (관리자용, 시간이 걸릴 수 있음)
+router.post('/refresh-place-details-all', requireAuth, requireAdmin, async (req, res) => {
+  const { data: places, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('status', 'verified')
+    .is('place_details_updated_at', null);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const summary = { total: places.length, updated: 0, skipped: 0, failed: 0 };
+  for (const place of places) {
+    try {
+      const result = await refreshPlaceDetailsForPlace(place);
+      if (!result.updated) { summary.skipped++; continue; }
+      const { error: updateError } = await supabase.from('places').update(result.fields).eq('id', place.id);
+      if (updateError) { summary.failed++; continue; }
+      summary.updated++;
+    } catch (err) {
+      console.error('[places/refresh-place-details-all]', place.name, err.message);
+      summary.failed++;
+    }
+    await new Promise((r) => setTimeout(r, 300)); // 구글 API 호출 과부하 방지용 딜레이
   }
   res.json(summary);
 });
