@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const supabase = require('../services/supabase');
 const requireAuth = require('./requireAuth');
+const { writeLimiter } = require('../middleware/rateLimit');
 const { verifyPlace, searchNaverPlace } = require('../services/verifyPlace');
 const { refreshNaverContentForPlace } = require('../services/naverRefresh');
 const { refreshPlaceDetailsForPlace } = require('../services/googlePlaceDetails');
@@ -274,7 +275,7 @@ router.post('/:id/claim/:decision', requireAuth, requireAdmin, async (req, res) 
 // 새 맛집 등록 -> 즉시 공개 X, 자동 검증 로직 통과해야 지도에 뜸
 const LISTING_TYPES = ['verified', 'new_opening'];
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', writeLimiter, requireAuth, async (req, res) => {
   const { name, address, lat, lng, category, comment, image_url, show_on_maps } = req.body;
   const listing_type = LISTING_TYPES.includes(req.body.listing_type) ? req.body.listing_type : 'verified';
   if (!name || !address || lat == null || lng == null) {
