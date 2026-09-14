@@ -13,6 +13,7 @@ console.warn = function(...args) {
 
 let currentUser = null;
 let myLikedIds = new Set();
+let myRecommendedIds = new Set(); // 추천(지역 랭킹용) — 찜(myLikedIds)과는 별개의 신호
 let currentProvider = 'jjin';
 let currentListingType = 'verified'; // 'verified' (찐맛집) | 'new_opening' (신규 오픈) — 지도 프로바이더와는 별개 축
 let placesCache = [];
@@ -301,10 +302,14 @@ function placePopupHtml(p) {
           </div>`).join('')}
       </div>`
     : '';
+  const liked = myLikedIds.has(p.id);
+  const recommended = myRecommendedIds.has(p.id);
+  const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
   return `
     <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;">
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
+      ${isTopInRegion ? `<span style="display:inline-block;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">👑 ${escapeHtml(p.region_label || '이 지역')} 추천 1위</span><br>` : ''}
       <b style="font-size:14px;">${escapeHtml(p.name)}</b>
       ${ratingHtml}
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
@@ -312,6 +317,14 @@ function placePopupHtml(p) {
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
       <div>${recentCheckBadgeHtml(p)}</div>
       <div>${reviewsHtml}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button onclick="toggleLike('${p.id}', this, event)" data-style="star"
+          style="flex:1;font-size:12px;font-weight:700;background:none;
+          border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">${liked ? '⭐ 찜함' : '☆ 찜하기'}</button>
+        <button onclick="toggleRecommend('${p.id}', this, event)"
+          style="flex:1;font-size:12px;font-weight:700;background:none;color:${recommended ? '#E1392A' : '#1C1917'};
+          border:1.5px solid ${recommended ? '#E1392A' : '#ccc'};border-radius:4px;padding:5px;cursor:pointer;">👍 추천${p.recommend_count ? ` ${p.recommend_count}` : ''}</button>
+      </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
         <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
           style="flex:1;font-size:12px;font-weight:700;background:none;
@@ -340,11 +353,15 @@ function renderJjinMarkers(key, places) {
     if (group.count === 1) {
       const p = group.places[0];
       const color = isNewOpening ? '#2E7D32' : getCategoryColor(p.category);
+      const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
-          background:${color};border:2.5px solid #fff;
-          box-shadow:0 2px 6px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>`,
+        html: `<div style="position:relative;width:28px;height:28px;">
+          <div style="width:28px;height:28px;border-radius:50% 50% 50% 0;
+            background:${color};border:2.5px solid ${isTopInRegion ? '#FFD700' : '#fff'};
+            box-shadow:0 2px 6px rgba(0,0,0,.35);transform:rotate(-45deg);"></div>
+          ${isTopInRegion ? '<div style="position:absolute;top:-14px;left:5px;font-size:13px;">👑</div>' : ''}
+        </div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 28],
       });
@@ -1022,6 +1039,17 @@ function groupItemsByRegion(items) {
     if (!tree[l1][l2][l3]) tree[l1][l2][l3] = [];
     tree[l1][l2][l3].push(p);
   });
+  // 같은 지역(읍/면/동) 안에서는 추천을 가장 많이 받은 가게가 맨 위로 올라오게 정렬
+  Object.values(tree).forEach((sub) => {
+    Object.values(sub).forEach((l3map) => {
+      Object.values(l3map).forEach((arr) => {
+        arr.sort((a, b) =>
+          (b.recommend_count || 0) - (a.recommend_count || 0) ||
+          new Date(b.created_at) - new Date(a.created_at)
+        );
+      });
+    });
+  });
   return tree;
 }
 
@@ -1075,6 +1103,8 @@ function regionHeaderHtml(key, label, count, level) {
 function placeCardHtmlForList(p) {
   const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
   const liked = myLikedIds.has(p.id);
+  const recommended = myRecommendedIds.has(p.id);
+  const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
   const thumbHtml = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'" />`
     : '';
@@ -1089,13 +1119,19 @@ function placeCardHtmlForList(p) {
   return `
     <li class="place-card" data-id="${p.id}" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
-      ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 추천</div>` : ''}
+      ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 부스트</div>` : ''}
+      ${isTopInRegion ? `<div style="position:absolute;top:${boosted ? '34px' : '8px'};left:10px;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">👑 ${escapeHtml(p.region_label || '이 지역')} 1위</div>` : ''}
       <button type="button" onclick="toggleLike('${p.id}', this, event)"
-        style="position:absolute;top:10px;right:54px;background:rgba(255,255,255,.92);border:none;
+        style="position:absolute;top:10px;right:88px;background:rgba(255,255,255,.92);border:none;
         border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
         box-shadow:0 1px 4px rgba(0,0,0,.15);">${liked ? '❤️' : '🤍'}</button>
+      <button type="button" onclick="toggleRecommend('${p.id}', this, event)"
+        style="position:absolute;top:10px;right:54px;background:rgba(255,255,255,.92);border:none;
+        border-radius:14px;min-width:26px;height:26px;padding:0 7px;font-size:12px;font-weight:700;cursor:pointer;
+        color:${recommended ? '#E1392A' : '#1C1917'};display:flex;align-items:center;justify-content:center;gap:2px;
+        box-shadow:0 1px 4px rgba(0,0,0,.15);">👍${p.recommend_count ? ` ${p.recommend_count}` : ''}</button>
       ${thumbHtml}
-      <h3 style="${boosted ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
+      <h3 style="${boosted && isTopInRegion ? 'margin-top:44px;' : (boosted || isTopInRegion ? 'margin-top:18px;' : '')}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${naverRatingHtml}
       <div>${recentCheckBadgeHtml(p)}</div>
@@ -1125,6 +1161,9 @@ window.toggleLike = async function (id, btn, ev) {
   if (ev) ev.stopPropagation();
   if (!currentUser) { location.href = '/login.html'; return; }
   const liked = myLikedIds.has(id);
+  // 지도 팝업(별표)과 목록 카드(하트)가 같은 찜 기능을 서로 다른 아이콘으로 보여줌
+  const style = btn.dataset.style || 'heart';
+  const labels = style === 'star' ? { on: '⭐ 찜함', off: '☆ 찜하기' } : { on: '❤️', off: '🤍' };
   btn.disabled = true;
   try {
     const res = await fetch(`/api/places/${id}/like`, {
@@ -1132,10 +1171,43 @@ window.toggleLike = async function (id, btn, ev) {
       credentials: 'include',
     });
     if (!res.ok) throw new Error();
-    if (liked) { myLikedIds.delete(id); btn.textContent = '🤍'; }
-    else { myLikedIds.add(id); btn.textContent = '❤️'; }
+    if (liked) { myLikedIds.delete(id); btn.textContent = labels.off; }
+    else { myLikedIds.add(id); btn.textContent = labels.on; }
   } catch {
     alert('찜하기 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// ---------- 추천하기 (찜과 별개 — 지역 내 인기 랭킹에 반영됨) ----------
+async function loadMyRecommends() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch('/api/places/my-recommends', { credentials: 'include' });
+    if (res.ok) myRecommendedIds = new Set(await res.json());
+  } catch {
+    // 실패해도 추천 버튼 상태만 못 채우는 것이라 화면 흐름엔 영향 없음
+  }
+}
+
+window.toggleRecommend = async function (id, btn, ev) {
+  if (ev) ev.stopPropagation();
+  if (!currentUser) { location.href = '/login.html'; return; }
+  const recommended = myRecommendedIds.has(id);
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/places/${id}/recommend`, {
+      method: recommended ? 'DELETE' : 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error();
+    if (recommended) myRecommendedIds.delete(id);
+    else myRecommendedIds.add(id);
+    // 추천수가 그 지역 순위(👑 배지)에 바로 영향을 주므로, 목록/마커를 전부 다시 불러와 순위를 갱신함
+    await loadPlaces();
+  } catch {
+    alert('추천 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
   } finally {
     btn.disabled = false;
   }
@@ -1650,7 +1722,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupRegisterModal();
   setupBottomSheet();
   await restoreSession(); // 쿠키에 저장된 로그인 세션 복원
-  await loadMyLikes();    // 카드가 그려지기 전에 하트 상태를 먼저 채워둠
+  await loadMyLikes();       // 카드가 그려지기 전에 하트 상태를 먼저 채워둠
+  await loadMyRecommends();  // 추천 버튼 상태도 함께 채워둠
   loadPlaces();
 });
 
