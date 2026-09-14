@@ -318,14 +318,16 @@ function placePopupHtml(p) {
   const recommended = myRecommendedIds.has(p.id);
   const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
   const settingsBtnHtml = canManagePlace(p)
-    ? `<button type="button" onclick="openPlaceSettingsModal(${JSON.stringify(p.id)}, event)"
-        title="가게 정보 수정 (사진·소개글)"
-        style="position:absolute;top:22px;right:6px;background:#fff;border:1px solid #E7E4DF;
-        border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;
-        display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.15);z-index:2;">⚙️</button>`
+    ? `<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+        <button type="button" onclick="openPlaceSettingsModal(${JSON.stringify(p.id)}, event)"
+          title="가게 정보 수정 (사진·소개글)"
+          style="background:#fff;border:1px solid #E7E4DF;border-radius:50%;width:24px;height:24px;
+          font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;
+          box-shadow:0 1px 3px rgba(0,0,0,.15);flex-shrink:0;">⚙️</button>
+      </div>`
     : '';
   return `
-    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;position:relative;">
+    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;">
       ${settingsBtnHtml}
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
