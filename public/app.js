@@ -318,7 +318,7 @@ function placePopupHtml(p) {
   const recommended = myRecommendedIds.has(p.id);
   const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
   const settingsBtnHtml = canManagePlace(p)
-    ? `<div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+    ? `<div style="display:flex;justify-content:flex-end;margin:0 -20px 4px 0;">
         <button type="button" onclick="openPlaceSettingsModal(${JSON.stringify(p.id)}, event)"
           title="가게 정보 수정 (사진·소개글)"
           style="background:#fff;border:1px solid #E7E4DF;border-radius:50%;width:24px;height:24px;
@@ -1398,22 +1398,34 @@ function ensurePlaceSettingsDialog() {
 }
 
 window.openPlaceSettingsModal = function (placeId, event) {
-  if (event) event.stopPropagation();
-  const p = placesCache.find((x) => x.id === placeId);
-  if (!p) return;
-  pendingSettingsPhotoUrl = null;
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  try {
+    // placesCache에서 못 찾아도(타이밍 이슈 등) 조용히 아무 반응 없이 끝내지 않고,
+    // 빈 값으로라도 모달을 반드시 띄운다
+    const p = placesCache.find((x) => x.id === placeId) || { id: placeId, name: '', comment: '', image_url: null };
+    pendingSettingsPhotoUrl = null;
 
-  const dialog = ensurePlaceSettingsDialog();
-  dialog.dataset.placeId = placeId;
-  dialog.querySelector('#settingsPlaceName').textContent = p.name;
-  dialog.querySelector('#settingsComment').value = p.comment || '';
-  dialog.querySelector('#settingsPhotoStatus').textContent = '';
-  dialog.querySelector('#settingsStatus').textContent = '';
-  dialog.querySelector('#settingsPhotoInput').value = '';
-  const preview = dialog.querySelector('#settingsPhotoPreview');
-  if (p.image_url) { preview.src = p.image_url; preview.style.display = 'block'; }
-  else { preview.style.display = 'none'; }
-  dialog.showModal();
+    const dialog = ensurePlaceSettingsDialog();
+    dialog.dataset.placeId = placeId;
+    dialog.querySelector('#settingsPlaceName').textContent = p.name || '';
+    dialog.querySelector('#settingsComment').value = p.comment || '';
+    dialog.querySelector('#settingsPhotoStatus').textContent = '';
+    dialog.querySelector('#settingsStatus').textContent = '';
+    dialog.querySelector('#settingsPhotoInput').value = '';
+    const preview = dialog.querySelector('#settingsPhotoPreview');
+    if (p.image_url) { preview.src = p.image_url; preview.style.display = 'block'; }
+    else { preview.style.display = 'none'; }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      // 아주 오래된 브라우저 등 <dialog> 미지원 대비 — 최소한 보이기라도 하게
+      dialog.setAttribute('open', '');
+    }
+  } catch (err) {
+    console.error('[openPlaceSettingsModal]', err);
+    alert('설정창을 여는 중 문제가 발생했어요: ' + err.message);
+  }
 };
 
 function renderPlaceList(items) {
