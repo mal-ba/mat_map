@@ -317,8 +317,16 @@ function placePopupHtml(p) {
   const liked = myLikedIds.has(p.id);
   const recommended = myRecommendedIds.has(p.id);
   const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
+  const settingsBtnHtml = canManagePlace(p)
+    ? `<button type="button" onclick="openPlaceSettingsModal(${JSON.stringify(p.id)}, event)"
+        title="가게 정보 수정 (사진·소개글)"
+        style="position:absolute;top:22px;right:6px;background:#fff;border:1px solid #E7E4DF;
+        border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;line-height:1;
+        display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.15);z-index:2;">⚙️</button>`
+    : '';
   return `
-    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;">
+    <div style="font-family:'Noto Sans KR',sans-serif;min-width:200px;max-width:260px;position:relative;">
+      ${settingsBtnHtml}
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       ${isTopInRegion ? `<span style="display:inline-block;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">👑 ${escapeHtml(p.region_label || '이 지역')} 추천 1위</span><br>` : ''}
@@ -1297,6 +1305,115 @@ window.openReportModal = function (placeId, placeName) {
   dialog.showModal();
 };
 
+// ---------- 가게 정보 관리(설정) 모달 — 관리자/승인된 사장님이 사진·소개글 수정 ----------
+let pendingSettingsPhotoUrl = null; // 업로드 후 아직 저장 전인 새 사진 URL
+
+function ensurePlaceSettingsDialog() {
+  let dialog = document.getElementById('placeSettingsDialog');
+  if (dialog) return dialog;
+
+  dialog = document.createElement('dialog');
+  dialog.id = 'placeSettingsDialog';
+  dialog.style.cssText = 'border:none;border-radius:12px;padding:0;max-width:360px;width:90vw;';
+  dialog.innerHTML = `
+    <form id="placeSettingsForm" style="padding:20px;font-family:'Noto Sans KR',sans-serif;">
+      <h3 style="margin:0 0 4px;font-size:16px;">⚙️ <span id="settingsPlaceName"></span> 정보 수정</h3>
+      <p style="font-size:12px;color:#8A8580;margin:0 0 14px;">대표 사진과 소개글을 수정할 수 있어요.</p>
+
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">대표 사진</label>
+      <img id="settingsPhotoPreview" style="width:100%;height:120px;object-fit:cover;border-radius:8px;
+        background:#F5F3EF;margin-bottom:8px;display:none;" />
+      <input type="file" id="settingsPhotoInput" accept="image/*"
+        style="width:100%;font-size:12px;margin-bottom:4px;" />
+      <div id="settingsPhotoStatus" style="font-size:11px;min-height:14px;margin-bottom:10px;"></div>
+
+      <label style="display:block;font-size:12px;font-weight:700;margin-bottom:6px;">소개글</label>
+      <textarea id="settingsComment" rows="4" placeholder="가게 소개를 적어주세요"
+        style="width:100%;padding:8px 10px;border:1.5px solid #E7E4DF;border-radius:8px;font-size:13px;
+        resize:vertical;box-sizing:border-box;"></textarea>
+
+      <div id="settingsStatus" style="font-size:12px;min-height:16px;margin-top:8px;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button type="button" id="settingsCancelBtn" style="flex:1;padding:9px;border:1.5px solid #E7E4DF;
+          border-radius:8px;background:none;font-size:13px;cursor:pointer;">취소</button>
+        <button type="submit" style="flex:1;padding:9px;border:none;border-radius:8px;background:#1C1917;
+          color:#fff;font-size:13px;font-weight:700;cursor:pointer;">저장</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dialog);
+
+  dialog.querySelector('#settingsCancelBtn').addEventListener('click', () => dialog.close());
+
+  dialog.querySelector('#settingsPhotoInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = dialog.querySelector('#settingsPhotoStatus');
+    statusEl.textContent = '업로드 중...'; statusEl.style.color = '#8A8580';
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const res = await fetch('/api/places/photo-upload', {
+        method: 'POST', credentials: 'include', body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '업로드에 실패했어요');
+      pendingSettingsPhotoUrl = data.url;
+      const preview = dialog.querySelector('#settingsPhotoPreview');
+      preview.src = data.url;
+      preview.style.display = 'block';
+      statusEl.textContent = '✅ 업로드 완료 (저장을 눌러야 반영돼요)'; statusEl.style.color = '#2E7D32';
+    } catch (err) {
+      statusEl.textContent = '❌ ' + err.message; statusEl.style.color = '#B23A2E';
+    }
+  });
+
+  dialog.querySelector('#placeSettingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = dialog.querySelector('#settingsStatus');
+    status.textContent = '저장 중...'; status.style.color = '#8A8580';
+    try {
+      const placeId = dialog.dataset.placeId;
+      const body = { comment: dialog.querySelector('#settingsComment').value.trim() };
+      if (pendingSettingsPhotoUrl) body.image_url = pendingSettingsPhotoUrl;
+      const endpoint = isAdmin() ? `/api/places/${placeId}/admin-edit` : `/api/places/${placeId}/owner-edit`;
+      const res = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '저장에 실패했어요');
+      status.textContent = '✅ 저장됐어요!'; status.style.color = '#2E7D32';
+      await loadPlaces(); // 지도/목록에 바로 반영
+      setTimeout(() => dialog.close(), 900);
+    } catch (err) {
+      status.textContent = '❌ ' + err.message; status.style.color = '#B23A2E';
+    }
+  });
+
+  return dialog;
+}
+
+window.openPlaceSettingsModal = function (placeId, event) {
+  if (event) event.stopPropagation();
+  const p = placesCache.find((x) => x.id === placeId);
+  if (!p) return;
+  pendingSettingsPhotoUrl = null;
+
+  const dialog = ensurePlaceSettingsDialog();
+  dialog.dataset.placeId = placeId;
+  dialog.querySelector('#settingsPlaceName').textContent = p.name;
+  dialog.querySelector('#settingsComment').value = p.comment || '';
+  dialog.querySelector('#settingsPhotoStatus').textContent = '';
+  dialog.querySelector('#settingsStatus').textContent = '';
+  dialog.querySelector('#settingsPhotoInput').value = '';
+  const preview = dialog.querySelector('#settingsPhotoPreview');
+  if (p.image_url) { preview.src = p.image_url; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; }
+  dialog.showModal();
+};
+
 function renderPlaceList(items) {
   const list = document.getElementById('placeList');
   lastPlaceListItems = items;
@@ -1847,6 +1964,16 @@ const ADMIN_EMAILS = [
 
 function isAdmin() {
   return currentUser && ADMIN_EMAILS.includes(currentUser.email);
+}
+
+// 지도 팝업의 ⚙️ 설정 버튼(사진·소개글 수정)을 이 사람이 볼 수 있는지
+// - 관리자는 모든 가게 가능
+// - 사장님은 본인이 인증(승인)받은 가게면 무료로 가능 (이용권 결제 불필요)
+function canManagePlace(p) {
+  if (!p) return false;
+  if (isAdmin()) return true;
+  if (!currentUser || p.owner_id !== currentUser.id) return false;
+  return p.owner_claim_status === 'approved';
 }
 
 // ---------- 지도 등급 잠금 ----------
