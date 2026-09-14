@@ -114,6 +114,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
     </div>
   </div>
 
+  <!-- 이번 주 인기 맛집 -->
+  <div class="section-title">🔥 이번 주 인기 맛집</div>
+  <div style="margin-bottom:28px;">
+    <button class="btn btn-primary" onclick="refreshWeeklyTrending()" id="refreshTrendingBtn">🔄 지금 새로고침</button>
+    <span id="refreshTrendingStatus" style="font-size:13px;margin-left:8px;color:var(--ink-soft);">보통은 매주 월요일 자동 크론이 처리해요. 새로 배포했거나 목록이 비어 보일 때만 눌러주세요.</span>
+  </div>
+
   <!-- 리뷰 없는 기존 등록 건 -->
   <div class="section-title" style="cursor:pointer;" onclick="toggleMissingReviewsSection()">
     📝 리뷰 없는 기존 등록 건 <span id="missingReviewsCountLabel" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span> <span id="missingReviewsToggleIcon">▼</span>
@@ -741,6 +748,26 @@ async function refreshOneNaverContent(id) {
   } catch {
     msgEl.style.color = 'red';
     msgEl.textContent = '오류가 발생했어요.';
+  }
+}
+
+async function refreshWeeklyTrending() {
+  const btn = document.getElementById('refreshTrendingBtn');
+  const statusEl = document.getElementById('refreshTrendingStatus');
+  btn.disabled = true;
+  statusEl.style.color = 'var(--ink-soft)';
+  statusEl.textContent = '계산 중...';
+  try {
+    const res = await fetch('/api/places/trending/refresh-now', { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (!res.ok) { statusEl.style.color = 'red'; statusEl.textContent = data.error || '실패'; return; }
+    statusEl.style.color = 'var(--green)';
+    statusEl.textContent = `완료 — ${data.count}개로 교체됨 (${new Date(data.refreshed_at).toLocaleString('ko-KR')})`;
+  } catch {
+    statusEl.style.color = 'red';
+    statusEl.textContent = '오류가 발생했어요.';
+  } finally {
+    btn.disabled = false;
   }
 }
 
