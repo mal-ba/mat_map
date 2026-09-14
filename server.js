@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const { generalLimiter, writeLimiter } = require('./middleware/rateLimit');
 
 const authRoutes = require('./routes/auth');
 const placesRoutes = require('./routes/places');
@@ -18,6 +19,9 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// 모든 /api/* 요청에 기본 rate limit 적용 (같은 IP당 15분에 300회)
+app.use('/api', generalLimiter);
 
 // 프론트에 지도/로그인 키를 안전하게 전달
 app.get('/config.js', (req, res) => {
@@ -163,8 +167,8 @@ app.get('/api/search-places', async (req, res) => {
   }
 });
 
-// 관리자 강제 등록 (검증 생략, 바로 verified)
-app.post('/api/admin/force-place', async (req, res) => {
+// 관리자 강제 등록 (검증 생략, 바로 verified) — 쓰기 작업이라 writeLimiter 추가 적용
+app.post('/api/admin/force-place', writeLimiter, async (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
 
