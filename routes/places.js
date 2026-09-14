@@ -775,4 +775,32 @@ router.post('/trending/refresh-now', requireAuth, requireAdmin, async (req, res)
   }
 });
 
+// 가게 상세 페이지(place.html)에서 가게 하나의 전체 정보를 가져올 때 사용
+// 다른 GET 라우트(/mine, /trending 등)와 경로가 겹치지 않도록 파일 맨 마지막에 둠
+router.get('/:id', async (req, res) => {
+  const { data: place, error } = await supabase
+    .from('places')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('status', 'verified')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[places/:id GET]', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+  if (!place) return res.status(404).json({ error: '가게를 찾을 수 없어요.' });
+
+  const { data: recData, error: recError } = await supabase
+    .from('recommends')
+    .select('place_id')
+    .eq('place_id', place.id);
+  if (recError) console.error('[places/:id GET] recommends 집계 에러:', recError.message);
+
+  place.recommend_count = (recData ?? []).length;
+  place.region_label = regionLabel(place.address);
+
+  res.json(place);
+});
+
 module.exports = router;
