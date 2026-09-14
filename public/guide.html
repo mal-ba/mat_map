@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>사용법 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+<style>
+.guide-wrap{max-width:640px;margin:0 auto;padding:36px 20px 60px;}
+.guide-wrap h1{font-family:'Black Han Sans',sans-serif;font-size:26px;margin:0 0 6px;}
+.guide-wrap .lead{color:var(--ink-soft);font-size:14px;margin:0 0 30px;line-height:1.6;}
+.guide-group{margin-bottom:32px;}
+.guide-group h2{font-family:'Black Han Sans',sans-serif;font-size:16px;margin:0 0 14px;
+  display:flex;align-items:center;gap:8px;}
+.guide-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.guide-steps li{
+  display:flex;gap:12px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff;
+}
+.guide-num{
+  flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--stamp);color:#fff;
+  font-family:'Black Han Sans',sans-serif;font-size:13px;display:flex;align-items:center;justify-content:center;
+}
+.guide-steps p{margin:0;font-size:13px;color:var(--ink-soft);line-height:1.6;}
+.guide-steps strong{display:block;font-size:14px;color:var(--ink);margin-bottom:2px;}
+.guide-cta{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;color:inherit;">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text">
+      <strong>찐맛집</strong>
+      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+    </div>
+  </a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+  </div>
+</header>
+
+<div class="guide-wrap">
+  <h1>사용법</h1>
+  <p class="lead">찐맛집을 처음 쓰신다면, 아래 순서대로 따라와 보세요.</p>
+
+  <div class="guide-group">
+    <h2>🔍 맛집 찾기</h2>
+    <ul class="guide-steps">
+      <li>
+        <span class="guide-num">1</span>
+        <div><strong>검색하거나 지도로 둘러보기</strong>
+          <p>홈 화면에서 가게 이름·주소·카테고리로 검색하거나, '지도에서 둘러보기'로 주변 맛집을 바로 확인해보세요.</p>
+        </div>
+      </li>
+      <li>
+        <span class="guide-num">2</span>
+        <div><strong>검증 배지 확인하기</strong>
+          <p>AI 검증을 통과한 가게에는 검증 배지가 붙어요. 어떤 기준으로 검증됐는지는 '검증 방법론' 페이지에서 볼 수 있어요.</p>
+        </div>
+      </li>
+      <li>
+        <span class="guide-num">3</span>
+        <div><strong>원하는 지도로 보기</strong>
+          <p>카카오맵·네이버지도·구글맵 중 익숙한 지도로 바로 전환해서 볼 수 있어요.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="guide-group">
+    <h2>🎯 맞춤추천 받기</h2>
+    <ul class="guide-steps">
+      <li>
+        <span class="guide-num">1</span>
+        <div><strong>회원가입 후 로그인하기</strong>
+          <p>카카오·네이버·구글 소셜 로그인 또는 이메일로 가입할 수 있어요.</p>
+        </div>
+      </li>
+      <li>
+        <span class="guide-num">2</span>
+        <div><strong>맞춤추천 구독하기</strong>
+          <p>월 구독을 시작하면, 내 취향(식단·카테고리·재방문 패턴 등)을 입력해서 AI 맞춤 추천을 받을 수 있어요.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="guide-group">
+    <h2>🏪 사장님이라면</h2>
+    <ul class="guide-steps">
+      <li>
+        <span class="guide-num">1</span>
+        <div><strong>내 가게 인증 신청하기</strong>
+          <p>이미 등록된 내 가게를 찾아 연락처·사업자등록번호로 인증을 신청하세요. 관리자 승인까지는 시간이 걸릴 수 있어요.</p>
+        </div>
+      </li>
+      <li>
+        <span class="guide-num">2</span>
+        <div><strong>끌어올리기 신청하기</strong>
+          <p>인증이 승인되고, 리뷰가 적어 노출이 부족한 가게라면 '끌어올리기'를 신청해 7일간 지도·검색 결과 상단에 노출할 수 있어요.</p>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <div class="guide-cta">
+    <a href="/map.html" class="btn-primary" style="text-decoration:none;">🗺️ 지도에서 둘러보기</a>
+    <a href="/claim.html" class="btn-ghost" style="text-decoration:none;">🏪 내 가게 인증 신청</a>
+    <a href="/about.html" class="btn-ghost" style="text-decoration:none;">📖 소개 보기</a>
+  </div>
+</div>
+
+<script src="/nav-menu.js"></script>
+</body>
+</html>

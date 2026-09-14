@@ -1,66 +1,62 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>찐맛집 - 맞춤추천 구독</title>
-  <script src="https://js.tosspayments.com/v2/standard"></script>
-  <style>
-    body { font-family: sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
-    h2 { margin-bottom: 4px; }
-    p.desc { color: #666; margin-top: 0; }
-    .price { font-size: 28px; font-weight: bold; margin: 24px 0; color: #d9480f; }
-    button {
-      width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
-      background: #d9480f; color: white; border: none; border-radius: 8px; cursor: pointer;
-    }
-    button:hover { background: #b8390b; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>맞춤추천 구독 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+<script src="https://js.tosspayments.com/v2/standard"></script>
+<style>
+.sub-wrap{max-width:420px;margin:0 auto;padding:48px 20px 60px;}
+.sub-wrap h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
+.sub-wrap .desc{color:var(--ink-soft);font-size:13px;margin:0 0 20px;line-height:1.6;}
+.card{border:1px solid var(--line);border-radius:12px;padding:20px;background:#fff;}
+.price{font-size:26px;font-weight:900;margin:8px 0 18px;color:var(--stamp);}
+.card textarea{
+  width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;
+  font-family:'Noto Sans KR',sans-serif;min-height:90px;resize:vertical;margin-bottom:10px;
+}
+.card textarea:focus{outline:none;border-color:var(--stamp);}
+.empty{text-align:center;color:#aaa;font-size:13px;padding:24px 0;}
+.rec-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:10px;background:#fff;}
+.rec-card h3{margin:0 0 4px;font-size:15px;}
+.rec-reason{font-size:13px;margin-top:6px;line-height:1.5;}
+</style>
 </head>
 <body>
-  <h2>맞춤 추천</h2>
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;color:inherit;">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text"><strong>찐맛집</strong><span>사람이 찾고, AI가 확인한 진짜 맛집</span></div>
+  </a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/map.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">🗺️ 지도</a>
+    <div class="auth-area" id="authArea" style="visibility:hidden;"></div>
+  </div>
+</header>
+
+<div class="sub-wrap">
+  <h1>🎯 맞춤추천</h1>
   <p class="desc">취향을 적어두면 AI가 딱 맞는 찐맛집을 골라드려요.</p>
-  <div class="price">월 4,900원</div>
-  <p class="desc">월 구독 · 언제든 해지 가능</p>
-  <button id="subscribe-button">구독 시작하기</button>
 
-  <script>
-    // ⚠️ 발급받은 테스트 클라이언트 키
-    const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+  <div id="subscribeCard" class="card" style="display:none;">
+    <div class="price" id="priceText">월 4,900원</div>
+    <p class="desc">월 구독 · 언제든 해지 가능</p>
+    <button type="button" class="btn-primary" id="subscribeBtn" style="width:100%;">구독 시작하기</button>
+  </div>
 
-    // 실제 서비스에서는 로그인한 유저의 고유 id로 교체하세요.
-    // 예: const customerKey = window.CURRENT_USER_ID;
-    const customerKey = "user_" + Math.random().toString(36).slice(2, 12);
-
-    const tossPayments = TossPayments(clientKey);
-    const payment = tossPayments.payment({ customerKey });
-
-<<<<<<< HEAD
-    document.getElementById("subscribe-button").addEventListener("click", async () => {
-      try {
-        // 결제 자체가 아니라 "카드 등록(빌링키 발급)"을 요청합니다.
-        // 여기서는 실제로 돈이 빠져나가지 않고, 이후 서버가 이 카드로 매달 자동 청구합니다.
-        await payment.requestBillingAuth({
-          method: "CARD",
-          successUrl: window.location.origin + "/billing/success",
-          failUrl: window.location.origin + "/billing/fail",
-          customerEmail: "test@example.com",
-          customerName: "테스트 사용자",
-        });
-      } catch (err) {
-        console.error(err);
-        alert("구독 등록 중 오류가 발생했습니다: " + err.message);
-      }
-    });
-  </script>
-=======
   <div id="mainArea" style="display:none;">
     <div class="card">
       <label style="font-weight:700;font-size:14px;display:block;margin-bottom:8px;">내 취향</label>
       <textarea id="prefInput" placeholder="예: 매운 음식 좋아함, 혼밥 편한 곳, 예산 1만원 이하, 조용한 분위기 선호"></textarea>
-      <button class="btn-primary" id="saveAndRecommendBtn" style="width:100%;margin-top:10px;">취향 저장하고 추천받기</button>
+      <button type="button" class="btn-primary" id="saveAndRecommendBtn" style="width:100%;margin-top:2px;">취향 저장하고 추천받기</button>
     </div>
     <div id="recommendResults"></div>
-    <button class="btn-ghost" id="cancelSubBtn" style="width:100%;margin-top:8px;">구독 해지</button>
+    <button type="button" class="btn-ghost" id="cancelSubBtn" style="width:100%;margin-top:10px;">구독 해지</button>
   </div>
 </div>
 
@@ -191,7 +187,6 @@ async function init() {
   try {
     const res = await fetch('/api/payments/config');
     config = await res.json();
-    console.log('[init] config:', config);
     tossPayments = TossPayments(config.billingClientKey);
     await initAuthArea();
 
@@ -211,6 +206,6 @@ async function init() {
 }
 init();
 </script>
->>>>>>> a21b88ff064fa75cd8cb4bac7e956b55f829f916
+<script src="/nav-menu.js"></script>
 </body>
 </html>
