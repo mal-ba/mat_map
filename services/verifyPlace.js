@@ -7,6 +7,13 @@ const { fetchNaverPlaceDetail, fetchNaverReviewsAndPhotos, findNaverPlaceId } = 
  * 셋 다 못 찾으면 → pending
  * + 네이버에서 잡힌 경우, 평점/리뷰/사진까지 가져와 AI가 리뷰 신뢰도를 별도로 분석
  */
+
+// ── 집계 평점 게이트 기준값 ──
+// 화면에 노출되는 '평점' 자체가 이 값 미만이면 반려한다.
+// 리뷰 수가 너무 적은 곳(신규 오픈 등)은 평점 하나로 판단하기 부적절하므로 게이트를 건너뛴다.
+const MIN_AGGREGATE_RATING = 3.0;
+const MIN_RATING_SAMPLE_SIZE = 3;
+
 // ── 상황별 맥락 태그 — 리뷰/한줄평 텍스트에서 규칙 기반으로 뽑아내는 1차 후보 ──
 const TAG_KEYWORDS = {
   '혼밥': ['혼밥', '혼자', '1인석', '바 테이블'],
@@ -26,6 +33,20 @@ function extractTagsFromText(text) {
     if (keywords.some((k) => text.includes(k))) found.add(tag);
   }
   return [...found];
+}
+
+// ── 집계 평점 게이트 — 표시되는 평점 자체가 너무 낮으면 반려 ──
+// reviewCount가 없거나 표본이 너무 적으면(신규 오픈 등) 게이트를 적용하지 않는다.
+function evaluateAggregateRating(rating, reviewCount, sourceLabel) {
+  if (rating == null) return { passed: true, reason: '' };
+  if (reviewCount != null && reviewCount < MIN_RATING_SAMPLE_SIZE) {
+    return { passed: true, reason: '' };
+  }
+  const passed = rating >= MIN_AGGREGATE_RATING;
+  return {
+    passed,
+    reason: passed ? '' : `${sourceLabel} 평점 ${rating}점(기준 ${MIN_AGGREGATE_RATING}점 미만)`,
+  };
 }
 
 async function verifyPlace({ name, address, lat, lng, comment }) {
@@ -82,7 +103,6 @@ async function verifyPlace({ name, address, lat, lng, comment }) {
 
   // 네이버에서 잡힌 경우, 평점/리뷰/사진을 가져와 AI 리뷰 신뢰도 분석 + 평점 게이트 적용
   let naverExtra = {};
-  // 리뷰가 있는데 4점 이상 비율이 50% 미만이면 반려 — 리뷰가 아예 없으면(신규 오픈 등) 이 기준을 적용하지 않음
   let ratingGate = { passed: true, reason: '' };
 
   if (naverResult) {
@@ -99,15 +119,26 @@ async function verifyPlace({ name, address, lat, lng, comment }) {
       photoUrls: content.photos,
     });
 
+    // 1차: 집계 평점(화면에 실제 노출되는 naver_rating) 자체를 기준으로 거름
+    const aggregateGate = evaluateAggregateRating(detail?.rating, detail?.reviewCount, '네이버');
+
+    // 2차: 개별 리뷰 별점 비율 — 리뷰가 있는데 4점 이상 비율이 50% 미만이면 반려
+    // 리뷰가 아예 없으면(신규 오픈 등) 이 기준은 적용하지 않음
     const ratedReviews = content.reviews.filter(r => typeof r.rating === 'number');
+    let reviewRatioGate = { passed: true, reason: '' };
     if (ratedReviews.length > 0) {
       const highCount = ratedReviews.filter(r => r.rating >= 4).length;
       const highRatio = highCount / ratedReviews.length;
-      ratingGate = {
+      reviewRatioGate = {
         passed: highRatio >= 0.5,
         reason: `리뷰 ${ratedReviews.length}개 중 4점 이상 ${highCount}개(${Math.round(highRatio * 100)}%)`,
       };
     }
+
+    ratingGate = {
+      passed: aggregateGate.passed && reviewRatioGate.passed,
+      reason: [aggregateGate.reason, reviewRatioGate.reason].filter(Boolean).join(' / '),
+    };
 
     naverExtra = {
       naver_rating: detail?.rating ?? null,
@@ -119,6 +150,10 @@ async function verifyPlace({ name, address, lat, lng, comment }) {
       naver_reviews: content.reviews.slice(0, 5), // 지도에서 실제 리뷰 내용을 보여주기 위해 원문도 같이 저장
       ai_tags: contentAnalysis.tags || [], // AI가 리뷰 내용에서 뽑은 상황 태그 (아래 tags 계산에만 쓰고 응답엔 안 남김)
     };
+  } else if (googleResult?.rating != null) {
+    // 네이버 플레이스 ID를 못 찾은 경우(현재 네이버 지역검색 API는 ID를 안 줌)의 대체 수단 —
+    // 구글 평점이라도 있으면 그걸로 최소한의 집계 평점 게이트를 적용한다.
+    ratingGate = evaluateAggregateRating(googleResult.rating, googleResult.userRatingsTotal, '구글');
   }
 
   const finalApprove = aiVerdict.approve && ratingGate.passed;
@@ -300,6 +335,8 @@ async function searchGooglePlace(name, lat, lng) {
       place_name: place.name,
       category_name: place.types?.[0]?.replace(/_/g, ' ') || '',
       distanceMeters: dist,
+      rating: place.rating ?? null, // 네이버 ID를 못 찾았을 때 평점 게이트의 대체 수단으로 사용
+      userRatingsTotal: place.user_ratings_total ?? null,
     };
   } catch (err) {
     console.error('[searchGooglePlace]', err.message);
