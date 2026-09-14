@@ -168,9 +168,13 @@ function initJjinMap(key = 'jjin') {
 }
 
 // ---------- 화면 배율 기반 클러스터링 (모든 지도 공통) ----------
-const CLUSTER_RADIUS_KM = 30;
-// 화면에서 1cm가 실제로 30km 이상을 나타낼 만큼 축소됐을 때부터 묶는다
-const CLUSTER_TRIGGER_KM_PER_CM = 30;
+// 화면 배율(1cm당 실제 km)에 따라 클러스터링 반경이 단계적으로 커진다.
+// - 1cm ≈ 30km 이상으로 축소되면: 30km 반경으로 1차 클러스터링
+// - 1cm ≈ 100km 이상으로 축소되면: 100km 반경으로 2차 클러스터링(더 넓게, 가까운 클러스터끼리 한 번 더 묶임)
+const CLUSTER_TIERS = [
+  { triggerKmPerCm: 30, radiusKm: 30 },
+  { triggerKmPerCm: 100, radiusKm: 100 },
+];
 const CM_TO_PX = 37.8; // 96dpi 기준 1cm ≈ 37.8px
 
 // 현재 지도 화면에서 1cm가 실제로 몇 km를 의미하는지 계산
@@ -216,11 +220,18 @@ function getViewportKmPerCm(provider) {
   }
 }
 
-// 지금 화면 배율에서 묶어야 하는지 (계산 실패 시엔 안전하게 묶는 쪽으로)
-function shouldClusterNow(provider) {
+// 지금 화면 배율에 맞는 클러스터링 반경을 찾는다.
+// 어떤 단계 트리거도 넘지 않았으면 null(=묶지 않음).
+// 계산 실패 시엔 안전하게 가장 넓은 반경으로 묶는다.
+function getClusterRadiusForScale(provider) {
   const scale = getViewportKmPerCm(provider);
-  if (scale == null) return true;
-  return scale >= CLUSTER_TRIGGER_KM_PER_CM;
+  if (scale == null) return CLUSTER_TIERS[CLUSTER_TIERS.length - 1].radiusKm;
+
+  let radiusKm = null;
+  for (const tier of CLUSTER_TIERS) {
+    if (scale >= tier.triggerKmPerCm) radiusKm = tier.radiusKm;
+  }
+  return radiusKm;
 }
 
 function getDistanceKm(lat1, lng1, lat2, lng2) {
@@ -233,7 +244,7 @@ function getDistanceKm(lat1, lng1, lat2, lng2) {
 }
 
 // 반경(km) 이내에 있는 맛집들을 하나의 그룹으로 묶는다 (모든 지도가 이 결과를 공유)
-function clusterByDistance(places, radiusKm = CLUSTER_RADIUS_KM) {
+function clusterByDistance(places, radiusKm) {
   const used = new Array(places.length).fill(false);
   const groups = [];
   for (let i = 0; i < places.length; i++) {
@@ -257,12 +268,13 @@ function clusterByDistance(places, radiusKm = CLUSTER_RADIUS_KM) {
   return groups;
 }
 
-// 지금 배율에서 묶어야 하면 클러스터링, 아니면 전부 개별 마커로
+// 지금 배율에서 묶어야 하면 해당 단계 반경으로 클러스터링, 아니면 전부 개별 마커로
 function getGroups(provider, places) {
-  if (!shouldClusterNow(provider)) {
+  const radiusKm = getClusterRadiusForScale(provider);
+  if (radiusKm == null) {
     return places.map(p => ({ places: [p], lat: p.lat, lng: p.lng, count: 1 }));
   }
-  return clusterByDistance(places);
+  return clusterByDistance(places, radiusKm);
 }
 
 function clusterBubbleHtml(count) {
