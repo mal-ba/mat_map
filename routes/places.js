@@ -700,35 +700,65 @@ router.get('/my-recommends', requireAuth, async (req, res) => {
 });
 
 // ── 랭킹/트렌드 ─────────────────────────────────────────────
-// 최근 7일 조회수 + 찜(가중치 3배)을 합산해 인기 급상승 맛집 TOP 10을 반환
+// "이번 주 인기 맛집"은 매주 월요일 00:00에 한 번만 새로 계산되어
+// weekly_trending 테이블에 저장되고, 다음 월요일까지는 그 스냅샷을 그대로 보여준다.
+// (조회 때마다 실시간 재계산하지 않음 — 계산은 /trending/refresh 에서만 일어남)
 router.get('/trending', async (req, res) => {
+  const { data: snapshot, error } = await supabase
+    .from('weekly_trending')
+    .select('rank, score, places(*)')
+    .order('rank', { ascending: true });
+  if (error) {
+    console.error('[places/trending] read', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+
+  const places = (snapshot ?? [])
+    .filter((row) => row.places && row.places.status === 'verified')
+    .map((row) => row.places);
+  res.json(places);
+});
+
+// 이번 주 랭킹 스냅샷을 새로 계산해서 weekly_trending 테이블을 교체한다.
+// 외부 크론(예: Render Cron Job)이 매주 월요일 00:00(KST)에 한 번 호출해야 함.
+// 점수 = 최근 7일 조회수 1점 + 찜 3점, 상위 10개.
+router.post('/trending/refresh', async (req, res) => {
+  if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
+    return res.status(403).json({ error: '권한 없음' });
+  }
+
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [{ data: views, error: viewErr }, { data: likesData, error: likeErr }] = await Promise.all([
     supabase.from('place_views').select('place_id').gte('created_at', since),
     supabase.from('likes').select('place_id').gte('created_at', since),
   ]);
-  if (viewErr) console.error('[places/trending] views', viewErr.message);
-  if (likeErr) console.error('[places/trending] likes', likeErr.message);
+  if (viewErr) console.error('[places/trending/refresh] views', viewErr.message);
+  if (likeErr) console.error('[places/trending/refresh] likes', likeErr.message);
 
   const score = new Map();
   (views ?? []).forEach((v) => score.set(v.place_id, (score.get(v.place_id) || 0) + 1));
   (likesData ?? []).forEach((l) => score.set(l.place_id, (score.get(l.place_id) || 0) + 3));
 
-  const topIds = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id]) => id);
-  if (!topIds.length) return res.json([]);
+  const top = [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
-  const { data: places, error } = await supabase
-    .from('places')
-    .select('*')
-    .in('id', topIds)
-    .eq('status', 'verified');
-  if (error) return res.status(500).json({ error: error.message });
+  // 기존 스냅샷 전체 삭제 후 새 TOP 10으로 교체
+  const { error: delErr } = await supabase.from('weekly_trending').delete().gte('rank', 0);
+  if (delErr) {
+    console.error('[places/trending/refresh] delete', delErr.message);
+    return res.status(500).json({ error: delErr.message });
+  }
 
-  // score 순서 그대로 정렬해서 반환 (Supabase in() 결과는 순서가 보장되지 않음)
-  const order = new Map(topIds.map((id, i) => [id, i]));
-  const sorted = (places ?? []).sort((a, b) => order.get(a.id) - order.get(b.id));
-  res.json(sorted);
+  if (top.length) {
+    const rows = top.map(([place_id, s], i) => ({ rank: i + 1, place_id, score: s }));
+    const { error: insErr } = await supabase.from('weekly_trending').insert(rows);
+    if (insErr) {
+      console.error('[places/trending/refresh] insert', insErr.message);
+      return res.status(500).json({ error: insErr.message });
+    }
+  }
+
+  res.json({ ok: true, count: top.length, refreshed_at: new Date().toISOString() });
 });
 
 module.exports = router;
