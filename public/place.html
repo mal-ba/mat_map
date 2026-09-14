@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>가게 상세 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--stamp-deep:#B92C1F;--mustard:#D9A441;--line:#E7E4DF;--radius:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:var(--ink);min-height:100vh;}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--paper);
+  border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:22px;width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:var(--paper);border-radius:50%;border:none;}
+.back-btn{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;
+  border:1.5px solid var(--line);padding:6px 14px;border-radius:8px;}
+
+.container{max-width:560px;margin:0 auto;padding:24px 16px 60px;}
+.loading{text-align:center;padding:60px;color:#aaa;}
+
+.detail-card{background:#fff;border-radius:var(--radius);border:1px solid var(--line);
+  box-shadow:0 2px 12px rgba(28,25,23,.05);overflow:hidden;margin-bottom:16px;}
+.detail-img{width:100%;height:220px;object-fit:cover;display:block;background:var(--paper-deep);}
+.detail-img-fallback{width:100%;height:180px;display:flex;align-items:center;justify-content:center;font-size:56px;}
+.detail-body{padding:20px;}
+.badge-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+.pill-badge{display:inline-block;font-size:11px;font-weight:900;padding:3px 9px;border-radius:99px;}
+.detail-name{font-family:'Black Han Sans',sans-serif;font-size:24px;margin-bottom:6px;}
+.detail-rating{font-size:13px;font-weight:700;color:var(--mustard);margin-bottom:4px;}
+.detail-addr{font-size:13px;color:var(--ink-soft);margin-bottom:2px;}
+.detail-category{font-size:13px;color:var(--ink-soft);margin-bottom:10px;}
+.detail-comment{font-size:14px;line-height:1.6;background:var(--paper-deep);border-radius:8px;padding:12px;margin:10px 0;}
+.tags-row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+.tag-chip{font-size:12px;background:var(--paper-deep);border:1px solid var(--line);border-radius:999px;padding:3px 10px;}
+
+/* 인스타 하트 느낌의 찜/추천 버튼 — 지도 팝업·목록 카드와 같은 모양을 씀 */
+.action-row{display:flex;gap:10px;align-items:center;margin:14px 0 4px;}
+.like-btn{background:var(--paper-deep);border:none;border-radius:50%;width:44px;height:44px;
+  font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);transition:transform .1s;}
+.like-btn:active{transform:scale(.9);}
+.recommend-btn{background:var(--paper-deep);border:none;border-radius:22px;height:44px;padding:0 16px;
+  font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08);}
+
+.secondary-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+.secondary-btn{font-size:13px;font-weight:700;background:none;border:1.5px solid var(--line);
+  border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+.secondary-btn.report{color:#B23A2E;border-color:#E1B8B2;}
+
+.reviews-title{font-size:13px;font-weight:700;margin:16px 0 8px;color:var(--ink-soft);}
+.review-item{font-size:13px;line-height:1.5;padding:8px 0;border-top:1px solid var(--line);}
+.review-item .r-rating{color:var(--mustard);font-weight:700;margin-right:4px;}
+
+.recheck-badge{display:inline-block;font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;margin:4px 0;}
+
+/* 신고 폼 */
+.report-form{display:none;margin-top:12px;padding:14px;background:var(--paper-deep);border-radius:8px;}
+.report-form.open{display:block;}
+.report-form select,.report-form textarea{width:100%;padding:8px 10px;border:1.5px solid var(--line);
+  border-radius:8px;font-family:inherit;font-size:13px;margin-bottom:8px;background:#fff;}
+.report-form button{padding:9px 16px;background:var(--stamp);color:#fff;border:none;border-radius:8px;
+  font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+.report-status{font-size:12px;margin-top:6px;}
+
+.error-box{text-align:center;padding:60px 20px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand">
+    <span class="brand-mark">찐</span>
+  </a>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">가게 상세</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <a href="/map.html" class="back-btn" style="margin-left:0;">🗺️ 지도로</a>
+  </div>
+</header>
+
+<div class="container">
+  <div id="loading" class="loading">로딩 중...</div>
+  <div id="errorBox" class="error-box" style="display:none;">가게를 찾을 수 없어요.</div>
+
+  <div id="detailWrap" style="display:none;">
+    <div class="detail-card">
+      <div id="imgWrap"></div>
+      <div class="detail-body">
+        <div class="badge-row" id="badgeRow"></div>
+        <div class="detail-name" id="placeName">—</div>
+        <div id="ratingHtml"></div>
+        <div class="detail-addr" id="placeAddr"></div>
+        <div class="detail-category" id="placeCategory"></div>
+        <div id="recheckBadgeWrap"></div>
+        <div id="commentWrap"></div>
+        <div id="tagsWrap"></div>
+
+        <div class="action-row">
+          <button type="button" class="like-btn" id="likeBtn" onclick="toggleLike()">🤍</button>
+          <button type="button" class="recommend-btn" id="recommendBtn" onclick="toggleRecommend()">👍</button>
+        </div>
+
+        <div class="secondary-row">
+          <a class="secondary-btn" id="streetViewLink" href="#" target="_blank" rel="noopener">🚶 거리뷰</a>
+          <a class="secondary-btn" id="mapLink" href="#">🗺️ 지도에서 보기</a>
+          <button type="button" class="secondary-btn report" onclick="toggleReportForm()">🚩 신고/수정요청</button>
+        </div>
+
+        <div class="report-form" id="reportForm">
+          <select id="reportReason">
+            <option value="closed">폐업/이전했어요</option>
+            <option value="wrong_info">정보가 잘못됐어요</option>
+            <option value="fake_review">가짜/광고성 리뷰가 섞여있어요</option>
+            <option value="bad_photo">사진이 실제와 달라요</option>
+            <option value="other">기타</option>
+          </select>
+          <textarea id="reportDesc" rows="3" placeholder="자세한 내용을 적어주세요 (선택)" maxlength="1000"></textarea>
+          <button type="button" onclick="submitReport()">신고 접수</button>
+          <div class="report-status" id="reportStatus"></div>
+        </div>
+
+        <div id="reviewsWrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/nav-menu.js"></script>
+<script>
+let currentUser = null;
+let place = null;
+let liked = false;
+let recommended = false;
+
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+function getCategoryEmoji(cat) {
+  if (!cat) return '🍽️';
+  if (cat.includes('한식')) return '🍚';
+  if (cat.includes('카페') || cat.includes('디저트')) return '☕';
+  if (cat.includes('고기') || cat.includes('구이')) return '🥩';
+  if (cat.includes('분식') || cat.includes('간식')) return '🍢';
+  if (cat.includes('일식')) return '🍱';
+  if (cat.includes('양식')) return '🍝';
+  if (cat.includes('중식')) return '🥢';
+  return '🍽️';
+}
+function getCategoryColor(cat) {
+  if (!cat) return '#1C1917';
+  if (cat.includes('한식')) return '#E1392A';
+  if (cat.includes('카페') || cat.includes('디저트')) return '#D9A441';
+  if (cat.includes('고기') || cat.includes('구이')) return '#8B4513';
+  if (cat.includes('분식') || cat.includes('간식')) return '#4A90D9';
+  if (cat.includes('일식')) return '#6B4E9B';
+  if (cat.includes('양식')) return '#2E7D32';
+  if (cat.includes('중식')) return '#C62828';
+  return '#1C1917';
+}
+
+function recentCheckBadgeHtml(p) {
+  const checkedAt = p.naver_reviews_updated_at;
+  if (!checkedAt) return '';
+  const days = Math.floor((Date.now() - new Date(checkedAt).getTime()) / 86400000);
+  let label, color;
+  if (days <= 30) { label = days <= 0 ? '오늘 확인됨' : `${days}일 전 확인됨`; color = '#2E7D32'; }
+  else if (days <= 90) { label = `${days}일 전 확인됨`; color = '#B58900'; }
+  else { label = `확인된 지 ${days}일 지남`; color = '#8A8580'; }
+  return `<span class="recheck-badge" style="color:${color};border:1px solid ${color};" title="네이버 정보를 마지막으로 재확인한 시점">🕓 ${label}</span>`;
+}
+
+async function init() {
+  const id = new URLSearchParams(location.search).get('id');
+  if (!id) { showError(); return; }
+
+  const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+  currentUser = meRes.ok ? await meRes.json() : null;
+
+  const res = await fetch(`/api/places/${id}`, { credentials: 'include' });
+  if (!res.ok) { showError(); return; }
+  place = await res.json();
+
+  if (currentUser) {
+    try {
+      const [likesRes, recsRes] = await Promise.all([
+        fetch('/api/places/my-likes', { credentials: 'include' }),
+        fetch('/api/places/my-recommends', { credentials: 'include' }),
+      ]);
+      if (likesRes.ok) liked = new Set(await likesRes.json()).has(place.id);
+      if (recsRes.ok) recommended = new Set(await recsRes.json()).has(place.id);
+    } catch { /* 찜/추천 상태만 못 불러오는 것이라 화면 흐름엔 영향 없음 */ }
+  }
+
+  render();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('detailWrap').style.display = 'block';
+}
+
+function showError() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'block';
+}
+
+function render() {
+  document.title = `${place.name} — 찐맛집`;
+
+  const imgWrap = document.getElementById('imgWrap');
+  imgWrap.innerHTML = place.image_url
+    ? `<img class="detail-img" src="${escapeHtml(place.image_url)}" onerror="this.style.display='none'" />`
+    : `<div class="detail-img-fallback" style="background:${getCategoryColor(place.category)}18;">${getCategoryEmoji(place.category)}</div>`;
+
+  const badges = [];
+  if (place.listing_type === 'new_opening') badges.push('<span class="pill-badge" style="background:#2E7D32;color:#fff;">🆕 신규 오픈</span>');
+  const isTopInRegion = place.region_rank === 1 && (place.recommend_count || 0) > 0;
+  if (isTopInRegion) badges.push(`<span class="pill-badge" style="background:#FFD700;color:#1C1917;">👑 ${escapeHtml(place.region_label || '이 지역')} 추천 1위</span>`);
+  if (place.boosted_until && new Date(place.boosted_until) > new Date()) badges.push('<span class="pill-badge" style="background:#E1392A;color:#fff;">🚀 부스트</span>');
+  document.getElementById('badgeRow').innerHTML = badges.join('');
+
+  document.getElementById('placeName').textContent = place.name;
+  document.getElementById('ratingHtml').innerHTML = place.naver_rating != null
+    ? `<div class="detail-rating">⭐ ${place.naver_rating} 네이버 평점${place.naver_review_count != null ? ` (리뷰 ${place.naver_review_count}개)` : ''}${place.review_trust_score != null ? ` · 신뢰도 ${place.review_trust_score}%` : ''}</div>`
+    : (place.rating ? `<div class="detail-rating">⭐ ${place.rating} (리뷰 ${place.review_count ?? 0}개)</div>` : '');
+  document.getElementById('placeAddr').textContent = place.address || '';
+  document.getElementById('placeCategory').textContent = place.category || '';
+  document.getElementById('recheckBadgeWrap').innerHTML = recentCheckBadgeHtml(place);
+  document.getElementById('commentWrap').innerHTML = place.comment
+    ? `<div class="detail-comment">${escapeHtml(place.comment)}</div>` : '';
+  document.getElementById('tagsWrap').innerHTML = (place.tags && place.tags.length)
+    ? `<div class="tags-row">${place.tags.map(t => `<span class="tag-chip">#${escapeHtml(t)}</span>`).join('')}</div>` : '';
+
+  renderActionButtons();
+
+  document.getElementById('streetViewLink').href =
+    `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${place.lat},${place.lng}`;
+  document.getElementById('mapLink').href = `/map.html?focus=${place.id}`;
+
+  const reviews = Array.isArray(place.naver_reviews) ? place.naver_reviews.slice(0, 5) : [];
+  document.getElementById('reviewsWrap').innerHTML = reviews.length
+    ? `<div class="reviews-title">최근 리뷰</div>` + reviews.map(r => `
+        <div class="review-item">${r.rating != null ? `<span class="r-rating">⭐${r.rating}</span>` : ''}${escapeHtml(r.text || '')}</div>
+      `).join('')
+    : '';
+}
+
+function renderActionButtons() {
+  const likeBtn = document.getElementById('likeBtn');
+  likeBtn.textContent = liked ? '❤️' : '🤍';
+  likeBtn.style.background = liked ? '#FFF0EE' : 'var(--paper-deep)';
+
+  const recBtn = document.getElementById('recommendBtn');
+  recBtn.innerHTML = `👍${place.recommend_count ? ` ${place.recommend_count}` : ''}`;
+  recBtn.style.background = recommended ? '#FFF0EE' : 'var(--paper-deep)';
+  recBtn.style.color = recommended ? '#E1392A' : 'var(--ink)';
+}
+
+window.toggleLike = async function () {
+  if (!currentUser) { location.href = '/login.html'; return; }
+  const btn = document.getElementById('likeBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/places/${place.id}/like`, {
+      method: liked ? 'DELETE' : 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error();
+    liked = !liked;
+    renderActionButtons();
+  } catch {
+    alert('찜하기 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+window.toggleRecommend = async function () {
+  if (!currentUser) { location.href = '/login.html'; return; }
+  const btn = document.getElementById('recommendBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/places/${place.id}/recommend`, {
+      method: recommended ? 'DELETE' : 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error();
+    recommended = !recommended;
+    place.recommend_count = (place.recommend_count || 0) + (recommended ? 1 : -1);
+    renderActionButtons();
+  } catch {
+    alert('추천 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+window.toggleReportForm = function () {
+  document.getElementById('reportForm').classList.toggle('open');
+};
+
+window.submitReport = async function () {
+  const reason_type = document.getElementById('reportReason').value;
+  const description = document.getElementById('reportDesc').value;
+  const statusEl = document.getElementById('reportStatus');
+  statusEl.textContent = '접수 중...';
+  statusEl.style.color = 'var(--ink-soft)';
+  try {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ place_id: place.id, reason_type, description }),
+    });
+    if (!res.ok) throw new Error();
+    statusEl.textContent = '신고가 접수됐어요. 확인 후 반영할게요. 감사합니다!';
+    statusEl.style.color = '#2E7D32';
+    document.getElementById('reportDesc').value = '';
+  } catch {
+    statusEl.textContent = '신고 접수에 실패했어요. 잠시 후 다시 시도해주세요.';
+    statusEl.style.color = 'var(--stamp)';
+  }
+};
+
+init();
+</script>
+</body>
+</html>

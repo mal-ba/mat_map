@@ -322,7 +322,7 @@ function placePopupHtml(p) {
       ${imgHtml}
       ${p.listing_type === 'new_opening' ? '<span style="display:inline-block;background:#2E7D32;color:#fff;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">🆕 신규 오픈</span><br>' : ''}
       ${isTopInRegion ? `<span style="display:inline-block;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;margin-bottom:3px;">👑 ${escapeHtml(p.region_label || '이 지역')} 추천 1위</span><br>` : ''}
-      <b style="font-size:14px;">${escapeHtml(p.name)}</b>
+      <a href="/place.html?id=${p.id}" style="font-size:14px;font-weight:700;color:var(--stamp,#E1392A);text-decoration:none;">${escapeHtml(p.name)}</a>
       ${ratingHtml}
       <div style="font-size:11px;color:#8A8580;margin:3px 0;">${escapeHtml(p.address || '')}</div>
       ${p.category ? `<div style="font-size:11px;color:#888;">${escapeHtml(p.category)}</div>` : ''}

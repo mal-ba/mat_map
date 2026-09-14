@@ -288,7 +288,7 @@ function renderPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <div class="place-card">
+    <div class="place-card" onclick="location.href='/place.html?id=${p.id}'" style="cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#E1392A;color:#fff;font-weight:700;">인증</span>
@@ -308,7 +308,7 @@ function renderLikedPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <div class="place-card" onclick="location.href='/map.html?focus=${p.id}'" style="cursor:pointer;">
+    <div class="place-card" onclick="location.href='/place.html?id=${p.id}'" style="cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:14px;">❤️</span>
