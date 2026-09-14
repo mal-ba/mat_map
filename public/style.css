@@ -192,6 +192,31 @@ dialog::backdrop{background:rgba(28,25,23,0.45)}
   .panel{border-right:none; border-bottom:1px solid var(--line); max-height:40vh}
 }
 
+/* 베타 테스트 안내 배너 */
+.beta-notice{
+  background:#FFF7ED;
+  border-bottom:1px solid #F3D9A6;
+}
+.beta-notice-inner{
+  max-width:960px; margin:0 auto;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 20px;
+  font-size:13px; color:var(--ink);
+}
+.beta-notice-icon{ font-size:16px; flex-shrink:0; }
+.beta-notice-text{ flex:1; display:flex; flex-direction:column; gap:2px; line-height:1.4; }
+.beta-notice-text strong{ font-weight:700; }
+.beta-notice-text span{ color:var(--ink-soft); font-size:12px; }
+.beta-notice-close{
+  border:none; background:none; cursor:pointer;
+  font-size:16px; color:var(--ink-soft); line-height:1; flex-shrink:0; padding:4px;
+}
+.beta-notice-close:hover{ color:var(--ink); }
+@media (max-width:520px){
+  .beta-notice-inner{ align-items:flex-start; }
+  .beta-notice-text span{ font-size:11px; }
+}
+
 /* 지도 빈 배경 처리 */
 .leaflet-container { background: #aad3df !important; }
 #map-google { background: #aad3df !important; }
