@@ -208,8 +208,7 @@ async function initAuthArea() {
         <span style="font-size:13px;font-weight:700">${escapeHtml(displayName)}님</span>
       </a>
     `;
-    const ownerMenuBtn = document.getElementById('ownerMenuBtn');
-    if (ownerMenuBtn && (profile.role === 'owner' || ADMIN_EMAILS.includes(profile.email))) ownerMenuBtn.style.display = 'inline-block';
+    // 🏪 사장님 메뉴 버튼은 햄버거 메뉴(nav-menu.js)로 이동해서 여기서는 항상 숨겨둡니다.
     const adminMenuBtn = document.getElementById('adminMenuBtn');
     if (adminMenuBtn && ADMIN_EMAILS.includes(profile.email)) adminMenuBtn.style.display = 'inline-block';
   } catch {

@@ -46,9 +46,20 @@
     MENU_ITEMS.forEach(function (item, idx) {
       // 결제 항목(맞춤추천/끌어올리기) 앞에 구분선 삽입
       if (idx === 4) html += '<div class="jjin-hamburger-divider"></div>';
-      html += '<a href="' + item.href + '">' + item.icon + ' ' + item.label + '</a>';
+      html += '<a href="' + item.href + '" data-jjin-idx="' + idx + '">' + item.icon + ' ' + item.label + '</a>';
     });
     return html;
+  }
+
+  // '사장님' 메뉴 항목: 홈 화면(index.html)처럼 페이지 안에 이미 사장님 메뉴 버튼/다이얼로그가
+  // 있는 경우에는 페이지 이동 없이 바로 그 창을 열어줍니다. 없는 페이지에서는 claim.html로 이동합니다.
+  function handleOwnerMenuClick(e) {
+    var ownerBtn = document.getElementById('ownerMenuBtn');
+    if (ownerBtn) {
+      e.preventDefault();
+      ownerBtn.click();
+    }
+    // ownerBtn이 없는 페이지(map, community 등)는 기본 동작대로 /claim.html로 이동합니다.
   }
 
   function findInsertTarget(topbar) {
@@ -74,6 +85,14 @@
 
     var btn = wrap.querySelector('#jjinHamburgerBtn');
     var menu = wrap.querySelector('#jjinHamburgerMenu');
+
+    var ownerLink = wrap.querySelector('a[data-jjin-idx="3"]'); // 🏪 사장님
+    if (ownerLink) {
+      ownerLink.addEventListener('click', function (e) {
+        handleOwnerMenuClick(e);
+        menu.classList.remove('open');
+      });
+    }
 
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
