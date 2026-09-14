@@ -814,12 +814,47 @@ async function requireApprovedOwner(req, res, next) {
   next();
 }
 
-// 가게 기본 정보 수정 (소개글, 영업시간)
-router.put('/:id/owner-edit', requireAuth, requireApprovedOwner, async (req, res) => {
-  const { comment, opening_hours } = req.body;
+// 승인된 사장님이면 통과 — owner-edit(사진·소개글)은 무료 기능이라 이용권(결제) 여부는 확인하지 않음
+async function requireApprovedOwnerFree(req, res, next) {
+  const { data: place, error } = await supabase
+    .from('places')
+    .select('id, owner_id, owner_claim_status')
+    .eq('id', req.params.id)
+    .single();
+  if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+  if (place.owner_id !== req.user.userId || place.owner_claim_status !== 'approved') {
+    return res.status(403).json({ error: '이 가게를 관리할 권한이 없어요' });
+  }
+  req.place = place;
+  next();
+}
+
+// 가게 기본 정보 수정 (소개글, 영업시간, 대표 사진) — 승인된 사장님이면 무료로 이용 가능
+router.put('/:id/owner-edit', requireAuth, requireApprovedOwnerFree, async (req, res) => {
+  const { comment, opening_hours, image_url } = req.body;
   const update = {};
   if (comment !== undefined) update.comment = comment;
   if (opening_hours !== undefined) update.opening_hours = opening_hours;
+  if (image_url !== undefined) update.image_url = image_url;
+  if (!Object.keys(update).length) return res.status(400).json({ error: '수정할 내용이 없어요' });
+
+  const { data, error } = await supabase
+    .from('places')
+    .update(update)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+
+// 관리자 전용 — 소유권/이용권과 무관하게 아무 가게나 소개글·대표 사진 수정
+router.put('/:id/admin-edit', requireAuth, requireAdmin, async (req, res) => {
+  const { comment, image_url } = req.body;
+  const update = {};
+  if (comment !== undefined) update.comment = comment;
+  if (image_url !== undefined) update.image_url = image_url;
   if (!Object.keys(update).length) return res.status(400).json({ error: '수정할 내용이 없어요' });
 
   const { data, error } = await supabase
