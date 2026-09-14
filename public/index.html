@@ -38,7 +38,7 @@
 
 .content{ max-width:960px; margin:0 auto; padding:8px 20px 60px; }
 
-/* 사장님 메뉴 (인증 신청 + 끌어올리기 통합) */
+/* 사장님 메뉴 (인증 신청 + 가게 관리 통합) */
 #ownerDialog{max-width:480px;width:92%;}
 #ownerDialog .owner-dialog-body{display:flex;flex-direction:column;max-height:82vh;}
 #ownerDialog .owner-tabs{display:flex;margin:14px 20px 0;border-bottom:1px solid var(--line);}
@@ -51,15 +51,13 @@
 .owner-place-row{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:#fff;}
 .owner-place-row h3{margin:0 0 4px;font-size:15px;}
 .owner-place-meta{font-size:12px;color:#8A8580;margin-bottom:10px;}
-.owner-claim-btn, .owner-boost-btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.owner-claim-btn, .owner-manage-btn{padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
 .owner-claim-btn{border:1.5px solid var(--stamp);background:none;color:var(--stamp);}
 .owner-claim-btn:disabled{border-color:#eee;color:#aaa;cursor:not-allowed;background:#f7f7f7;}
-.owner-boost-btn{border:1.5px solid var(--stamp);background:var(--stamp);color:#fff;}
-.owner-boost-btn:disabled{background:#eee;border-color:#eee;color:#aaa;cursor:not-allowed;}
+.owner-manage-btn{border:1.5px solid var(--stamp);background:var(--stamp);color:#fff;}
 .owner-badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;margin-left:6px;}
 .owner-badge.pending{background:#fffbeb;color:#b45309;}
 .owner-badge.approved{background:#f0fdf4;color:#15803d;}
-.owner-badge.boosted{background:#fef3c7;color:#b45309;}
 
 .place-tile{
   background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden;
@@ -112,7 +110,7 @@
   <a href="#" onclick="jjinOpenFeedbackWidget(); return false;" style="color:var(--ink-soft);text-decoration:underline;">문의/제보</a>
 </footer>
 
-<!-- 사장님 메뉴: 가게 인증 신청 + 끌어올리기를 한 창에서 처리 -->
+<!-- 사장님 메뉴: 가게 인증 신청 + 가게 관리(메뉴·사진)를 한 창에서 처리 -->
 <dialog id="ownerDialog">
   <div class="owner-dialog-body">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px 0;">
@@ -122,11 +120,11 @@
     </div>
     <div class="owner-tabs">
       <button type="button" class="owner-tab active" data-tab="claim" onclick="switchOwnerTab('claim')">가게 인증 신청</button>
-      <button type="button" class="owner-tab" data-tab="boost" onclick="switchOwnerTab('boost')">끌어올리기</button>
+      <button type="button" class="owner-tab" data-tab="manage" onclick="switchOwnerTab('manage')">가게 관리</button>
     </div>
     <div class="owner-panels">
       <div id="ownerClaimPanel">
-        <p class="hint">이미 찐맛집에 등록된 내 가게를 찾아서 사업자 인증을 신청하세요.<br>승인이 완료되면 '끌어올리기' 탭에서 신청할 수 있어요.</p>
+        <p class="hint">이미 찐맛집에 등록된 내 가게를 찾아서 사업자 인증을 신청하세요.<br>승인이 완료되면 '가게 관리' 탭에서 메뉴·사진을 직접 등록할 수 있어요.</p>
         <div style="display:flex;gap:8px;margin-bottom:14px;">
           <input id="ownerClaimQ" type="text" placeholder="가게 이름 또는 주소로 검색"
             style="flex:1;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;font-family:'Noto Sans KR',sans-serif;"
@@ -139,9 +137,9 @@
           <div id="ownerMyClaimsList"></div>
         </div>
       </div>
-      <div id="ownerBoostPanel" style="display:none;">
-        <p class="hint">내가 등록한 가게를 7일 동안 목록 맨 위에 노출해요.<br>리뷰가 적은(저매출) 가게만 신청할 수 있어요.</p>
-        <div id="ownerBoostList"><p class="empty-state">불러오는 중...</p></div>
+      <div id="ownerManagePanel" style="display:none;">
+        <p class="hint">이용권을 구매하면 메뉴·가게 사진·소개글을 직접 등록하고 수정할 수 있어요.<br>노출 순위에는 전혀 영향을 주지 않아요.</p>
+        <div id="ownerManageList"><p class="empty-state">불러오는 중...</p></div>
       </div>
     </div>
   </div>
@@ -169,21 +167,6 @@
   </div>
 </dialog>
 
-<!-- 끌어올리기 결제 -->
-<dialog id="ownerPaySubDialog">
-  <div style="padding:24px;">
-    <h3 style="font-family:'Black Han Sans',sans-serif;margin:0 0 4px;" id="ownerPaySubName"></h3>
-    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 16px;" id="ownerPaySubPrice"></p>
-    <div id="ownerPayMethod"></div>
-    <div id="ownerPayAgreement" style="margin-top:8px;"></div>
-    <div style="display:flex;gap:8px;margin-top:16px;">
-      <button type="button" class="btn-ghost" onclick="document.getElementById('ownerPaySubDialog').close()" style="flex:1;">취소</button>
-      <button type="button" class="btn-primary" id="ownerPayBtn" style="flex:1;" disabled>결제하기</button>
-    </div>
-  </div>
-</dialog>
-
-<script src="https://js.tosspayments.com/v1/payment-widget"></script>
 <script src="/beta-notice.js"></script>
 <script src="/home.js"></script>
 <script src="/owner-panel.js"></script>

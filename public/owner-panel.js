@@ -1,10 +1,5 @@
-// 사장님 메뉴 — '가게 인증 신청'과 '끌어올리기'를 하나의 버튼/창으로 통합
+// 사장님 메뉴 — '가게 인증 신청'과 '가게 관리(메뉴·사진)'를 하나의 버튼/창으로 통합
 (function () {
-  const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
-
-  let payConfig = null;
-  let paymentWidget = null;
-  let currentOrder = null;
   let claimingPlaceId = null;
 
   function escapeHtml(str) {
@@ -25,8 +20,8 @@
       btn.classList.toggle('active', btn.dataset.tab === tab);
     });
     document.getElementById('ownerClaimPanel').style.display = tab === 'claim' ? 'block' : 'none';
-    document.getElementById('ownerBoostPanel').style.display = tab === 'boost' ? 'block' : 'none';
-    if (tab === 'boost') loadBoostList();
+    document.getElementById('ownerManagePanel').style.display = tab === 'manage' ? 'block' : 'none';
+    if (tab === 'manage') loadManageList();
     else loadMyClaims();
   };
 
@@ -84,83 +79,37 @@
       </div>`).join('');
   }
 
-  // ── 끌어올리기 탭 ────────────────────────────────────────
-  async function loadBoostList() {
-    const wrap = document.getElementById('ownerBoostList');
+  // ── 가게 관리 탭 (메뉴·사진 등록은 owner-dashboard.html에서 처리) ──
+  async function loadManageList() {
+    const wrap = document.getElementById('ownerManageList');
     wrap.innerHTML = '<p class="empty-state">불러오는 중...</p>';
 
-    if (!payConfig) {
-      const cfgRes = await fetch('/api/payments/config');
-      payConfig = await cfgRes.json();
-    }
-
-    const meRes = await fetch('/api/auth/profile', { credentials: 'include' });
-    if (!meRes.ok) { wrap.innerHTML = '<p class="empty-state">로그인 후 이용할 수 있어요.</p>'; return; }
-    const me = await meRes.json();
-    if (me.role !== 'owner' && !ADMIN_EMAILS.includes(me.email)) {
-      wrap.innerHTML = '<p class="empty-state">🏪 가게 끌어올리기는 <b>사장님 계정</b>만 이용할 수 있어요.</p>';
+    const res = await fetch('/api/places/mine', { credentials: 'include' });
+    if (!res.ok) { wrap.innerHTML = '<p class="empty-state">로그인 후 이용할 수 있어요.</p>'; return; }
+    const places = await res.json();
+    const approved = places.filter((p) => p.owner_claim_status === 'approved');
+    if (!approved.length) {
+      wrap.innerHTML = '<p class="empty-state">사업자 인증이 승인된 가게가 없어요.<br>먼저 "가게 인증 신청" 탭에서 신청해주세요.</p>';
       return;
     }
 
-    const res = await fetch('/api/places/mine', { credentials: 'include' });
-    const places = await res.json();
-    const verified = places.filter((p) => p.status === 'verified');
-    if (!verified.length) { wrap.innerHTML = '<p class="empty-state">등록해서 검증된 가게가 없어요.</p>'; return; }
-
     wrap.innerHTML = '';
-    for (const p of verified) {
+    for (const p of approved) {
       const el = document.createElement('div');
       el.className = 'owner-place-row';
-      const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
-      let badgeHtml = '';
-      let btnHtml = '';
-      if (boosted) {
-        const d = new Date(p.boosted_until);
-        badgeHtml = `<span class="owner-badge boosted">🚀 ${d.getMonth() + 1}/${d.getDate()}까지 노출중</span>`;
-        btnHtml = '<button type="button" class="owner-boost-btn" disabled>진행중</button>';
-      } else {
-        btnHtml = `<button type="button" class="owner-boost-btn" onclick='ownerOpenBoostSub(${JSON.stringify(p.id)}, ${JSON.stringify(p.name)})'>7일 끌어올리기</button>`;
-      }
+      const active = p.owner_edit_until && new Date(p.owner_edit_until) > new Date();
+      const badgeHtml = active
+        ? `<span class="owner-badge approved">✅ 이용중</span>`
+        : `<span class="owner-badge pending">🔒 이용권 필요</span>`;
       el.innerHTML = `
         <h3>${escapeHtml(p.name)} ${badgeHtml}</h3>
-        <div class="owner-place-meta">${escapeHtml(p.address || '')} · 리뷰 ${p.review_count ?? 0}개</div>
-        ${btnHtml}
-        <div id="ownerEligMsg-${p.id}" style="font-size:12px;color:#b45309;margin-top:6px;"></div>`;
+        <div class="owner-place-meta">${escapeHtml(p.address || '')}</div>
+        <a href="/owner-dashboard.html?place=${p.id}" class="owner-manage-btn" style="display:inline-block;text-decoration:none;">
+          ${active ? '메뉴·사진 관리하기' : '이용권 구매하고 관리 시작'}
+        </a>`;
       wrap.appendChild(el);
     }
   }
-
-  window.ownerOpenBoostSub = async function (placeId, name) {
-    const msgEl = document.getElementById(`ownerEligMsg-${placeId}`);
-    msgEl.textContent = '';
-
-    const eligRes = await fetch(`/api/payments/boost/eligibility/${placeId}`, { credentials: 'include' });
-    const elig = await eligRes.json();
-    if (!elig.eligible) { msgEl.textContent = elig.reason || '지금은 끌어올릴 수 없어요'; return; }
-
-    const orderRes = await fetch('/api/payments/boost/order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ placeId }),
-    });
-    const order = await orderRes.json();
-    if (!orderRes.ok) { msgEl.textContent = order.error || '주문 생성에 실패했어요'; return; }
-    currentOrder = order;
-
-    document.getElementById('ownerPaySubName').textContent = name;
-    document.getElementById('ownerPaySubPrice').textContent = `${order.amount.toLocaleString()}원 · 7일`;
-    document.getElementById('ownerPayMethod').innerHTML = '';
-    document.getElementById('ownerPayAgreement').innerHTML = '';
-
-    const customerKey = 'boost_' + Math.random().toString(36).slice(2);
-    paymentWidget = PaymentWidget(payConfig.clientKey, customerKey);
-    const methodWidget = paymentWidget.renderPaymentMethods('#ownerPayMethod', { value: order.amount }, { variantKey: 'DEFAULT' });
-    paymentWidget.renderAgreement('#ownerPayAgreement', { variantKey: 'AGREEMENT' });
-    methodWidget.on('ready', () => { document.getElementById('ownerPayBtn').disabled = false; });
-
-    document.getElementById('ownerPaySubDialog').showModal();
-  };
 
   // ── 초기화 / 이벤트 바인딩 ───────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
@@ -194,18 +143,6 @@
       document.getElementById('ownerClaimSubDialog').close();
       window.ownerClaimSearch();
       loadMyClaims();
-    });
-
-    document.getElementById('ownerPayBtn').addEventListener('click', () => {
-      if (!paymentWidget || !currentOrder) return;
-      paymentWidget.requestPayment({
-        orderId: currentOrder.orderId,
-        orderName: currentOrder.orderName,
-        successUrl: `${location.origin}/pay-success.html?kind=boost`,
-        failUrl: `${location.origin}/pay-fail.html?kind=boost`,
-      }).catch((err) => {
-        if (err.code !== 'USER_CANCEL') alert('결제 요청에 실패했어요: ' + err.message);
-      });
     });
   });
 })();

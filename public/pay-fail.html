@@ -20,7 +20,7 @@ a{color:#E1392A;font-weight:700;text-decoration:none;margin-top:16px;}
 const params = new URLSearchParams(location.search);
 document.getElementById('reason').textContent = params.get('message') || '결제 중 취소되었거나 실패했어요.';
 const kind = params.get('kind');
-document.getElementById('backLink').href = kind === 'subscribe' ? '/subscribe.html' : '/boost.html';
+document.getElementById('backLink').href = kind === 'subscribe' ? '/subscribe.html' : '/owner-dashboard.html';
 </script>
 </body>
 </html>

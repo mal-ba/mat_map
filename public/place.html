@@ -218,7 +218,6 @@ function render() {
   if (place.listing_type === 'new_opening') badges.push('<span class="pill-badge" style="background:#2E7D32;color:#fff;">🆕 신규 오픈</span>');
   const isTopInRegion = place.region_rank === 1 && (place.recommend_count || 0) > 0;
   if (isTopInRegion) badges.push(`<span class="pill-badge" style="background:#FFD700;color:#1C1917;">👑 ${escapeHtml(place.region_label || '이 지역')} 추천 1위</span>`);
-  if (place.boosted_until && new Date(place.boosted_until) > new Date()) badges.push('<span class="pill-badge" style="background:#E1392A;color:#fff;">🚀 부스트</span>');
   document.getElementById('badgeRow').innerHTML = badges.join('');
 
   document.getElementById('placeName').textContent = place.name;

@@ -2,7 +2,6 @@ let allPlaces = [];
 let currentUser = null;
 let myLikedIds = new Set();
 
-// 관리자는 역할과 무관하게 끌어올리기 이용 가능
 const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
 
 function escapeHtml(str) {
@@ -48,7 +47,6 @@ const CATEGORY_BUCKETS = [
 function placeCardHtml(p) {
   const emoji = getCategoryEmoji(p.category);
   const color = getCategoryColor(p.category);
-  const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
   const liked = myLikedIds.has(p.id);
   const photo = p.image_url
     ? `<img src="${escapeHtml(p.image_url)}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" onerror="this.style.display='none'" />`
@@ -56,7 +54,6 @@ function placeCardHtml(p) {
 
   return `
     <div class="place-tile" data-id="${p.id}" onclick="goToMapWith('${p.id}')" style="position:relative;">
-      ${boosted ? `<span style="position:absolute;top:6px;left:6px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;z-index:2;">🚀 추천</span>` : ''}
       <button type="button" onclick="toggleLike('${p.id}', this, event)"
         style="position:absolute;top:6px;right:6px;z-index:2;background:rgba(255,255,255,.92);border:none;
         border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;

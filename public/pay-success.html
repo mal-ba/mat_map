@@ -23,18 +23,24 @@ a{color:#E1392A;font-weight:700;text-decoration:none;margin-top:16px;}
 
 <script>
 const params = new URLSearchParams(location.search);
-const kind = params.get('kind'); // 'boost' | 'subscribe'
+const kind = params.get('kind'); // 'owner_access' | 'subscribe'
 const paymentKey = params.get('paymentKey');
 const orderId = params.get('orderId');
 const amount = params.get('amount');
 const authKey = params.get('authKey');
 const customerKey = params.get('customerKey');
+const placeId = params.get('placeId');
+
+function backHref() {
+  if (kind === 'owner_access') return placeId ? `/owner-dashboard.html?place=${placeId}` : '/owner-dashboard.html';
+  return '/subscribe.html';
+}
 
 async function run() {
   try {
     let res, data;
-    if (kind === 'boost') {
-      res = await fetch('/api/payments/boost/confirm', {
+    if (kind === 'owner_access') {
+      res = await fetch('/api/payments/owner-access/confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
       });
@@ -50,19 +56,19 @@ async function run() {
     if (!res.ok) throw new Error(data.error || '처리 중 오류가 발생했어요');
 
     document.getElementById('spinner').style.display = 'none';
-    document.getElementById('statusText').textContent = kind === 'boost' ? '🎉 끌어올리기 적용 완료!' : '🎉 구독이 시작됐어요!';
-    document.getElementById('detailText').textContent = kind === 'boost'
-      ? '7일 동안 목록 상단에 노출돼요.'
+    document.getElementById('statusText').textContent = kind === 'owner_access' ? '🎉 가게 관리 이용권 결제 완료!' : '🎉 구독이 시작됐어요!';
+    document.getElementById('detailText').textContent = kind === 'owner_access'
+      ? '이제 메뉴·사진·소개글을 직접 등록할 수 있어요.'
       : '이제 맞춤 추천을 받아보세요.';
     const back = document.getElementById('backLink');
-    back.href = kind === 'boost' ? '/boost.html' : '/subscribe.html';
+    back.href = backHref();
     back.style.display = 'inline-block';
   } catch (err) {
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('statusText').textContent = '결제 처리에 실패했어요';
     document.getElementById('detailText').textContent = err.message;
     const back = document.getElementById('backLink');
-    back.href = kind === 'boost' ? '/boost.html' : '/subscribe.html';
+    back.href = backHref();
     back.style.display = 'inline-block';
   }
 }

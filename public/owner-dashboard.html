@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css" />
+<script src="https://js.tosspayments.com/v1/payment-widget"></script>
 <style>
 .container{max-width:640px;margin:0 auto;padding:28px 16px 60px;}
 h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
@@ -44,6 +45,11 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
 .status-msg{font-size:12px;margin-top:8px;}
 .status-msg.ok{color:#15803d;}
 .status-msg.err{color:var(--stamp);}
+.paywall{border:1.5px dashed var(--line);border-radius:12px;padding:28px 20px;text-align:center;}
+.paywall .price{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:10px 0 4px;}
+.paywall .sub{font-size:12px;color:var(--ink-soft);margin:0 0 18px;line-height:1.6;}
+dialog{border:none;border-radius:14px;padding:0;max-width:380px;width:90%;}
+dialog::backdrop{background:rgba(28,25,23,.5);}
 </style>
 </head>
 <body>
@@ -68,6 +74,14 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
 
   <div id="emptyMsg" class="empty-state" style="display:none;">
     인증 승인된 가게가 없어요. <a href="/claim.html">여기서 사업자 인증을 신청</a>해보세요.
+  </div>
+
+  <div id="paywall" class="paywall" style="display:none;">
+    <div>🔒</div>
+    <div class="price" id="paywallPrice"></div>
+    <p class="sub" id="paywallSub">메뉴, 가게 사진, 소개글을 직접 등록하고 수정할 수 있어요.<br>노출 순위에는 전혀 영향을 주지 않아요.</p>
+    <button class="btn" id="paywallBtn">결제하고 관리 시작하기</button>
+    <p id="paywallStatus" class="status-msg"></p>
   </div>
 
   <div id="editArea" style="display:none;">
@@ -110,8 +124,25 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
   </div>
 </div>
 
+<dialog id="payDialog">
+  <div style="padding:24px;">
+    <h3 style="font-family:'Black Han Sans',sans-serif;margin:0 0 4px;" id="payDialogName"></h3>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 16px;" id="payDialogPrice"></p>
+    <div id="payMethod"></div>
+    <div id="payAgreement" style="margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button type="button" class="btn-ghost" onclick="document.getElementById('payDialog').close()" style="flex:1;">취소</button>
+      <button type="button" class="btn" id="payBtn" style="flex:1;" disabled>결제하기</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
 let currentPlaceId = null;
+let currentPlaceName = null;
+let payConfig = null;
+let paymentWidget = null;
+let currentOrder = null;
 
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -145,18 +176,37 @@ async function loadMyPlaces() {
     else document.getElementById('editArea').style.display = 'none';
   });
 
-  if (owned.length === 1) {
-    select.value = owned[0].id;
-    selectPlace(owned[0].id);
+  const urlPlaceId = new URLSearchParams(location.search).get('place');
+  const preselect = owned.find(p => p.id === urlPlaceId) ? urlPlaceId : (owned.length === 1 ? owned[0].id : null);
+  if (preselect) {
+    select.value = preselect;
+    selectPlace(preselect);
   }
 }
 
 async function selectPlace(placeId) {
   currentPlaceId = placeId;
-  document.getElementById('editArea').style.display = 'block';
 
   const res = await fetch(`/api/places/${placeId}`, { credentials: 'include' });
   const place = await res.json();
+  currentPlaceName = place.name;
+
+  const hasAccess = place.owner_edit_until && new Date(place.owner_edit_until) > new Date();
+
+  if (!hasAccess) {
+    document.getElementById('editArea').style.display = 'none';
+    document.getElementById('paywall').style.display = 'block';
+    if (!payConfig) {
+      const cfgRes = await fetch('/api/payments/config');
+      payConfig = await cfgRes.json();
+    }
+    document.getElementById('paywallPrice').textContent = `${payConfig.ownerAccessPrice.toLocaleString()}원 · ${payConfig.ownerAccessDays}일`;
+    return;
+  }
+
+  document.getElementById('paywall').style.display = 'none';
+  document.getElementById('editArea').style.display = 'block';
+
   document.getElementById('commentInput').value = place.comment || '';
   document.getElementById('hoursInput').value =
     Array.isArray(place.opening_hours) ? place.opening_hours.join(', ') : (place.opening_hours || '');
@@ -164,6 +214,51 @@ async function selectPlace(placeId) {
   await loadMenus();
   await loadPhotos();
 }
+
+// ── 결제 (가게 관리 이용권) ─────────────────────────────
+document.getElementById('paywallBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('paywallStatus');
+  statusEl.textContent = '';
+
+  const eligRes = await fetch(`/api/payments/owner-access/eligibility/${currentPlaceId}`, { credentials: 'include' });
+  const elig = await eligRes.json();
+  if (!elig.eligible) { statusEl.textContent = elig.reason || '지금은 구매할 수 없어요'; statusEl.className = 'status-msg err'; return; }
+
+  const orderRes = await fetch('/api/payments/owner-access/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ placeId: currentPlaceId }),
+  });
+  const order = await orderRes.json();
+  if (!orderRes.ok) { statusEl.textContent = order.error || '주문 생성에 실패했어요'; statusEl.className = 'status-msg err'; return; }
+  currentOrder = order;
+
+  document.getElementById('payDialogName').textContent = currentPlaceName;
+  document.getElementById('payDialogPrice').textContent = `${order.amount.toLocaleString()}원 · ${payConfig.ownerAccessDays}일`;
+  document.getElementById('payMethod').innerHTML = '';
+  document.getElementById('payAgreement').innerHTML = '';
+
+  const customerKey = 'owner_access_' + Math.random().toString(36).slice(2);
+  paymentWidget = PaymentWidget(payConfig.clientKey, customerKey);
+  const methodWidget = paymentWidget.renderPaymentMethods('#payMethod', { value: order.amount }, { variantKey: 'DEFAULT' });
+  paymentWidget.renderAgreement('#payAgreement', { variantKey: 'AGREEMENT' });
+  methodWidget.on('ready', () => { document.getElementById('payBtn').disabled = false; });
+
+  document.getElementById('payDialog').showModal();
+});
+
+document.getElementById('payBtn').addEventListener('click', () => {
+  if (!paymentWidget || !currentOrder) return;
+  paymentWidget.requestPayment({
+    orderId: currentOrder.orderId,
+    orderName: currentOrder.orderName,
+    successUrl: `${location.origin}/pay-success.html?kind=owner_access&placeId=${currentPlaceId}`,
+    failUrl: `${location.origin}/pay-fail.html?kind=owner_access`,
+  }).catch((err) => {
+    if (err.code !== 'USER_CANCEL') alert('결제 요청에 실패했어요: ' + err.message);
+  });
+});
 
 // ── 기본 정보 ────────────────────────────────────────────
 document.getElementById('saveInfoBtn').addEventListener('click', async () => {

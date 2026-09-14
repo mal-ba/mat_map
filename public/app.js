@@ -1116,7 +1116,6 @@ function regionHeaderHtml(key, label, count, level) {
 }
 
 function placeCardHtmlForList(p) {
-  const boosted = p.boosted_until && new Date(p.boosted_until) > new Date();
   const liked = myLikedIds.has(p.id);
   const recommended = myRecommendedIds.has(p.id);
   const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
@@ -1134,8 +1133,7 @@ function placeCardHtmlForList(p) {
   return `
     <li class="place-card" data-id="${p.id}" data-lat="${p.lat}" data-lng="${p.lng}">
       <div class="verified-badge">${p.listing_type === 'new_opening' ? '🆕 신규' : '인증'}</div>
-      ${boosted ? `<div style="position:absolute;top:8px;left:10px;background:#E1392A;color:#fff;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">🚀 부스트</div>` : ''}
-      ${isTopInRegion ? `<div style="position:absolute;top:${boosted ? '34px' : '8px'};left:10px;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">👑 ${escapeHtml(p.region_label || '이 지역')} 1위</div>` : ''}
+      ${isTopInRegion ? `<div style="position:absolute;top:8px;left:10px;background:#FFD700;color:#1C1917;font-size:10px;font-weight:900;padding:3px 7px;border-radius:6px;">👑 ${escapeHtml(p.region_label || '이 지역')} 1위</div>` : ''}
       <button type="button" onclick="toggleLike('${p.id}', this, event)"
         style="position:absolute;top:10px;right:88px;background:rgba(255,255,255,.92);border:none;
         border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -1146,7 +1144,7 @@ function placeCardHtmlForList(p) {
         color:${recommended ? '#E1392A' : '#1C1917'};display:flex;align-items:center;justify-content:center;gap:2px;
         box-shadow:0 1px 4px rgba(0,0,0,.15);">👍${p.recommend_count ? ` ${p.recommend_count}` : ''}</button>
       ${thumbHtml}
-      <h3 style="${boosted && isTopInRegion ? 'margin-top:44px;' : (boosted || isTopInRegion ? 'margin-top:18px;' : '')}">${escapeHtml(p.name)}</h3>
+      <h3 style="${isTopInRegion ? 'margin-top:18px;' : ''}">${escapeHtml(p.name)}</h3>
       <div class="addr">${escapeHtml(p.address)}${p.category ? ' · ' + escapeHtml(p.category) : ''}</div>
       ${naverRatingHtml}
       <div>${recentCheckBadgeHtml(p)}</div>

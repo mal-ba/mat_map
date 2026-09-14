@@ -6,7 +6,7 @@
     { icon: '🗺️', label: '지도 보러가기', href: '/map.html' },
     { icon: '📖', label: '소개', href: '/about.html' },
     { icon: '📋', label: '사용법', href: '/guide.html' },
-    { icon: '🏪', label: '사장님 (인증·끌어올리기)', href: '/claim.html' },
+    { icon: '🏪', label: '사장님 (인증·가게관리)', href: '/claim.html' },
     { icon: '🎯', label: '맞춤추천 구독 결제', href: '/subscribe.html' },
   ];
 
