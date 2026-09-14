@@ -319,7 +319,7 @@ function placePopupHtml(p) {
   const isTopInRegion = p.region_rank === 1 && (p.recommend_count || 0) > 0;
   const settingsBtnHtml = canManagePlace(p)
     ? `<div style="display:flex;justify-content:flex-end;margin:0 -20px 4px 0;">
-        <button type="button" onclick="openPlaceSettingsModal(${JSON.stringify(p.id)}, event)"
+        <button type="button" onclick="openPlaceSettingsModal('${p.id}', event)"
           title="가게 정보 수정 (사진·소개글)"
           style="background:#fff;border:1px solid #E7E4DF;border-radius:50%;width:24px;height:24px;
           font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;
