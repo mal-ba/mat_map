@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>가게 관리 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css" />
+<style>
+.container{max-width:640px;margin:0 auto;padding:28px 16px 60px;}
+h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
+.sub{color:var(--ink-soft);font-size:13px;margin:0 0 20px;line-height:1.6;}
+.place-select{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:8px;
+  font-size:14px;font-family:'Noto Sans KR',sans-serif;margin-bottom:24px;background:#fff;}
+.section{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px;background:#fff;}
+.section h2{font-family:'Black Han Sans',sans-serif;font-size:16px;margin:0 0 12px;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;}
+.field input,.field textarea{width:100%;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;
+  font-size:13px;font-family:'Noto Sans KR',sans-serif;}
+.field textarea{resize:vertical;min-height:60px;}
+.btn{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+  border:1.5px solid var(--ink);background:var(--ink);color:#fff;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.btn-outline{background:none;color:var(--ink);}
+.btn-danger{border-color:var(--stamp);color:var(--stamp);background:none;padding:5px 10px;font-size:12px;}
+.menu-row{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;}
+.menu-row.sold-out{opacity:.5;}
+.menu-row .name{flex:1;font-size:13px;font-weight:700;}
+.menu-row .price{font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+.menu-add-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.menu-add-row input{flex:1;min-width:100px;padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;
+  font-size:13px;}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.photo-item{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;}
+.photo-item img{width:100%;height:100%;object-fit:cover;}
+.photo-item button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;
+  border:none;background:rgba(0,0,0,.6);color:#fff;font-size:12px;cursor:pointer;line-height:1;}
+.upload-label{display:inline-block;padding:9px 16px;border:1.5px dashed var(--line);border-radius:8px;
+  font-size:13px;cursor:pointer;color:var(--ink-soft);text-align:center;}
+.upload-label input{display:none;}
+.status-msg{font-size:12px;margin-top:8px;}
+.status-msg.ok{color:#15803d;}
+.status-msg.err{color:var(--stamp);}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand" style="text-decoration:none;color:inherit;">
+    <span class="brand-mark">찐</span>
+    <div class="brand-text"><strong>찐맛집</strong><span>사람이 찾고, AI가 확인한 진짜 맛집</span></div>
+  </a>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+  </div>
+</header>
+
+<div class="container">
+  <h1>🏪 가게 관리</h1>
+  <p class="sub">사업자 인증이 승인된 가게에 한해 메뉴·사진·소개 정보를 직접 등록하고 수정할 수 있어요.</p>
+
+  <select id="placeSelect" class="place-select">
+    <option value="">가게를 선택하세요</option>
+  </select>
+
+  <div id="emptyMsg" class="empty-state" style="display:none;">
+    인증 승인된 가게가 없어요. <a href="/claim.html">여기서 사업자 인증을 신청</a>해보세요.
+  </div>
+
+  <div id="editArea" style="display:none;">
+
+    <div class="section">
+      <h2>기본 정보</h2>
+      <div class="field">
+        <label>소개글</label>
+        <textarea id="commentInput" placeholder="가게 소개를 적어주세요"></textarea>
+      </div>
+      <div class="field">
+        <label>영업시간 안내 (자유 형식, 예: 매일 11:00-21:00, 매주 월요일 휴무)</label>
+        <input id="hoursInput" type="text" placeholder="예: 매일 11:00-21:00" />
+      </div>
+      <button class="btn" id="saveInfoBtn">기본 정보 저장</button>
+      <div id="infoStatus" class="status-msg"></div>
+    </div>
+
+    <div class="section">
+      <h2>메뉴</h2>
+      <div id="menuList"></div>
+      <div class="menu-add-row">
+        <input id="newMenuName" type="text" placeholder="메뉴 이름" />
+        <input id="newMenuPrice" type="number" placeholder="가격" />
+        <button class="btn" id="addMenuBtn">추가</button>
+      </div>
+      <div id="menuStatus" class="status-msg"></div>
+    </div>
+
+    <div class="section">
+      <h2>가게 사진</h2>
+      <div id="photoGrid" class="photo-grid"></div>
+      <label class="upload-label">
+        📷 사진 추가
+        <input type="file" id="photoInput" accept="image/*" />
+      </label>
+      <div id="photoStatus" class="status-msg"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentPlaceId = null;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+async function loadMyPlaces() {
+  const res = await fetch('/api/places/mine', { credentials: 'include' });
+  if (!res.ok) {
+    window.location.href = '/login.html';
+    return;
+  }
+  const places = await res.json();
+  const owned = places.filter(p => p.owner_claim_status === 'approved');
+
+  const select = document.getElementById('placeSelect');
+  if (!owned.length) {
+    document.getElementById('emptyMsg').style.display = 'block';
+    return;
+  }
+  owned.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => {
+    if (select.value) selectPlace(select.value);
+    else document.getElementById('editArea').style.display = 'none';
+  });
+
+  if (owned.length === 1) {
+    select.value = owned[0].id;
+    selectPlace(owned[0].id);
+  }
+}
+
+async function selectPlace(placeId) {
+  currentPlaceId = placeId;
+  document.getElementById('editArea').style.display = 'block';
+
+  const res = await fetch(`/api/places/${placeId}`, { credentials: 'include' });
+  const place = await res.json();
+  document.getElementById('commentInput').value = place.comment || '';
+  document.getElementById('hoursInput').value =
+    Array.isArray(place.opening_hours) ? place.opening_hours.join(', ') : (place.opening_hours || '');
+
+  await loadMenus();
+  await loadPhotos();
+}
+
+// ── 기본 정보 ────────────────────────────────────────────
+document.getElementById('saveInfoBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('infoStatus');
+  statusEl.textContent = '';
+  const comment = document.getElementById('commentInput').value.trim();
+  const opening_hours = document.getElementById('hoursInput').value.trim();
+
+  const res = await fetch(`/api/places/${currentPlaceId}/owner-edit`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ comment, opening_hours }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    statusEl.textContent = data.error || '저장에 실패했어요';
+    statusEl.className = 'status-msg err';
+    return;
+  }
+  statusEl.textContent = '저장됐어요';
+  statusEl.className = 'status-msg ok';
+});
+
+// ── 메뉴 ────────────────────────────────────────────────
+async function loadMenus() {
+  const res = await fetch(`/api/places/${currentPlaceId}/menus`);
+  const menus = await res.json();
+  const list = document.getElementById('menuList');
+
+  if (!menus.length) {
+    list.innerHTML = '<p class="empty-state" style="padding:16px 0;">등록된 메뉴가 없어요</p>';
+    return;
+  }
+
+  list.innerHTML = menus.map(m => `
+    <div class="menu-row ${m.is_sold_out ? 'sold-out' : ''}">
+      <span class="name">${escapeHtml(m.name)}</span>
+      <span class="price">${m.price ? Number(m.price).toLocaleString() + '원' : ''}</span>
+      <button class="btn-outline" style="padding:4px 8px;font-size:11px;border:1px solid var(--line);border-radius:6px;"
+        onclick="toggleSoldOut('${m.id}', ${!m.is_sold_out})">${m.is_sold_out ? '품절 해제' : '품절 처리'}</button>
+      <button class="btn-danger" onclick="deleteMenu('${m.id}')">삭제</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('addMenuBtn').addEventListener('click', async () => {
+  const statusEl = document.getElementById('menuStatus');
+  const name = document.getElementById('newMenuName').value.trim();
+  const price = document.getElementById('newMenuPrice').value;
+  if (!name) { statusEl.textContent = '메뉴 이름을 입력해주세요'; statusEl.className = 'status-msg err'; return; }
+
+  const res = await fetch(`/api/places/${currentPlaceId}/menus`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, price: price ? Number(price) : null }),
+  });
+  const data = await res.json();
+  if (!res.ok) { statusEl.textContent = data.error || '추가에 실패했어요'; statusEl.className = 'status-msg err'; return; }
+
+  document.getElementById('newMenuName').value = '';
+  document.getElementById('newMenuPrice').value = '';
+  statusEl.textContent = '';
+  loadMenus();
+});
+
+window.toggleSoldOut = async function (menuId, isSoldOut) {
+  await fetch(`/api/places/${currentPlaceId}/menus/${menuId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ is_sold_out: isSoldOut }),
+  });
+  loadMenus();
+};
+
+window.deleteMenu = async function (menuId) {
+  if (!confirm('이 메뉴를 삭제할까요?')) return;
+  await fetch(`/api/places/${currentPlaceId}/menus/${menuId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  loadMenus();
+};
+
+// ── 사진 ────────────────────────────────────────────────
+async function loadPhotos() {
+  const res = await fetch(`/api/places/${currentPlaceId}/photos`);
+  const photos = await res.json();
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML = photos.map(p => `
+    <div class="photo-item">
+      <img src="${escapeHtml(p.photo_url)}" alt="가게 사진" />
+      <button onclick="deletePhoto('${p.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+document.getElementById('photoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('photoStatus');
+  statusEl.textContent = '업로드 중...';
+  statusEl.className = 'status-msg';
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  const res = await fetch(`/api/places/${currentPlaceId}/photos`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    statusEl.textContent = data.error || '업로드에 실패했어요';
+    statusEl.className = 'status-msg err';
+    return;
+  }
+  statusEl.textContent = '';
+  e.target.value = '';
+  loadPhotos();
+});
+
+window.deletePhoto = async function (photoId) {
+  if (!confirm('이 사진을 삭제할까요?')) return;
+  await fetch(`/api/places/${currentPlaceId}/photos/${photoId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  loadPhotos();
+};
+
+loadMyPlaces();
+</script>
+
+</body>
+</html>
