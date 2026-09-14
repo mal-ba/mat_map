@@ -329,13 +329,16 @@ function placePopupHtml(p) {
       ${p.comment ? `<div style="font-size:12px;margin-top:5px;">${escapeHtml(p.comment)}</div>` : ''}
       <div>${recentCheckBadgeHtml(p)}</div>
       <div>${reviewsHtml}</div>
-      <div style="display:flex;gap:6px;margin-top:6px;">
-        <button onclick="toggleLike('${p.id}', this, event)" data-style="star"
-          style="flex:1;font-size:12px;font-weight:700;background:none;
-          border:1.5px solid #ccc;border-radius:4px;padding:5px;cursor:pointer;">${liked ? '⭐ 찜함' : '☆ 찜하기'}</button>
-        <button onclick="toggleRecommend('${p.id}', this, event)"
-          style="flex:1;font-size:12px;font-weight:700;background:none;color:${recommended ? '#E1392A' : '#1C1917'};
-          border:1.5px solid ${recommended ? '#E1392A' : '#ccc'};border-radius:4px;padding:5px;cursor:pointer;">👍 추천${p.recommend_count ? ` ${p.recommend_count}` : ''}</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+        <button type="button" onclick="toggleLike('${p.id}', this, event)"
+          style="background:${liked ? '#FFF0EE' : '#F5F3EF'};border:none;border-radius:50%;
+          width:30px;height:30px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+          box-shadow:0 1px 3px rgba(0,0,0,.1);">${liked ? '❤️' : '🤍'}</button>
+        <button type="button" onclick="toggleRecommend('${p.id}', this, event)"
+          style="background:${recommended ? '#FFF0EE' : '#F5F3EF'};border:none;border-radius:14px;
+          min-width:30px;height:30px;padding:0 9px;font-size:13px;font-weight:700;cursor:pointer;
+          color:${recommended ? '#E1392A' : '#1C1917'};display:flex;align-items:center;justify-content:center;gap:3px;
+          box-shadow:0 1px 3px rgba(0,0,0,.1);">👍${p.recommend_count ? ` ${p.recommend_count}` : ''}</button>
       </div>
       <div style="display:flex;gap:6px;margin-top:6px;">
         <button onclick="viewStreetView(${p.lat}, ${p.lng}, ${JSON.stringify(p.name)})"
@@ -1173,9 +1176,8 @@ window.toggleLike = async function (id, btn, ev) {
   if (ev) ev.stopPropagation();
   if (!currentUser) { location.href = '/login.html'; return; }
   const liked = myLikedIds.has(id);
-  // 지도 팝업(별표)과 목록 카드(하트)가 같은 찜 기능을 서로 다른 아이콘으로 보여줌
-  const style = btn.dataset.style || 'heart';
-  const labels = style === 'star' ? { on: '⭐ 찜함', off: '☆ 찜하기' } : { on: '❤️', off: '🤍' };
+  // 지도 팝업과 목록 카드 모두 같은 하트 아이콘으로 찜 상태를 보여줌
+  const labels = { on: '❤️', off: '🤍' };
   btn.disabled = true;
   try {
     const res = await fetch(`/api/places/${id}/like`, {
