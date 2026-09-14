@@ -129,21 +129,12 @@ router.get('/', async (req, res) => {
       .forEach((p, i) => { p.region_rank = i + 1; });
   });
 
-  const now = Date.now();
-  const sorted = places.sort((a, b) => {
-    const aBoosted = a.boosted_until && new Date(a.boosted_until).getTime() > now;
-    const bBoosted = b.boosted_until && new Date(b.boosted_until).getTime() > now;
-    if (aBoosted && !bBoosted) return -1;
-    if (!aBoosted && bBoosted) return 1;
-    return 0; // 둘 다 부스트거나 둘 다 아니면 기존 created_at 순서 유지
-  });
-
-  res.json(sorted);
+  res.json(places);
 });
 
 // 내가 등록한 목록 (대기중/반려 포함, 마이페이지용)
 // + 다른 사람이 등록했지만 내가 사업자 인증(claim)을 받아 소유권이 승인된 가게도 포함
-// -> 끌어올리기(boost.html)에서 이 목록을 그대로 쓰기 때문에, 여기 포함되면 바로 끌어올리기 대상이 됨
+// -> 가게 관리(owner-dashboard.html)에서 이 목록을 그대로 쓰기 때문에, 승인되면 바로 관리 대상이 됨
 router.get('/mine', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('places')
@@ -808,12 +799,16 @@ router.get('/:id', async (req, res) => {
 async function requireApprovedOwner(req, res, next) {
   const { data: place, error } = await supabase
     .from('places')
-    .select('id, owner_id, owner_claim_status')
+    .select('id, owner_id, owner_claim_status, owner_edit_until')
     .eq('id', req.params.id)
     .single();
   if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
   if (place.owner_id !== req.user.userId || place.owner_claim_status !== 'approved') {
     return res.status(403).json({ error: '이 가게를 관리할 권한이 없어요' });
+  }
+  const hasActiveAccess = place.owner_edit_until && new Date(place.owner_edit_until) > new Date();
+  if (!hasActiveAccess) {
+    return res.status(402).json({ error: '가게 관리 이용권을 먼저 구매해주세요', needsPayment: true });
   }
   req.place = place;
   next();

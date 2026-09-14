@@ -6,14 +6,11 @@ const requireAuth = require('./requireAuth');
 const router = express.Router();
 
 // ── 가격 (원) — 필요하면 이 값만 바꾸면 됩니다 ──
-const BOOST_PRICE = 9900;      // 가게 끌어올리기 7일
-const BOOST_DAYS = 7;
+const OWNER_ACCESS_PRICE = 9900;  // 가게 관리(메뉴·사진 직접 등록) 30일 이용권
+const OWNER_ACCESS_DAYS = 30;
 const SUBSCRIPTION_PRICE = 4900; // 소비자 맞춤 추천 월 구독
 
-// '저매출' 판단 기준 — 리뷰 수가 이 값 미만이면 부스트 신청 가능 (없음/null도 허용)
-const LOW_SALES_REVIEW_THRESHOLD = 10;
-
-// 끌어올리기(일반결제) — "결제위젯 연동 키" 세트
+// 가게 관리 이용권(일반결제) — "결제위젯 연동 키" 세트
 function tossAuthHeader() {
   const key = process.env.TOSS_SECRET_KEY || '';
   return 'Basic ' + Buffer.from(key + ':').toString('base64');
@@ -25,18 +22,19 @@ function tossBillingAuthHeader() {
   return 'Basic ' + Buffer.from(key + ':').toString('base64');
 }
 
-// 가게 끌어올리기는 '사장' 계정(또는 관리자) 만 가능
-const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
-async function requireOwner(req, res, next) {
-  const { data: user, error } = await supabase
-    .from('users')
-    .select('role, email')
-    .eq('id', req.user.userId)
+// 특정 가게에 대해 사업자 인증이 승인된 본인 소유주인지 확인
+async function requirePlaceOwner(req, res, next) {
+  const placeId = req.params.placeId || req.body.placeId;
+  const { data: place, error } = await supabase
+    .from('places')
+    .select('id, name, owner_id, owner_claim_status, owner_edit_until')
+    .eq('id', placeId)
     .single();
-  if (error || !user) return res.status(401).json({ error: '유저 정보를 확인할 수 없어요' });
-  if (user.role !== 'owner' && !ADMIN_EMAILS.includes(user.email)) {
-    return res.status(403).json({ error: '가게 끌어올리기는 사장님 계정만 이용할 수 있어요' });
+  if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+  if (place.owner_id !== req.user.userId || place.owner_claim_status !== 'approved') {
+    return res.status(403).json({ error: '사업자 인증이 승인된 본인 가게만 이용할 수 있어요' });
   }
+  req.place = place;
   next();
 }
 
@@ -54,75 +52,51 @@ async function tossConfirmPayment({ paymentKey, orderId, amount }) {
 // 프론트엔드 결제위젯/빌링 초기화용 공개 키 전달
 router.get('/config', (req, res) => {
   res.json({
-    clientKey: process.env.TOSS_CLIENT_KEY,               // 끌어올리기(일반결제)용
+    clientKey: process.env.TOSS_CLIENT_KEY,               // 가게 관리 이용권(일반결제)용
     billingClientKey: process.env.TOSS_BILLING_CLIENT_KEY, // 맞춤추천 구독(자동결제)용
-    boostPrice: BOOST_PRICE,
-    boostDays: BOOST_DAYS,
+    ownerAccessPrice: OWNER_ACCESS_PRICE,
+    ownerAccessDays: OWNER_ACCESS_DAYS,
     subscriptionPrice: SUBSCRIPTION_PRICE,
   });
 });
 
 // ============================================================
-// 가게 끌어올리기 (부스트) — 1회 결제
+// 가게 관리 이용권 — 사업자 인증 승인된 사장님이 메뉴·사진·소개를
+// 직접 등록/수정할 수 있는 권한을 기간제로 구매 (노출 순위에는 영향 없음)
 // ============================================================
 
-// 특정 가게가 부스트 신청 가능한지 확인 (본인 등록 + 저매출 기준 충족)
-router.get('/boost/eligibility/:placeId', requireAuth, requireOwner, async (req, res) => {
-  const { data: place, error } = await supabase
-    .from('places')
-    .select('id, name, submitted_by, review_count, boosted_until, status')
-    .eq('id', req.params.placeId)
-    .single();
-  if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
-
-  if (place.submitted_by !== req.user.userId) {
-    return res.status(403).json({ error: '본인이 등록한 가게만 끌어올릴 수 있어요', eligible: false });
+// 특정 가게가 이용권 구매 가능한지 확인 (본인 소유 + 인증 승인)
+router.get('/owner-access/eligibility/:placeId', requireAuth, requirePlaceOwner, async (req, res) => {
+  const place = req.place;
+  const alreadyActive = place.owner_edit_until && new Date(place.owner_edit_until) > new Date();
+  if (alreadyActive) {
+    return res.json({ eligible: false, reason: '이미 이용 중이에요', owner_edit_until: place.owner_edit_until });
   }
-  if (place.status !== 'verified') {
-    return res.json({ eligible: false, reason: '검증된 가게만 끌어올릴 수 있어요' });
-  }
-  const alreadyBoosted = place.boosted_until && new Date(place.boosted_until) > new Date();
-  if (alreadyBoosted) {
-    return res.json({ eligible: false, reason: '이미 끌어올리기 진행 중이에요', boosted_until: place.boosted_until });
-  }
-  const lowSales = place.review_count == null || place.review_count < LOW_SALES_REVIEW_THRESHOLD;
-  if (!lowSales) {
-    return res.json({ eligible: false, reason: '리뷰가 많은(저매출이 아닌) 가게는 끌어올리기를 이용할 수 없어요' });
-  }
-  res.json({ eligible: true, price: BOOST_PRICE, days: BOOST_DAYS });
+  res.json({ eligible: true, price: OWNER_ACCESS_PRICE, days: OWNER_ACCESS_DAYS });
 });
 
 // 결제 주문 생성 (결제창 열기 전 서버에 금액/주문번호를 먼저 기록)
-router.post('/boost/order', requireAuth, requireOwner, async (req, res) => {
-  const { placeId } = req.body;
-  const { data: place, error } = await supabase
-    .from('places')
-    .select('id, name, submitted_by, review_count, boosted_until, status')
-    .eq('id', placeId)
-    .single();
-  if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
-  if (place.submitted_by !== req.user.userId) return res.status(403).json({ error: '본인이 등록한 가게만 끌어올릴 수 있어요' });
-  const alreadyBoosted = place.boosted_until && new Date(place.boosted_until) > new Date();
-  if (alreadyBoosted) return res.status(400).json({ error: '이미 끌어올리기 진행 중이에요' });
-  const lowSales = place.review_count == null || place.review_count < LOW_SALES_REVIEW_THRESHOLD;
-  if (!lowSales) return res.status(400).json({ error: '저매출 가게만 끌어올리기를 이용할 수 있어요' });
+router.post('/owner-access/order', requireAuth, requirePlaceOwner, async (req, res) => {
+  const place = req.place;
+  const alreadyActive = place.owner_edit_until && new Date(place.owner_edit_until) > new Date();
+  if (alreadyActive) return res.status(400).json({ error: '이미 이용 중이에요' });
 
-  const orderId = 'boost_' + crypto.randomUUID();
+  const orderId = 'owner_access_' + crypto.randomUUID();
   const { error: insertError } = await supabase.from('payments').insert({
     user_id: req.user.userId,
-    kind: 'boost',
+    kind: 'owner_access',
     place_id: place.id,
     order_id: orderId,
-    amount: BOOST_PRICE,
+    amount: OWNER_ACCESS_PRICE,
     status: 'pending',
   });
   if (insertError) return res.status(500).json({ error: insertError.message });
 
-  res.json({ orderId, amount: BOOST_PRICE, orderName: `${place.name} 7일 끌어올리기` });
+  res.json({ orderId, amount: OWNER_ACCESS_PRICE, orderName: `${place.name} 가게 관리 이용권 ${OWNER_ACCESS_DAYS}일` });
 });
 
-// 결제창에서 돌아온 후 최종 승인 + 부스트 적용
-router.post('/boost/confirm', requireAuth, async (req, res) => {
+// 결제창에서 돌아온 후 최종 승인 + 관리 권한 부여
+router.post('/owner-access/confirm', requireAuth, async (req, res) => {
   const { paymentKey, orderId, amount } = req.body;
   try {
     const { data: payment, error: findErr } = await supabase
@@ -142,12 +116,12 @@ router.post('/boost/confirm', requireAuth, async (req, res) => {
       payment_key: confirmed.paymentKey,
     }).eq('order_id', orderId);
 
-    const boostedUntil = new Date(Date.now() + BOOST_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    await supabase.from('places').update({ boosted_until: boostedUntil }).eq('id', payment.place_id);
+    const ownerEditUntil = new Date(Date.now() + OWNER_ACCESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('places').update({ owner_edit_until: ownerEditUntil }).eq('id', payment.place_id);
 
-    res.json({ ok: true, boosted_until: boostedUntil });
+    res.json({ ok: true, owner_edit_until: ownerEditUntil });
   } catch (err) {
-    console.error('[boost/confirm]', err.message);
+    console.error('[owner-access/confirm]', err.message);
     await supabase.from('payments').update({ status: 'failed' }).eq('order_id', orderId);
     res.status(500).json({ error: err.message || '결제 승인에 실패했어요' });
   }
