@@ -8,7 +8,6 @@
     { icon: '📋', label: '사용법', href: '/guide.html' },
     { icon: '🏪', label: '사장님 (인증·끌어올리기)', href: '/claim.html' },
     { icon: '🎯', label: '맞춤추천 구독 결제', href: '/subscribe.html' },
-    { icon: '🧾', label: '끌어올리기 결제 (데모)', href: '/checkout.html' },
   ];
 
   function injectStyle() {
@@ -44,7 +43,7 @@
   function buildMenuHtml() {
     var html = '';
     MENU_ITEMS.forEach(function (item, idx) {
-      // 결제 항목(맞춤추천/끌어올리기) 앞에 구분선 삽입
+      // 결제 항목(맞춤추천) 앞에 구분선 삽입
       if (idx === 4) html += '<div class="jjin-hamburger-divider"></div>';
       html += '<a href="' + item.href + '" data-jjin-idx="' + idx + '">' + item.icon + ' ' + item.label + '</a>';
     });
