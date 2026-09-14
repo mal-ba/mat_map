@@ -803,4 +803,152 @@ router.get('/:id', async (req, res) => {
   res.json(place);
 });
 
+// ── 사장님 가게 정보 관리 (메뉴 · 사진 · 기본정보) ──────────────────
+// 사업자 인증(claim)이 관리자 승인까지 끝난 사장님만, 본인 가게에 한해 직접 수정 가능
+async function requireApprovedOwner(req, res, next) {
+  const { data: place, error } = await supabase
+    .from('places')
+    .select('id, owner_id, owner_claim_status')
+    .eq('id', req.params.id)
+    .single();
+  if (error || !place) return res.status(404).json({ error: '가게를 찾을 수 없어요' });
+  if (place.owner_id !== req.user.userId || place.owner_claim_status !== 'approved') {
+    return res.status(403).json({ error: '이 가게를 관리할 권한이 없어요' });
+  }
+  req.place = place;
+  next();
+}
+
+// 가게 기본 정보 수정 (소개글, 영업시간)
+router.put('/:id/owner-edit', requireAuth, requireApprovedOwner, async (req, res) => {
+  const { comment, opening_hours } = req.body;
+  const update = {};
+  if (comment !== undefined) update.comment = comment;
+  if (opening_hours !== undefined) update.opening_hours = opening_hours;
+  if (!Object.keys(update).length) return res.status(400).json({ error: '수정할 내용이 없어요' });
+
+  const { data, error } = await supabase
+    .from('places')
+    .update(update)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// 메뉴 목록 조회 (공개 — place.html에서도 사용)
+router.get('/:id/menus', async (req, res) => {
+  const { data, error } = await supabase
+    .from('place_menus')
+    .select('*')
+    .eq('place_id', req.params.id)
+    .order('display_order', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? []);
+});
+
+// 메뉴 추가
+router.post('/:id/menus', requireAuth, requireApprovedOwner, async (req, res) => {
+  const { name, price, photo_url, is_sold_out } = req.body;
+  if (!name) return res.status(400).json({ error: '메뉴 이름은 필수예요' });
+
+  const { data, error } = await supabase
+    .from('place_menus')
+    .insert({
+      place_id: req.params.id,
+      name,
+      price: price ?? null,
+      photo_url: photo_url ?? null,
+      is_sold_out: !!is_sold_out,
+    })
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+// 메뉴 수정
+router.put('/:id/menus/:menuId', requireAuth, requireApprovedOwner, async (req, res) => {
+  const { name, price, photo_url, is_sold_out, display_order } = req.body;
+  const update = { updated_at: new Date().toISOString() };
+  if (name !== undefined) update.name = name;
+  if (price !== undefined) update.price = price;
+  if (photo_url !== undefined) update.photo_url = photo_url;
+  if (is_sold_out !== undefined) update.is_sold_out = !!is_sold_out;
+  if (display_order !== undefined) update.display_order = display_order;
+
+  const { data, error } = await supabase
+    .from('place_menus')
+    .update(update)
+    .eq('id', req.params.menuId)
+    .eq('place_id', req.params.id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data) return res.status(404).json({ error: '메뉴를 찾을 수 없어요' });
+  res.json(data);
+});
+
+// 메뉴 삭제
+router.delete('/:id/menus/:menuId', requireAuth, requireApprovedOwner, async (req, res) => {
+  const { error } = await supabase
+    .from('place_menus')
+    .delete()
+    .eq('id', req.params.menuId)
+    .eq('place_id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+// 가게 사진 목록 조회 (공개 — place.html 갤러리용)
+router.get('/:id/photos', async (req, res) => {
+  const { data, error } = await supabase
+    .from('place_photos')
+    .select('*')
+    .eq('place_id', req.params.id)
+    .order('display_order', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data ?? []);
+});
+
+// 가게 사진 업로드 (기존 /photo-upload와 같은 방식, place-photos 버킷 재사용)
+router.post('/:id/photos', requireAuth, requireApprovedOwner, upload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '이미지 파일이 없어요' });
+  try {
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase();
+    const filePath = `${req.params.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('place-photos')
+      .upload(filePath, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: pub } = supabase.storage.from('place-photos').getPublicUrl(filePath);
+
+    const { data, error } = await supabase
+      .from('place_photos')
+      .insert({ place_id: req.params.id, photo_url: pub.publicUrl })
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error('[places/:id/photos POST]', err.message);
+    res.status(500).json({ error: '사진 업로드에 실패했어요' });
+  }
+});
+
+// 가게 사진 삭제
+router.delete('/:id/photos/:photoId', requireAuth, requireApprovedOwner, async (req, res) => {
+  const { error } = await supabase
+    .from('place_photos')
+    .delete()
+    .eq('id', req.params.photoId)
+    .eq('place_id', req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
 module.exports = router;
