@@ -719,22 +719,17 @@ router.get('/trending', async (req, res) => {
   res.json(places);
 });
 
-// 이번 주 랭킹 스냅샷을 새로 계산해서 weekly_trending 테이블을 교체한다.
-// 외부 크론(예: Render Cron Job)이 매주 월요일 00:00(KST)에 한 번 호출해야 함.
+// 이번 주 랭킹을 실제로 계산해서 weekly_trending 테이블을 통째로 교체하는 공통 로직.
 // 점수 = 최근 7일 조회수 1점 + 찜 3점, 상위 10개.
-router.post('/trending/refresh', async (req, res) => {
-  if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
-    return res.status(403).json({ error: '권한 없음' });
-  }
-
+async function recomputeWeeklyTrending() {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [{ data: views, error: viewErr }, { data: likesData, error: likeErr }] = await Promise.all([
     supabase.from('place_views').select('place_id').gte('created_at', since),
     supabase.from('likes').select('place_id').gte('created_at', since),
   ]);
-  if (viewErr) console.error('[places/trending/refresh] views', viewErr.message);
-  if (likeErr) console.error('[places/trending/refresh] likes', likeErr.message);
+  if (viewErr) console.error('[trending] views', viewErr.message);
+  if (likeErr) console.error('[trending] likes', likeErr.message);
 
   const score = new Map();
   (views ?? []).forEach((v) => score.set(v.place_id, (score.get(v.place_id) || 0) + 1));
@@ -744,21 +739,40 @@ router.post('/trending/refresh', async (req, res) => {
 
   // 기존 스냅샷 전체 삭제 후 새 TOP 10으로 교체
   const { error: delErr } = await supabase.from('weekly_trending').delete().gte('rank', 0);
-  if (delErr) {
-    console.error('[places/trending/refresh] delete', delErr.message);
-    return res.status(500).json({ error: delErr.message });
-  }
+  if (delErr) throw new Error(delErr.message);
 
   if (top.length) {
     const rows = top.map(([place_id, s], i) => ({ rank: i + 1, place_id, score: s }));
     const { error: insErr } = await supabase.from('weekly_trending').insert(rows);
-    if (insErr) {
-      console.error('[places/trending/refresh] insert', insErr.message);
-      return res.status(500).json({ error: insErr.message });
-    }
+    if (insErr) throw new Error(insErr.message);
   }
 
-  res.json({ ok: true, count: top.length, refreshed_at: new Date().toISOString() });
+  return { count: top.length, refreshed_at: new Date().toISOString() };
+}
+
+// 외부 크론(예: Render Cron Job)이 매주 월요일 00:00(KST)에 한 번 호출해야 함.
+router.post('/trending/refresh', async (req, res) => {
+  if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET) {
+    return res.status(403).json({ error: '권한 없음' });
+  }
+  try {
+    const result = await recomputeWeeklyTrending();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[places/trending/refresh]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 관리자가 admin.html에서 수동으로 즉시 새로고침할 때 씀 (정기 갱신은 위 크론이 담당).
+router.post('/trending/refresh-now', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const result = await recomputeWeeklyTrending();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[places/trending/refresh-now]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
