@@ -273,13 +273,19 @@ router.get('/preferences', requireAuth, async (req, res) => {
   res.json({ content: data?.content || '' });
 });
 
-router.post('/recommend', requireAuth, async (req, res) => {
+// 구독 여부를 확인하는 공통 헬퍼 — 아래 두 추천 엔드포인트(AI 방식/데이터 방식)에서 함께 사용
+async function getActiveSubscription(userId) {
   const { data: sub } = await supabase
     .from('subscriptions')
     .select('status, current_period_end')
-    .eq('user_id', req.user.userId)
+    .eq('user_id', userId)
     .maybeSingle();
   const active = sub && sub.status === 'active' && new Date(sub.current_period_end) > new Date();
+  return active ? sub : null;
+}
+
+router.post('/recommend', requireAuth, async (req, res) => {
+  const active = await getActiveSubscription(req.user.userId);
   if (!active) return res.status(403).json({ error: '맞춤 추천은 구독자만 이용할 수 있어요' });
 
   const { data: pref } = await supabase
@@ -331,6 +337,81 @@ router.post('/recommend', requireAuth, async (req, res) => {
     console.error('[recommend]', err.message);
     res.status(500).json({ error: '추천을 생성하지 못했어요' });
   }
+});
+
+// ============================================================
+// 맞춤 추천 (구독자 전용) — AI 미사용, 데이터 기반 점수 알고리즘
+// 위의 /recommend(취향 텍스트 + AI 프롬프트)와는 별개의 기능.
+// 찜(likes)·추천버튼(recommends)·최근 조회기록(place_views)에 담긴
+// 태그(tags)·카테고리(category)를 모아 취향 점수표를 만들고,
+// 아직 안 가본 검증(verified) 가게에 점수를 매겨 상위 10개를 돌려준다.
+// AI 호출이 없어 비용이 들지 않고, 취향을 따로 입력할 필요도 없다.
+// ============================================================
+
+const VIEW_LOOKBACK_DAYS = 90; // 이 기간 이전 조회 기록은 취향 계산에서 제외 (오래된 관심사 배제)
+
+router.get('/recommend/foryou', requireAuth, async (req, res) => {
+  const active = await getActiveSubscription(req.user.userId);
+  if (!active) return res.status(403).json({ error: '맞춤 추천은 구독자만 이용할 수 있어요' });
+
+  const since = new Date(Date.now() - VIEW_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: liked }, { data: recommended }, { data: viewed }, { data: candidates }] = await Promise.all([
+    supabase.from('likes').select('place_id').eq('user_id', req.user.userId),
+    supabase.from('recommends').select('place_id').eq('user_id', req.user.userId),
+    supabase.from('place_views').select('place_id').eq('user_id', req.user.userId).gte('created_at', since),
+    supabase.from('places').select('id, name, address, category, comment, tags, rating, review_count').eq('status', 'verified'),
+  ]);
+
+  const likedIds = new Set((liked ?? []).map((r) => r.place_id));
+  const recommendedIds = new Set((recommended ?? []).map((r) => r.place_id));
+  const viewedIds = new Set((viewed ?? []).map((r) => r.place_id)); // 같은 곳 여러 번 조회해도 1회로 집계
+
+  const byId = Object.fromEntries((candidates ?? []).map((p) => [p.id, p]));
+  const hasSignal = [...likedIds, ...recommendedIds, ...viewedIds].some((id) => byId[id]);
+
+  if (!hasSignal) {
+    // 찜·추천·조회 기록이 전혀 없는 신규 구독자 — 평점/리뷰수 기준 상위 가게로 대체
+    const fallback = (candidates ?? [])
+      .slice()
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.review_count || 0) - (a.review_count || 0))
+      .slice(0, 10)
+      .map((p) => ({ ...p, reason: '아직 취향 데이터가 없어 평점 높은 순으로 보여드려요' }));
+    return res.json({ recommendations: fallback, basis: 'fallback' });
+  }
+
+  // 좋아요·추천·조회 기록에서 태그/카테고리별 가중치 합산 (찜 > 추천 > 조회 순으로 신뢰도 부여)
+  const tagWeight = new Map();
+  const categoryWeight = new Map();
+  function addWeight(placeId, w) {
+    const place = byId[placeId];
+    if (!place) return;
+    (place.tags || []).forEach((tag) => tagWeight.set(tag, (tagWeight.get(tag) || 0) + w));
+    if (place.category) categoryWeight.set(place.category, (categoryWeight.get(place.category) || 0) + w);
+  }
+  likedIds.forEach((id) => addWeight(id, 3));
+  recommendedIds.forEach((id) => addWeight(id, 2));
+  viewedIds.forEach((id) => addWeight(id, 1));
+
+  const scored = (candidates ?? [])
+    .filter((p) => !likedIds.has(p.id)) // 이미 찜한 곳은 "찜한 가게" 탭에서 보므로 제외
+    .map((p) => {
+      const matchedTags = (p.tags || []).filter((t) => tagWeight.has(t));
+      const tagScore = matchedTags.reduce((sum, t) => sum + tagWeight.get(t), 0);
+      const categoryScore = p.category && categoryWeight.has(p.category) ? categoryWeight.get(p.category) : 0;
+      // 취향 점수가 같을 때 평점·리뷰수로 미세 보정 (동점 방지용, 취향 점수보다 훨씬 작게 반영)
+      const popularityBoost = (p.rating || 0) * 0.2 + Math.log((p.review_count || 0) + 1) * 0.3;
+      const score = tagScore + categoryScore + popularityBoost;
+      const reasonParts = [];
+      if (matchedTags.length) reasonParts.push(`평소 관심 태그 '${matchedTags.join("', '")}' 일치`);
+      if (categoryScore > 0) reasonParts.push(`자주 찾는 카테고리 '${p.category}'`);
+      return { ...p, score, reason: reasonParts.join(' · ') || '전반적인 인기도 기준' };
+    })
+    .filter((p) => p.score > 0) // 취향과 조금이라도 겹치는 곳만 추천 (완전 무관한 곳 제외)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  res.json({ recommendations: scored, basis: 'behavior' });
 });
 
 module.exports = router;
