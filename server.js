@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const jwt = require('jsonwebtoken');
@@ -19,6 +20,11 @@ const app = express();
 
 // 관리자 이메일 — routes/places.js, routes/reports.js, routes/feedback.js 와 동일한 기준
 const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+
+// 응답을 gzip으로 압축 — HTML/CSS/JS 전송량을 크게 줄여서 느린 네트워크(4G 등)에서
+// 첫 화면이 뜨는 속도(FCP)를 개선함. 반드시 다른 미들웨어보다 위쪽에 둬야
+// 그 아래에서 만들어지는 모든 응답(API 포함)이 압축 대상이 됨.
+app.use(compression());
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -63,7 +69,18 @@ app.use((req, res, next) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// 정적 파일(css/js/이미지)에 캐시 헤더를 붙여서, 같은 사용자가 다시 방문했을 때
+// 브라우저가 서버에 다시 요청하지 않고 캐시에서 바로 씀 → 재방문 속도가 빨라짐.
+// html 파일은 배포할 때마다 내용이 바뀔 수 있으니 캐시 기간을 짧게(5분), 나머지 정적
+// 자산(css/js/이미지)은 길게(1일) 잡음.
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
+  },
+}));
 
 // 모든 /api/* 요청에 기본 rate limit 적용 (같은 IP당 15분에 300회)
 app.use('/api', generalLimiter);
