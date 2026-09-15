@@ -71,15 +71,11 @@ app.use((req, res, next) => {
 
 // 정적 파일(css/js/이미지)에 캐시 헤더를 붙여서, 같은 사용자가 다시 방문했을 때
 // 브라우저가 서버에 다시 요청하지 않고 캐시에서 바로 씀 → 재방문 속도가 빨라짐.
-// html 파일은 배포할 때마다 내용이 바뀔 수 있으니 캐시 기간을 짧게(5분), 나머지 정적
-// 자산(css/js/이미지)은 길게(1일) 잡음.
+// 아직 자주 수정·배포하는 개발 단계라, html/js/css 모두 캐시를 짧게(5분) 잡아서
+// 배포하면 브라우저에도 금방 반영되게 함. 나중에 서비스가 안정되면 js/css는
+// 다시 길게(1일 이상) 늘려도 됨.
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: '1d',
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'public, max-age=300');
-    }
-  },
+  maxAge: '5m',
 }));
 
 // 모든 /api/* 요청에 기본 rate limit 적용 (같은 IP당 15분에 300회)
