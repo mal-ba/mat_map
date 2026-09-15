@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const { generalLimiter, writeLimiter } = require('./middleware/rateLimit');
 
 const authRoutes = require('./routes/auth');
@@ -15,9 +16,33 @@ const chatRoutes = require('./routes/chat');
 
 const app = express();
 
+// 관리자 이메일 — routes/places.js, routes/reports.js, routes/feedback.js 와 동일한 기준
+const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// 관리자 전용 페이지는 정적 파일로 내려주기 전에 먼저 로그인 + 관리자 여부를 확인.
+// (이 미들웨어가 express.static보다 먼저 등록돼 있어야 함 — 순서 중요)
+const ADMIN_ONLY_PAGES = ['/admin.html', '/inbox.html', '/naver-test.html'];
+app.use((req, res, next) => {
+  if (!ADMIN_ONLY_PAGES.includes(req.path)) return next();
+
+  const token = req.cookies?.token;
+  if (!token) return res.status(401).send('로그인이 필요합니다. 메인 페이지에서 로그인 후 다시 시도하세요.');
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!ADMIN_EMAILS.includes(decoded.email)) {
+      return res.status(403).send('관리자만 접근할 수 있는 페이지입니다.');
+    }
+    next();
+  } catch {
+    res.status(401).send('로그인이 만료되었습니다. 다시 로그인해주세요.');
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // 모든 /api/* 요청에 기본 rate limit 적용 (같은 IP당 15분에 300회)
@@ -167,16 +192,25 @@ app.get('/api/search-places', async (req, res) => {
   }
 });
 
-// 관리자 강제 등록 (검증 생략, 바로 verified) — 쓰기 작업이라 writeLimiter 추가 적용
-app.post('/api/admin/force-place', writeLimiter, async (req, res) => {
+// 로그인 + 관리자 이메일까지 확인하는 미들웨어 (아래 두 관리자 API 전용)
+function requireAdminApi(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
 
-  const jwt = require('jsonwebtoken');
-  let decoded;
-  try { decoded = jwt.verify(token, process.env.JWT_SECRET); }
-  catch { return res.status(401).json({ error: '토큰 만료' }); }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!ADMIN_EMAILS.includes(decoded.email)) {
+      return res.status(403).json({ error: '관리자만 할 수 있어요' });
+    }
+    req.adminUser = decoded;
+    next();
+  } catch {
+    res.status(401).json({ error: '로그인이 만료되었습니다' });
+  }
+}
 
+// 관리자 강제 등록 (검증 생략, 바로 verified) — 쓰기 작업이라 writeLimiter 추가 적용
+app.post('/api/admin/force-place', writeLimiter, requireAdminApi, async (req, res) => {
   const { name, address, lat, lng, category, comment } = req.body;
   if (!name || !address || lat == null || lng == null) {
     return res.status(400).json({ error: '필수 항목 누락' });
@@ -187,7 +221,7 @@ app.post('/api/admin/force-place', writeLimiter, async (req, res) => {
     .from('places')
     .insert({
       name, address, lat, lng, category, comment,
-      submitted_by: decoded.userId,
+      submitted_by: req.adminUser.userId,
       status: 'verified',
       verify_reason: '관리자 직접 등록',
     })
@@ -218,12 +252,8 @@ app.get('/api/place-image', async (req, res) => {
 });
 
 // 관리자용 유저 접속 현황
-app.get('/api/admin/users', async (req, res) => {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ error: '비로그인' });
+app.get('/api/admin/users', requireAdminApi, async (req, res) => {
   try {
-    const jwt = require('jsonwebtoken');
-    jwt.verify(token, process.env.JWT_SECRET);
     const supabase = require('./services/supabase');
     const { data, error } = await supabase
       .from('users')
