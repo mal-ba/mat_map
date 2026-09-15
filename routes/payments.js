@@ -6,9 +6,9 @@ const requireAuth = require('./requireAuth');
 const router = express.Router();
 
 // ── 가격 (원) — 필요하면 이 값만 바꾸면 됩니다 ──
-const OWNER_ACCESS_PRICE = 9900;  // 가게 관리(메뉴·사진 직접 등록) 30일 이용권
+const OWNER_ACCESS_PRICE = 19900;  // 가게 관리(메뉴·사진 직접 등록) 30일 이용권 (기존 9,900원 + 1만원)
 const OWNER_ACCESS_DAYS = 30;
-const SUBSCRIPTION_PRICE = 4900; // 소비자 맞춤 추천 월 구독
+const SUBSCRIPTION_PRICE = 14900; // 소비자 맞춤 추천 월 구독 (기존 4,900원 + 1만원)
 
 // 가게 관리 이용권(일반결제) — "결제위젯 연동 키" 세트
 function tossAuthHeader() {
