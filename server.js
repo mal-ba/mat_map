@@ -13,6 +13,7 @@ const paymentsRoutes = require('./routes/payments');
 const reportsRoutes = require('./routes/reports');
 const feedbackRoutes = require('./routes/feedback');
 const chatRoutes = require('./routes/chat');
+const supabase = require('./services/supabase');
 
 const app = express();
 
@@ -22,6 +23,25 @@ const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// ── 관리자 테스트 모드 ──────────────────────────────────────────────
+// 관리자 계정으로 로그인한 상태에서 test_mode 쿠키가 켜져 있으면,
+// 그 요청 동안 모든 supabase 호출이 자동으로 test 스키마로 향함.
+// 로그인 안 했거나 관리자가 아니거나 쿠키가 꺼져 있으면 평소처럼 운영(public) 데이터를 씀.
+// 즉 다른 사용자에게는 아무 영향이 없고, 새로 만든 test 스키마와도 완전히 분리됨.
+app.use((req, res, next) => {
+  let useTestSchema = false;
+  const token = req.cookies?.token;
+  if (token && req.cookies?.test_mode === '1') {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (ADMIN_EMAILS.includes(decoded.email)) useTestSchema = true;
+    } catch {
+      // 토큰이 유효하지 않으면 그냥 운영 데이터로 진행 (아래에서 별도로 로그인 만료 처리됨)
+    }
+  }
+  supabase.runWithSchema(useTestSchema ? 'test' : 'public', next);
+});
 
 // 관리자 전용 페이지는 정적 파일로 내려주기 전에 먼저 로그인 + 관리자 여부를 확인.
 // (이 미들웨어가 express.static보다 먼저 등록돼 있어야 함 — 순서 중요)
@@ -192,7 +212,7 @@ app.get('/api/search-places', async (req, res) => {
   }
 });
 
-// 로그인 + 관리자 이메일까지 확인하는 미들웨어 (아래 두 관리자 API 전용)
+// 로그인 + 관리자 이메일까지 확인하는 미들웨어 (아래 관리자 API 전용)
 function requireAdminApi(req, res, next) {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: '로그인 필요' });
@@ -209,6 +229,26 @@ function requireAdminApi(req, res, next) {
   }
 }
 
+// ── 관리자 테스트 모드 켜기/끄기/상태확인 ──────────────────────────
+// 켜면: 이 브라우저(관리자 본인)의 이후 요청은 전부 test 스키마 데이터를 봄
+// 꺼면: 원래대로 운영(public) 데이터로 복귀
+app.get('/api/admin/test-mode/on', requireAdminApi, (req, res) => {
+  res.cookie('test_mode', '1', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: true,
+    maxAge: 1000 * 60 * 60 * 24 * 30, // 30일
+  });
+  res.json({ testMode: true });
+});
+app.get('/api/admin/test-mode/off', requireAdminApi, (req, res) => {
+  res.clearCookie('test_mode');
+  res.json({ testMode: false });
+});
+app.get('/api/admin/test-mode/status', requireAdminApi, (req, res) => {
+  res.json({ testMode: req.cookies?.test_mode === '1' });
+});
+
 // 관리자 강제 등록 (검증 생략, 바로 verified) — 쓰기 작업이라 writeLimiter 추가 적용
 app.post('/api/admin/force-place', writeLimiter, requireAdminApi, async (req, res) => {
   const { name, address, lat, lng, category, comment } = req.body;
@@ -216,7 +256,6 @@ app.post('/api/admin/force-place', writeLimiter, requireAdminApi, async (req, re
     return res.status(400).json({ error: '필수 항목 누락' });
   }
 
-  const supabase = require('./services/supabase');
   const { data, error } = await supabase
     .from('places')
     .insert({
@@ -254,7 +293,6 @@ app.get('/api/place-image', async (req, res) => {
 // 관리자용 유저 접속 현황
 app.get('/api/admin/users', requireAdminApi, async (req, res) => {
   try {
-    const supabase = require('./services/supabase');
     const { data, error } = await supabase
       .from('users')
       .select('id, name, email, badge_level, registered_count, visit_count, last_visited_at, created_at')
