@@ -3,6 +3,7 @@
 // - 이 파일 하나만 고치면 모든 페이지의 메뉴 항목이 한 번에 바뀝니다.
 (function () {
   var MENU_ITEMS = [
+    { icon: '🗺️', label: '지도 보러가기', href: '/map.html' },
     { icon: '📖', label: '소개', href: '/about.html' },
     { icon: '📋', label: '사용법', href: '/guide.html' },
     { icon: '🏪', label: '사장님 (인증·가게관리)', href: '/claim.html' },
@@ -84,7 +85,7 @@
     var btn = wrap.querySelector('#jjinHamburgerBtn');
     var menu = wrap.querySelector('#jjinHamburgerMenu');
 
-    var ownerLink = wrap.querySelector('a[data-jjin-idx="2"]'); // 🏪 사장님
+    var ownerLink = wrap.querySelector('a[data-jjin-idx="3"]'); // 🏪 사장님
     if (ownerLink) {
       ownerLink.addEventListener('click', function (e) {
         handleOwnerMenuClick(e);
