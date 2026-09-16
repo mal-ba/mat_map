@@ -21,6 +21,11 @@ const { startMemoryMonitor } = require('./memory-monitor');
 
 const app = express();
 
+// Render는 프록시 뒤에서 앱을 실행함. 이 설정이 없으면 express-rate-limit이
+// X-Forwarded-For 헤더를 신뢰할지 판단하지 못해 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR
+// 에러를 던지고, 처리되지 않으면 프로세스가 죽어 재시작(503)이 발생함.
+app.set('trust proxy', 1);
+
 // 관리자 이메일 — routes/places.js, routes/reports.js, routes/feedback.js 와 동일한 기준
 const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
 
