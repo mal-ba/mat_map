@@ -72,7 +72,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 .section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:14px;
   padding-bottom:8px;border-bottom:1px solid var(--line);}
 .places-grid{display:flex;flex-direction:column;gap:10px;}
-.place-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;transition:box-shadow .15s;display:block;text-decoration:none;color:inherit;}
+.place-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;transition:box-shadow .15s;}
 .place-card:hover{box-shadow:0 6px 16px rgba(28,25,23,.08);}
 .place-name{font-weight:700;font-size:14px;margin-bottom:4px;}
 .place-meta{font-size:12px;color:var(--ink-soft);}
@@ -152,13 +152,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
     </div>
 
     <!-- 등록 맛집 목록 -->
-    <div class="section-title">🍽️ 등록한 맛집</div>
+    <div class="section-title" id="placesSectionTitle" style="cursor:pointer;">🍽️ 등록한 맛집 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
     <div class="places-grid" id="placesList">
       <div class="empty-places">등록한 맛집이 없어요.</div>
     </div>
 
     <!-- 찜한 가게 목록 (본인 프로필에서만 표시) -->
-    <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;">❤️ 찜한 가게</div>
+    <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;cursor:pointer;">❤️ 찜한 가게 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
     <div class="places-grid" id="likedList" style="display:none;"></div>
   </div>
 </div>
@@ -217,11 +217,21 @@ async function init() {
   const places = placesRes.ok ? await placesRes.json() : [];
   renderPlaces(places);
 
+  // "등록한 맛집" 제목 클릭 시 전체 목록 페이지를 새 탭으로 열기
+  document.getElementById('placesSectionTitle').onclick = () => {
+    window.open(`/my-places.html?type=registered&userId=${userId}`, '_blank');
+  };
+
   // 찜한 가게 목록 (본인 프로필일 때만 — 남의 찜 목록은 공개하지 않음)
   if (isMyProfile) {
     const likedRes = await fetch('/api/places/liked', { credentials: 'include' });
     const liked = likedRes.ok ? await likedRes.json() : [];
     renderLikedPlaces(liked);
+
+    // "찜한 가게" 제목 클릭 시 전체 목록 페이지를 새 탭으로 열기
+    document.getElementById('likedSectionTitle').onclick = () => {
+      window.open('/my-places.html?type=liked', '_blank');
+    };
   }
 
   document.getElementById('loading').style.display = 'none';
@@ -288,14 +298,14 @@ function renderPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <a class="place-card" href="/place.html?id=${p.id}" target="_blank" rel="noopener">
+    <div class="place-card" onclick="location.href='/place.html?id=${p.id}'" style="cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#E1392A;color:#fff;font-weight:700;">인증</span>
       </div>
       <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
       ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
-    </a>
+    </div>
   `).join('');
 }
 
@@ -308,14 +318,14 @@ function renderLikedPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <a class="place-card" href="/place.html?id=${p.id}" target="_blank" rel="noopener">
+    <div class="place-card" onclick="location.href='/place.html?id=${p.id}'" style="cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:14px;">❤️</span>
       </div>
       <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
       ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
-    </a>
+    </div>
   `).join('');
 }
 

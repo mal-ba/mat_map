@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>목록 — 찐맛집</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="/config.js"></script>
+<style>
+:root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--stamp-deep:#B92C1F;--mustard:#D9A441;--line:#E7E4DF;--radius:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:var(--ink);min-height:100vh;}
+
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--paper);
+  border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);}
+.brand-mark{font-family:'Black Han Sans',sans-serif;font-size:22px;width:40px;height:40px;
+  display:flex;align-items:center;justify-content:center;background:var(--stamp);
+  color:var(--paper);border-radius:50%;border:none;}
+.back-btn{margin-left:auto;font-size:13px;color:var(--ink-soft);text-decoration:none;
+  border:1.5px solid var(--line);padding:6px 14px;border-radius:8px;}
+
+.container{max-width:600px;margin:0 auto;padding:24px 16px;}
+
+.page-title{font-family:'Black Han Sans',sans-serif;font-size:22px;margin-bottom:18px;}
+
+.places-grid{display:flex;flex-direction:column;gap:10px;}
+.place-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;transition:box-shadow .15s;cursor:pointer;}
+.place-card:hover{box-shadow:0 6px 16px rgba(28,25,23,.08);}
+.place-name{font-weight:700;font-size:14px;margin-bottom:4px;}
+.place-meta{font-size:12px;color:var(--ink-soft);}
+.place-comment{font-size:13px;margin-top:6px;color:var(--ink-soft);}
+.empty-places{text-align:center;padding:40px;color:#aaa;font-size:14px;}
+
+.loading{text-align:center;padding:40px;color:#aaa;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/" class="brand">
+    <span class="brand-mark">찐</span>
+  </a>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">목록</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <a href="/profile.html" class="back-btn" style="margin-left:0;">👤 프로필로</a>
+  </div>
+</header>
+
+<div class="container">
+  <div id="loading" class="loading">로딩 중...</div>
+
+  <div id="listWrap" style="display:none;">
+    <div class="page-title" id="pageTitle"></div>
+    <div class="places-grid" id="placesList"></div>
+  </div>
+</div>
+
+<script>
+function escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const type = params.get('type'); // 'registered' | 'liked'
+  const userId = params.get('userId');
+
+  let places = [];
+  let title = '';
+  let emptyText = '';
+
+  if (type === 'liked') {
+    title = '❤️ 찜한 가게';
+    emptyText = '아직 찜한 가게가 없어요.';
+    const res = await fetch('/api/places/liked', { credentials: 'include' });
+    if (!res.ok) {
+      document.getElementById('loading').textContent = '로그인이 필요해요.';
+      return;
+    }
+    places = await res.json();
+  } else {
+    title = '🍽️ 등록한 맛집';
+    emptyText = '등록한 맛집이 없어요.';
+    if (!userId) {
+      document.getElementById('loading').textContent = '잘못된 접근이에요.';
+      return;
+    }
+    const res = await fetch(`/api/auth/public-places/${userId}`);
+    if (!res.ok) {
+      document.getElementById('loading').textContent = '목록을 불러오지 못했어요.';
+      return;
+    }
+    places = await res.json();
+  }
+
+  document.title = `${title} — 찐맛집`;
+  document.getElementById('pageTitle').textContent = `${title} (${places.length})`;
+  renderPlaces(places, emptyText, type === 'liked');
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('listWrap').style.display = 'block';
+}
+
+function renderPlaces(places, emptyText, isLiked) {
+  const list = document.getElementById('placesList');
+  if (!places.length) {
+    list.innerHTML = `<div class="empty-places">${emptyText}</div>`;
+    return;
+  }
+  list.innerHTML = places.map(p => `
+    <div class="place-card" onclick="location.href='/place.html?id=${p.id}'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div class="place-name">${escapeHtml(p.name)}</div>
+        <span style="font-size:${isLiked ? '14px' : '10px'};${isLiked ? '' : 'padding:2px 8px;border-radius:99px;background:#E1392A;color:#fff;font-weight:700;'}">${isLiked ? '❤️' : '인증'}</span>
+      </div>
+      <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
+      ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+init();
+</script>
+<script src="/nav-menu.js?v=2"></script>
+</body>
+</html>
