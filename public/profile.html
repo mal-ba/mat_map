@@ -72,7 +72,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 .section-title{font-family:'Black Han Sans',sans-serif;font-size:18px;margin-bottom:14px;
   padding-bottom:8px;border-bottom:1px solid var(--line);}
 .places-grid{display:flex;flex-direction:column;gap:10px;}
-.place-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;transition:box-shadow .15s;}
+.place-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;transition:box-shadow .15s;display:block;text-decoration:none;color:inherit;}
 .place-card:hover{box-shadow:0 6px 16px rgba(28,25,23,.08);}
 .place-name{font-weight:700;font-size:14px;margin-bottom:4px;}
 .place-meta{font-size:12px;color:var(--ink-soft);}
@@ -288,14 +288,14 @@ function renderPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <div class="place-card" onclick="window.open('/place.html?id=${p.id}', '_blank')" style="cursor:pointer;">
+    <a class="place-card" href="/place.html?id=${p.id}" target="_blank" rel="noopener">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:#E1392A;color:#fff;font-weight:700;">인증</span>
       </div>
       <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
       ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
-    </div>
+    </a>
   `).join('');
 }
 
@@ -308,14 +308,14 @@ function renderLikedPlaces(places) {
     return;
   }
   list.innerHTML = places.map(p => `
-    <div class="place-card" onclick="window.open('/place.html?id=${p.id}', '_blank')" style="cursor:pointer;">
+    <a class="place-card" href="/place.html?id=${p.id}" target="_blank" rel="noopener">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div class="place-name">${escapeHtml(p.name)}</div>
         <span style="font-size:14px;">❤️</span>
       </div>
       <div class="place-meta">${escapeHtml(p.address||'')}${p.category ? ' · '+escapeHtml(p.category) : ''}</div>
       ${p.comment ? `<div class="place-comment">${escapeHtml(p.comment)}</div>` : ''}
-    </div>
+    </a>
   `).join('');
 }
 
