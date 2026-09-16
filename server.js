@@ -14,7 +14,9 @@ const paymentsRoutes = require('./routes/payments');
 const reportsRoutes = require('./routes/reports');
 const feedbackRoutes = require('./routes/feedback');
 const chatRoutes = require('./routes/chat');
+const notificationsRoutes = require('./routes/notifications');
 const supabase = require('./services/supabase');
+const { sendClosingSoonNotifications } = require('./services/notifyClosingSoon');
 
 const app = express();
 
@@ -322,6 +324,15 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`서버 실행중: http://localhost:${PORT}`));
+
+// 찜한 가게 중 곧 문 닫는 곳이 있으면 인앱 알림 + 이메일 발송 — 20분마다 체크
+// (서버가 방금 켜졌을 때 바로 한 번 돌리지 않고, 20분 뒤부터 시작 — 배포 직후 몰림 방지)
+setInterval(() => {
+  sendClosingSoonNotifications().catch((err) =>
+    console.error('[closingSoon interval]', err.message)
+  );
+}, 20 * 60 * 1000);
