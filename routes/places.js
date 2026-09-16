@@ -981,4 +981,56 @@ router.delete('/:id/photos/:photoId', requireAuth, requireApprovedOwner, async (
   res.json({ ok: true });
 });
 
+// ── 사장님 통계 리포트 (가게 관리 이용권 유료 기능) ──────────────────
+// 조회수/찜/추천 수를 기간별로 집계해서 돌려줌. 이용권 활성 상태일 때만 접근 가능.
+router.get('/:id/stats', requireAuth, requireApprovedOwner, async (req, res) => {
+  const placeId = req.params.id;
+  const now = new Date();
+  const since7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const [
+      { data: views7, error: v7Err },
+      { data: views30, error: v30Err },
+      { data: viewsAll, error: vAllErr },
+      { data: likesAll, error: lErr },
+      { data: recAll, error: rErr },
+    ] = await Promise.all([
+      supabase.from('place_views').select('created_at').eq('place_id', placeId).gte('created_at', since7),
+      supabase.from('place_views').select('created_at').eq('place_id', placeId).gte('created_at', since30),
+      supabase.from('place_views').select('created_at').eq('place_id', placeId),
+      supabase.from('likes').select('created_at').eq('place_id', placeId),
+      supabase.from('recommends').select('created_at').eq('place_id', placeId),
+    ]);
+    if (v7Err || v30Err || vAllErr || lErr || rErr) {
+      throw v7Err || v30Err || vAllErr || lErr || rErr;
+    }
+
+    // 최근 30일을 일자별로 묶어서 간단한 추이 그래프용 데이터로 가공
+    const dailyMap = new Map();
+    (views30 ?? []).forEach((row) => {
+      const day = row.created_at.slice(0, 10); // YYYY-MM-DD
+      dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
+    });
+    const daily = [...dailyMap.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([date, count]) => ({ date, count }));
+
+    res.json({
+      views: {
+        last7: (views7 ?? []).length,
+        last30: (views30 ?? []).length,
+        total: (viewsAll ?? []).length,
+        daily, // [{date:'2026-09-01', count:3}, ...]
+      },
+      likes: { total: (likesAll ?? []).length },
+      recommends: { total: (recAll ?? []).length },
+    });
+  } catch (err) {
+    console.error('[places/:id/stats]', err.message);
+    res.status(500).json({ error: '통계를 불러오지 못했어요' });
+  }
+});
+
 module.exports = router;
