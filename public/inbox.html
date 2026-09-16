@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>관리자 — 신고/제보함</title>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="inbox.126">관리자 — 신고/제보함</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;700&amp;display=swap" rel="stylesheet">
 <style>
 :root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#B23A2E;--mustard:#D9A441;--green:#22c55e;--line:#E7E4DF;--radius:8px;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -40,18 +38,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 .error-banner{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);padding:12px 16px;font-size:13px;display:none;margin-bottom:16px;}
 .error-banner.show{display:block;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 <header class="topbar">
   <div class="brand-mark">찐</div>
-  <h1>신고/제보함</h1>
-  <a href="/">← 사이트로</a>
+  <h1 data-i18n="inbox.122">신고/제보함</h1>
+  <a href="/" data-i18n="inbox.125">← 사이트로</a>
 </header>
 <div class="container">
   <div id="errorBanner" class="error-banner"></div>
   <div class="tabs">
-    <button class="tab-btn active" data-kind="reports">🚩 맛집 신고</button>
-    <button class="tab-btn" data-kind="feedback">💬 버그/건의 제보</button>
+    <button class="tab-btn active" data-kind="reports" data-i18n="inbox.123">🚩 맛집 신고</button>
+    <button class="tab-btn" data-kind="feedback" data-i18n="inbox.124">💬 버그/건의 제보</button>
   </div>
   <div class="filter-bar" id="filterBar"></div>
   <div id="list"></div>
@@ -181,5 +180,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 load();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

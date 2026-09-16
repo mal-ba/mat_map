@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>가게 관리 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="owner-dashboard.250">가게 관리 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
 <script src="https://js.tosspayments.com/v1/payment-widget"></script>
 <style>
 .container{max-width:640px;margin:0 auto;padding:28px 16px 60px;}
@@ -51,72 +49,73 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
 dialog{border:none;border-radius:14px;padding:0;max-width:380px;width:90%;}
 dialog::backdrop{background:rgba(28,25,23,.5);}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;color:inherit;">
-    <span class="brand-mark">찐</span>
-    <div class="brand-text"><strong>찐맛집</strong><span>사람이 찾고, AI가 확인한 진짜 맛집</span></div>
+    <span class="brand-mark" data-i18n="owner-dashboard.233">찐</span>
+    <div class="brand-text"><strong data-i18n="owner-dashboard.245">찐맛집</strong><span data-i18n="owner-dashboard.234">사람이 찾고, AI가 확인한 진짜 맛집</span></div>
   </a>
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="owner-dashboard.242">🔍 검색으로</a>
   </div>
 </header>
 
 <div class="container">
-  <h1>🏪 가게 관리</h1>
-  <p class="sub">사업자 인증이 승인된 가게에 한해 메뉴·사진·소개 정보를 직접 등록하고 수정할 수 있어요.</p>
+  <h1 data-i18n="owner-dashboard.228">🏪 가게 관리</h1>
+  <p class="sub" data-i18n="owner-dashboard.232">사업자 인증이 승인된 가게에 한해 메뉴·사진·소개 정보를 직접 등록하고 수정할 수 있어요.</p>
 
   <select id="placeSelect" class="place-select">
-    <option value="">가게를 선택하세요</option>
+    <option value="" data-i18n="owner-dashboard.244">가게를 선택하세요</option>
   </select>
 
   <div id="emptyMsg" class="empty-state" style="display:none;">
-    인증 승인된 가게가 없어요. <a href="/claim.html">여기서 사업자 인증을 신청</a>해보세요.
+    인증 승인된 가게가 없어요. <a href="/claim.html" data-i18n="owner-dashboard.243">여기서 사업자 인증을 신청</a>해보세요.
   </div>
 
   <div id="paywall" class="paywall" style="display:none;">
     <div>🔒</div>
     <div class="price" id="paywallPrice"></div>
     <p class="sub" id="paywallSub">메뉴, 가게 사진, 소개글을 직접 등록하고 수정할 수 있어요.<br>노출 순위에는 전혀 영향을 주지 않아요.</p>
-    <button class="btn" id="paywallBtn">결제하고 관리 시작하기</button>
+    <button class="btn" id="paywallBtn" data-i18n="owner-dashboard.237">결제하고 관리 시작하기</button>
     <p id="paywallStatus" class="status-msg"></p>
   </div>
 
   <div id="editArea" style="display:none;">
 
     <div class="section">
-      <h2>기본 정보</h2>
+      <h2 data-i18n="owner-dashboard.229">기본 정보</h2>
       <div class="field">
-        <label>소개글</label>
-        <textarea id="commentInput" placeholder="가게 소개를 적어주세요"></textarea>
+        <label data-i18n="owner-dashboard.235">소개글</label>
+        <textarea id="commentInput" placeholder="가게 소개를 적어주세요" data-i18n-placeholder="owner-dashboard.246"></textarea>
       </div>
       <div class="field">
-        <label>영업시간 안내 (자유 형식, 예: 매일 11:00-21:00, 매주 월요일 휴무)</label>
-        <input id="hoursInput" type="text" placeholder="예: 매일 11:00-21:00" />
+        <label data-i18n="owner-dashboard.236">영업시간 안내 (자유 형식, 예: 매일 11:00-21:00, 매주 월요일 휴무)</label>
+        <input id="hoursInput" type="text" placeholder="예: 매일 11:00-21:00" data-i18n-placeholder="owner-dashboard.247">
       </div>
-      <button class="btn" id="saveInfoBtn">기본 정보 저장</button>
+      <button class="btn" id="saveInfoBtn" data-i18n="owner-dashboard.238">기본 정보 저장</button>
       <div id="infoStatus" class="status-msg"></div>
     </div>
 
     <div class="section">
-      <h2>메뉴</h2>
+      <h2 data-i18n="owner-dashboard.230">메뉴</h2>
       <div id="menuList"></div>
       <div class="menu-add-row">
-        <input id="newMenuName" type="text" placeholder="메뉴 이름" />
-        <input id="newMenuPrice" type="number" placeholder="가격" />
-        <button class="btn" id="addMenuBtn">추가</button>
+        <input id="newMenuName" type="text" placeholder="메뉴 이름" data-i18n-placeholder="owner-dashboard.248">
+        <input id="newMenuPrice" type="number" placeholder="가격" data-i18n-placeholder="owner-dashboard.249">
+        <button class="btn" id="addMenuBtn" data-i18n="owner-dashboard.239">추가</button>
       </div>
       <div id="menuStatus" class="status-msg"></div>
     </div>
 
     <div class="section">
-      <h2>가게 사진</h2>
+      <h2 data-i18n="owner-dashboard.231">가게 사진</h2>
       <div id="photoGrid" class="photo-grid"></div>
       <label class="upload-label">
         📷 사진 추가
-        <input type="file" id="photoInput" accept="image/*" />
+        <input type="file" id="photoInput" accept="image/*">
       </label>
       <div id="photoStatus" class="status-msg"></div>
     </div>
@@ -131,8 +130,8 @@ dialog::backdrop{background:rgba(28,25,23,.5);}
     <div id="payMethod"></div>
     <div id="payAgreement" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:16px;">
-      <button type="button" class="btn-ghost" onclick="document.getElementById('payDialog').close()" style="flex:1;">취소</button>
-      <button type="button" class="btn" id="payBtn" style="flex:1;" disabled>결제하기</button>
+      <button type="button" class="btn-ghost" onclick="document.getElementById('payDialog').close()" style="flex:1;" data-i18n="owner-dashboard.240">취소</button>
+      <button type="button" class="btn" id="payBtn" style="flex:1;" disabled="" data-i18n="owner-dashboard.241">결제하기</button>
     </div>
   </div>
 </dialog>
@@ -396,5 +395,6 @@ window.deletePhoto = async function (photoId) {
 loadMyPlaces();
 </script>
 
-</body>
-</html>
+
+
+</body></html>

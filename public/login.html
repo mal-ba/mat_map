@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>로그인 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="login.170">로그인 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
 :root{--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--line:#E7E4DF;}
@@ -56,51 +54,52 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;marg
 .bottom-link{text-align:center;margin-top:24px;font-size:13px;color:var(--ink-soft);}
 .bottom-link a{color:var(--stamp);font-weight:700;text-decoration:none;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
-  <a href="/" class="brand"><span class="brand-mark">찐</span></a>
+  <a href="/" class="brand"><span class="brand-mark" data-i18n="login.161">찐</span></a>
 </header>
 
 <div class="wrap">
-  <h1>로그인</h1>
-  <p class="sub">찐맛집에 로그인하고 맛집을 등록해보세요</p>
+  <h1 data-i18n="login.159">로그인</h1>
+  <p class="sub" data-i18n="login.160">찐맛집에 로그인하고 맛집을 등록해보세요</p>
 
   <div class="consent-box">
     <label>
-      <input type="checkbox" id="privacyConsent" />
+      <input type="checkbox" id="privacyConsent">
       <span>(필수) 이름·이메일·프로필 사진 등 개인정보 수집 및 이용에 동의합니다.
-        <a href="/privacy.html" target="_blank">[처리방침 보기]</a>
+        <a href="/privacy.html" target="_blank" data-i18n="login.167">[처리방침 보기]</a>
       </span>
     </label>
   </div>
 
   <div id="loginActions" class="locked">
-    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')">카카오로 로그인</button>
-    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')">네이버로 로그인</button>
+    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')" data-i18n="login.164">카카오로 로그인</button>
+    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')" data-i18n="login.165">네이버로 로그인</button>
     <div id="googleBtnWrap"></div>
 
     <div class="divider">또는</div>
 
     <form id="loginForm">
       <div class="field">
-        <label>이메일</label>
-        <input type="email" name="email" required placeholder="you@example.com" />
+        <label data-i18n="login.162">이메일</label>
+        <input type="email" name="email" required="" placeholder="you@example.com">
       </div>
       <div class="field">
-        <label>비밀번호</label>
-        <input type="password" name="password" required placeholder="비밀번호" />
+        <label data-i18n="login.163">비밀번호</label>
+        <input type="password" name="password" required="" placeholder="비밀번호" data-i18n-placeholder="login.169">
       </div>
-      <button type="submit" class="submit-btn">이메일로 로그인</button>
+      <button type="submit" class="submit-btn" data-i18n="login.166">이메일로 로그인</button>
     </form>
   </div>
 
   <p class="error-msg" id="errorMsg"></p>
-  <p class="bottom-link">아직 계정이 없나요? <a href="/signup.html">회원가입</a></p>
+  <p class="bottom-link">아직 계정이 없나요? <a href="/signup.html" data-i18n="login.168">회원가입</a></p>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
+<script src="https://accounts.google.com/gsi/client" async="" defer="" onload="initGoogle()"></script>
 <script>
 const params = new URLSearchParams(location.search);
 if (params.get('error')) {
@@ -173,5 +172,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 });
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

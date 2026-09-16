@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>결제 처리 중 — 찐맛집</title>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="pay-success.256">결제 처리 중 — 찐맛집</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;700;900&amp;display=swap" rel="stylesheet">
 <style>
 body{font-family:'Noto Sans KR',sans-serif;display:flex;flex-direction:column;align-items:center;
   justify-content:center;min-height:100vh;margin:0;background:#fff;color:#1C1917;text-align:center;padding:20px;}
@@ -14,12 +12,13 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:20px;}
 @keyframes spin{to{transform:rotate(360deg)}}
 a{color:#E1392A;font-weight:700;text-decoration:none;margin-top:16px;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 <div class="spinner" id="spinner"></div>
-<h1 id="statusText">결제를 확인하고 있어요...</h1>
+<h1 id="statusText" data-i18n="pay-success.254">결제를 확인하고 있어요...</h1>
 <p id="detailText" style="color:#8A8580;font-size:13px;"></p>
-<a id="backLink" href="/" style="display:none;">← 돌아가기</a>
+<a id="backLink" href="/" style="display:none;" data-i18n="pay-success.255">← 돌아가기</a>
 
 <script>
 const params = new URLSearchParams(location.search);
@@ -74,5 +73,6 @@ async function run() {
 }
 run();
 </script>
-</body>
-</html>
+
+
+</body></html>

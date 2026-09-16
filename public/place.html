@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>가게 상세 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="place.270">가게 상세 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
 :root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--stamp-deep:#B92C1F;--mustard:#D9A441;--line:#E7E4DF;--radius:10px;}
@@ -71,16 +69,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 
 .error-box{text-align:center;padding:60px 20px;color:var(--ink-soft);}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand">
-    <span class="brand-mark">찐</span>
+    <span class="brand-mark" data-i18n="place.257">찐</span>
   </a>
-  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">가게 상세</span>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;" data-i18n="place.258">가게 상세</span>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-    <a href="/map.html" class="back-btn" style="margin-left:0;">🗺️ 지도로</a>
+    <a href="/map.html" class="back-btn" style="margin-left:0;" data-i18n="place.261">🗺️ 지도로</a>
   </div>
 </header>
 
@@ -107,21 +106,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
         </div>
 
         <div class="secondary-row">
-          <a class="secondary-btn" id="streetViewLink" href="#" target="_blank" rel="noopener">🚶 거리뷰</a>
-          <a class="secondary-btn" id="mapLink" href="#">🗺️ 지도에서 보기</a>
-          <button type="button" class="secondary-btn report" onclick="toggleReportForm()">🚩 신고/수정요청</button>
+          <a class="secondary-btn" id="streetViewLink" href="#" target="_blank" rel="noopener" data-i18n="place.262">🚶 거리뷰</a>
+          <a class="secondary-btn" id="mapLink" href="#" data-i18n="place.263">🗺️ 지도에서 보기</a>
+          <button type="button" class="secondary-btn report" onclick="toggleReportForm()" data-i18n="place.259">🚩 신고/수정요청</button>
         </div>
 
         <div class="report-form" id="reportForm">
           <select id="reportReason">
-            <option value="closed">폐업/이전했어요</option>
-            <option value="wrong_info">정보가 잘못됐어요</option>
-            <option value="fake_review">가짜/광고성 리뷰가 섞여있어요</option>
-            <option value="bad_photo">사진이 실제와 달라요</option>
-            <option value="other">기타</option>
+            <option value="closed" data-i18n="place.264">폐업/이전했어요</option>
+            <option value="wrong_info" data-i18n="place.265">정보가 잘못됐어요</option>
+            <option value="fake_review" data-i18n="place.266">가짜/광고성 리뷰가 섞여있어요</option>
+            <option value="bad_photo" data-i18n="place.267">사진이 실제와 달라요</option>
+            <option value="other" data-i18n="place.268">기타</option>
           </select>
-          <textarea id="reportDesc" rows="3" placeholder="자세한 내용을 적어주세요 (선택)" maxlength="1000"></textarea>
-          <button type="button" onclick="submitReport()">신고 접수</button>
+          <textarea id="reportDesc" rows="3" placeholder="자세한 내용을 적어주세요 (선택)" maxlength="1000" data-i18n-placeholder="place.269"></textarea>
+          <button type="button" onclick="submitReport()" data-i18n="place.260">신고 접수</button>
           <div class="report-status" id="reportStatus"></div>
         </div>
 
@@ -325,5 +324,6 @@ window.submitReport = async function () {
 
 init();
 </script>
-</body>
-</html>
+
+
+</body></html>

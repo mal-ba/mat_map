@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>회원가입 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="signup.358">회원가입 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
 :root{--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--line:#E7E4DF;}
@@ -66,71 +64,72 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;text-align:center;marg
 .bottom-link a{color:var(--stamp);font-weight:700;text-decoration:none;}
 .step-hidden{display:none;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
-  <a href="/" class="brand"><span class="brand-mark">찐</span></a>
+  <a href="/" class="brand"><span class="brand-mark" data-i18n="signup.343">찐</span></a>
 </header>
 
 <div class="wrap">
-  <h1>회원가입</h1>
-  <p class="sub">찐맛집 계정을 만들어보세요</p>
+  <h1 data-i18n="signup.341">회원가입</h1>
+  <p class="sub" data-i18n="signup.342">찐맛집 계정을 만들어보세요</p>
 
   <div class="consent-box">
     <label>
-      <input type="checkbox" id="privacyConsent" />
+      <input type="checkbox" id="privacyConsent">
       <span>(필수) 이름·이메일·프로필 사진 등 개인정보 수집 및 이용에 동의합니다.
-        <a href="/privacy.html" target="_blank">[처리방침 보기]</a>
+        <a href="/privacy.html" target="_blank" data-i18n="signup.353">[처리방침 보기]</a>
       </span>
     </label>
   </div>
 
   <div id="signupActions" class="locked">
-    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')">카카오로 시작하기</button>
-    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')">네이버로 시작하기</button>
+    <button class="social-btn kakao" onclick="handleSocialClick('/api/auth/kakao')" data-i18n="signup.348">카카오로 시작하기</button>
+    <button class="social-btn naver" onclick="handleSocialClick('/api/auth/naver')" data-i18n="signup.349">네이버로 시작하기</button>
     <div id="googleBtnWrap"></div>
 
     <div class="divider">또는 이메일로 가입</div>
 
     <form id="signupForm">
       <div class="field">
-        <label>이름</label>
-        <input type="text" name="name" id="nameInput" required placeholder="닉네임" maxlength="20" />
+        <label data-i18n="signup.344">이름</label>
+        <input type="text" name="name" id="nameInput" required="" placeholder="닉네임" maxlength="20" data-i18n-placeholder="signup.355">
       </div>
 
       <div class="field">
-        <label>이메일</label>
+        <label data-i18n="signup.345">이메일</label>
         <div class="field-row">
-          <input type="email" name="email" id="emailInput" required placeholder="you@example.com" />
-          <button type="button" class="small-btn" id="sendCodeBtn">인증코드 받기</button>
+          <input type="email" name="email" id="emailInput" required="" placeholder="you@example.com">
+          <button type="button" class="small-btn" id="sendCodeBtn" data-i18n="signup.350">인증코드 받기</button>
         </div>
         <p class="hint" id="emailHint"></p>
       </div>
 
       <div class="field" id="codeField" style="display:none;">
-        <label>인증코드</label>
+        <label data-i18n="signup.346">인증코드</label>
         <div class="field-row">
-          <input type="text" name="code" id="codeInput" placeholder="6자리 숫자" maxlength="6" inputmode="numeric" />
-          <button type="button" class="small-btn" id="verifyCodeBtn">확인</button>
+          <input type="text" name="code" id="codeInput" placeholder="6자리 숫자" maxlength="6" inputmode="numeric" data-i18n-placeholder="signup.356">
+          <button type="button" class="small-btn" id="verifyCodeBtn" data-i18n="signup.351">확인</button>
         </div>
         <p class="hint" id="codeHint"></p>
       </div>
 
       <div class="field" id="passwordField" style="display:none;">
-        <label>비밀번호</label>
-        <input type="password" name="password" id="passwordInput" placeholder="6자 이상" minlength="6" />
+        <label data-i18n="signup.347">비밀번호</label>
+        <input type="password" name="password" id="passwordInput" placeholder="6자 이상" minlength="6" data-i18n-placeholder="signup.357">
       </div>
 
-      <button type="submit" class="submit-btn" id="signupBtn" disabled>가입하기</button>
+      <button type="submit" class="submit-btn" id="signupBtn" disabled="" data-i18n="signup.352">가입하기</button>
     </form>
   </div>
 
   <p class="error-msg" id="errorMsg"></p>
-  <p class="bottom-link">이미 계정이 있나요? <a href="/login.html">로그인</a></p>
+  <p class="bottom-link">이미 계정이 있나요? <a href="/login.html" data-i18n="signup.354">로그인</a></p>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" async defer onload="initGoogle()"></script>
+<script src="https://accounts.google.com/gsi/client" async="" defer="" onload="initGoogle()"></script>
 <script>
 const consentCheckbox = document.getElementById('privacyConsent');
 const signupActions = document.getElementById('signupActions');
@@ -273,5 +272,6 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
 });
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

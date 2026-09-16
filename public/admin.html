@@ -1,10 +1,8 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>관리자 — 찐맛집 일괄 등록</title>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="admin.50">관리자 — 찐맛집 일괄 등록</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;700&amp;display=swap" rel="stylesheet">
 <style>
 :root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--mustard:#D9A441;--green:#22c55e;--line:#E7E4DF;--radius:8px;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -62,18 +60,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
 .auth-warning{background:#fef2f2;border:2px solid var(--stamp);border-radius:var(--radius);padding:12px 16px;font-size:13px;margin-bottom:16px;display:none;}
 .auth-warning.show{display:block;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 <header class="topbar">
   <div class="brand-mark">찐</div>
-  <h1>관리자 — 일괄 등록</h1>
-  <a href="/inbox.html">신고/제보함 →</a>
-  <a href="/" style="margin-left:12px;">← 사이트로</a>
-  <button id="testModeBtn" onclick="toggleTestMode()" style="margin-left:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--ink-soft);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:13px;">🧪 확인 중...</button>
+  <h1 data-i18n="admin.25">관리자 — 일괄 등록</h1>
+  <a href="/inbox.html" data-i18n="admin.47">신고/제보함 →</a>
+  <a href="/" style="margin-left:12px;" data-i18n="admin.48">← 사이트로</a>
+  <button id="testModeBtn" onclick="toggleTestMode()" style="margin-left:12px;padding:6px 14px;border-radius:20px;border:2px solid var(--ink-soft);background:transparent;color:var(--ink-soft);cursor:pointer;font-size:13px;" data-i18n="admin.33">🧪 확인 중...</button>
 </header>
 <div class="container">
   <div id="authWarning" class="auth-warning">
-    ⚠️ 로그인이 필요합니다. <a href="/">메인에서 Google 로그인 후 다시 접속하세요.</a>
+    ⚠️ 로그인이 필요합니다. <a href="/" data-i18n="admin.49">메인에서 Google 로그인 후 다시 접속하세요.</a>
   </div>
   <!-- 유저 접속 현황 -->
   <div class="section-title" style="cursor:pointer;" onclick="toggleUserSection()">
@@ -81,7 +80,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <div id="userSection" style="margin-bottom:28px;">
     <div id="userList" style="overflow-x:auto;">
-      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+      <p style="color:var(--ink-soft);font-size:13px;" data-i18n="admin.27">로딩 중...</p>
     </div>
   </div>
 
@@ -91,7 +90,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <div id="regionSection" style="margin-bottom:28px;">
     <div id="regionOverview">
-      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+      <p style="color:var(--ink-soft);font-size:13px;" data-i18n="admin.28">로딩 중...</p>
     </div>
   </div>
 
@@ -101,7 +100,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <div id="rejectedSection" style="margin-bottom:28px;">
     <div id="rejectedList" style="overflow-x:auto;">
-      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+      <p style="color:var(--ink-soft);font-size:13px;" data-i18n="admin.29">로딩 중...</p>
     </div>
   </div>
 
@@ -111,15 +110,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <div id="claimsSection" style="margin-bottom:28px;">
     <div id="claimsList" style="overflow-x:auto;">
-      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+      <p style="color:var(--ink-soft);font-size:13px;" data-i18n="admin.30">로딩 중...</p>
     </div>
   </div>
 
   <!-- 이번 주 인기 맛집 -->
   <div class="section-title">🔥 이번 주 인기 맛집</div>
   <div style="margin-bottom:28px;">
-    <button class="btn btn-primary" onclick="refreshWeeklyTrending()" id="refreshTrendingBtn">🔄 지금 새로고침</button>
-    <span id="refreshTrendingStatus" style="font-size:13px;margin-left:8px;color:var(--ink-soft);">보통은 매주 월요일 자동 크론이 처리해요. 새로 배포했거나 목록이 비어 보일 때만 눌러주세요.</span>
+    <button class="btn btn-primary" onclick="refreshWeeklyTrending()" id="refreshTrendingBtn" data-i18n="admin.34">🔄 지금 새로고침</button>
+    <span id="refreshTrendingStatus" style="font-size:13px;margin-left:8px;color:var(--ink-soft);" data-i18n="admin.32">보통은 매주 월요일 자동 크론이 처리해요. 새로 배포했거나 목록이 비어 보일 때만 눌러주세요.</span>
   </div>
 
   <!-- 리뷰 없는 기존 등록 건 -->
@@ -128,39 +127,39 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper);color:var(--i
   </div>
   <div id="missingReviewsSection" style="margin-bottom:28px;">
     <div style="margin-bottom:10px;">
-      <button class="btn btn-primary" onclick="refreshAllNaverContent()" id="refreshAllBtn">🔄 전체 일괄 갱신</button>
+      <button class="btn btn-primary" onclick="refreshAllNaverContent()" id="refreshAllBtn" data-i18n="admin.35">🔄 전체 일괄 갱신</button>
       <span id="refreshAllStatus" style="font-size:13px;margin-left:8px;color:var(--ink-soft);"></span>
     </div>
     <div id="missingReviewsList" style="overflow-x:auto;">
-      <p style="color:var(--ink-soft);font-size:13px;">로딩 중...</p>
+      <p style="color:var(--ink-soft);font-size:13px;" data-i18n="admin.31">로딩 중...</p>
     </div>
   </div>
 
   <div class="section-title">등록 대기 목록 <span id="totalCount" style="font-size:14px;font-weight:400;color:var(--ink-soft);"></span></div>
 
   <div class="filter-bar">
-    <button class="filter-btn active" onclick="filterCat('전체')">전체</button>
-    <button class="filter-btn" onclick="filterCat('카페/디저트')">카페/디저트</button>
-    <button class="filter-btn" onclick="filterCat('한식')">한식</button>
-    <button class="filter-btn" onclick="filterCat('고기/구이')">고기/구이</button>
-    <button class="filter-btn" onclick="filterCat('분식/간식')">분식/간식</button>
-    <button class="filter-btn" onclick="filterCat('일식')">일식</button>
-    <button class="filter-btn" onclick="filterCat('양식')">양식</button>
-    <button class="filter-btn" onclick="filterCat('중식')">중식</button>
+    <button class="filter-btn active" onclick="filterCat('전체')" data-i18n="admin.36">전체</button>
+    <button class="filter-btn" onclick="filterCat('카페/디저트')" data-i18n="admin.37">카페/디저트</button>
+    <button class="filter-btn" onclick="filterCat('한식')" data-i18n="admin.38">한식</button>
+    <button class="filter-btn" onclick="filterCat('고기/구이')" data-i18n="admin.39">고기/구이</button>
+    <button class="filter-btn" onclick="filterCat('분식/간식')" data-i18n="admin.40">분식/간식</button>
+    <button class="filter-btn" onclick="filterCat('일식')" data-i18n="admin.41">일식</button>
+    <button class="filter-btn" onclick="filterCat('양식')" data-i18n="admin.42">양식</button>
+    <button class="filter-btn" onclick="filterCat('중식')" data-i18n="admin.43">중식</button>
   </div>
 
   <div id="placeList" class="place-list"></div>
-  <div style="margin-top:12px;"><button class="btn btn-ghost" onclick="addRow()">+ 직접 추가</button></div>
+  <div style="margin-top:12px;"><button class="btn btn-ghost" onclick="addRow()" data-i18n="admin.44">+ 직접 추가</button></div>
 
   <div class="actions">
-    <button id="startBtn" class="btn btn-primary" onclick="startBatch(false)">▶ 일괄 검증 등록</button>
-    <button id="forceBtn" class="btn btn-ghost" onclick="startBatch(true)" style="border-color:#E1392A;color:#E1392A;">⚡ 강제 등록 (검증 생략)</button>
+    <button id="startBtn" class="btn btn-primary" onclick="startBatch(false)" data-i18n="admin.45">▶ 일괄 검증 등록</button>
+    <button id="forceBtn" class="btn btn-ghost" onclick="startBatch(true)" style="border-color:#E1392A;color:#E1392A;" data-i18n="admin.46">⚡ 강제 등록 (검증 생략)</button>
     <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     <span class="progress-text" id="progressText"></span>
   </div>
 
   <div class="summary" id="summary">
-    <h3>등록 완료</h3>
+    <h3 data-i18n="admin.26">등록 완료</h3>
     <div class="summary-stats">
       <div class="stat ok"><span id="statOk">0</span>검증 완료</div>
       <div class="stat pend"><span id="statPend">0</span>검토 대기</div>
@@ -964,5 +963,6 @@ async function toggleTestMode() {
 }
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

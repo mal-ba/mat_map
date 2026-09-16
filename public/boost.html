@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>가게 끌어올리기 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="boost.59">가게 끌어올리기 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
 <script src="https://js.tosspayments.com/v1/payment-widget"></script>
 <style>
 .container{max-width:560px;margin:0 auto;padding:28px 16px 60px;}
@@ -25,24 +23,25 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:22px;margin:0 0 6px;}
 dialog{border:none;border-radius:14px;padding:0;max-width:380px;width:90%;}
 dialog::backdrop{background:rgba(28,25,23,.5);}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;color:inherit;">
-    <span class="brand-mark">찐</span>
-    <div class="brand-text"><strong>찐맛집</strong><span>사람이 찾고, AI가 확인한 진짜 맛집</span></div>
+    <span class="brand-mark" data-i18n="boost.53">찐</span>
+    <div class="brand-text"><strong data-i18n="boost.58">찐맛집</strong><span data-i18n="boost.54">사람이 찾고, AI가 확인한 진짜 맛집</span></div>
   </a>
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="boost.57">🔍 검색으로</a>
     <div class="auth-area" id="authArea" style="visibility:hidden;"></div>
   </div>
 </header>
 
 <div class="container">
-  <h1>🚀 가게 끌어올리기</h1>
+  <h1 data-i18n="boost.51">🚀 가게 끌어올리기</h1>
   <p class="sub">내가 등록한 가게를 7일 동안 목록 맨 위에 노출해요.<br>리뷰가 적은(저매출) 가게만 신청할 수 있어요.</p>
-  <div id="placesList"><p class="empty">불러오는 중...</p></div>
+  <div id="placesList"><p class="empty" data-i18n="boost.52">불러오는 중...</p></div>
 </div>
 
 <dialog id="payDialog">
@@ -52,8 +51,8 @@ dialog::backdrop{background:rgba(28,25,23,.5);}
     <div id="payment-method"></div>
     <div id="agreement" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn-ghost" onclick="document.getElementById('payDialog').close()" style="flex:1;">취소</button>
-      <button class="btn-primary" id="payBtn" style="flex:1;" disabled>결제하기</button>
+      <button class="btn-ghost" onclick="document.getElementById('payDialog').close()" style="flex:1;" data-i18n="boost.55">취소</button>
+      <button class="btn-primary" id="payBtn" style="flex:1;" disabled="" data-i18n="boost.56">결제하기</button>
     </div>
   </div>
 </dialog>
@@ -182,5 +181,6 @@ async function init() {
 init();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

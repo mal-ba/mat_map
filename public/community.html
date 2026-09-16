@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>커뮤니티 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="community.90">커뮤니티 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
 <style>
 .container{max-width:640px;margin:0 auto;padding:28px 16px 60px;}
 h1{font-family:'Black Han Sans',sans-serif;font-size:24px;margin:0 0 6px;}
@@ -33,36 +31,37 @@ h1{font-family:'Black Han Sans',sans-serif;font-size:24px;margin:0 0 6px;}
 
 .empty{text-align:center;color:#aaa;font-size:13px;padding:30px 0;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;color:inherit;">
-    <span class="brand-mark">찐</span>
+    <span class="brand-mark" data-i18n="community.84">찐</span>
     <div class="brand-text">
-      <strong>찐맛집</strong>
-      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+      <strong data-i18n="community.88">찐맛집</strong>
+      <span data-i18n="community.85">사람이 찾고, AI가 확인한 진짜 맛집</span>
     </div>
   </a>
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="community.87">🔍 검색으로</a>
     <div class="auth-area" id="authArea" style="visibility:hidden;"></div>
   </div>
 </header>
 
 <div class="container">
-  <h1>👥 커뮤니티</h1>
-  <p class="sub">친구를 찾아서 맞팔해보세요</p>
+  <h1 data-i18n="community.81">👥 커뮤니티</h1>
+  <p class="sub" data-i18n="community.82">친구를 찾아서 맞팔해보세요</p>
 
   <form id="searchForm" class="search-row">
-    <input id="searchInput" type="text" placeholder="별명 또는 고유코드로 검색" autocomplete="off" />
-    <button type="submit" class="btn-primary">검색</button>
+    <input id="searchInput" type="text" placeholder="별명 또는 고유코드로 검색" autocomplete="off" data-i18n-placeholder="community.89">
+    <button type="submit" class="btn-primary" data-i18n="community.86">검색</button>
   </form>
 
   <div id="searchResults"></div>
 
   <div class="section-title">내 친구</div>
-  <div id="friendsList"><p class="empty">불러오는 중...</p></div>
+  <div id="friendsList"><p class="empty" data-i18n="community.83">불러오는 중...</p></div>
 </div>
 
 <script>
@@ -200,5 +199,6 @@ initAuthArea();
 loadFriends();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

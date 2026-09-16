@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>목록 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="my-places.209">목록 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
 :root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--stamp-deep:#B92C1F;--mustard:#D9A441;--line:#E7E4DF;--radius:10px;}
@@ -35,16 +33,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 
 .loading{text-align:center;padding:40px;color:#aaa;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand">
-    <span class="brand-mark">찐</span>
+    <span class="brand-mark" data-i18n="my-places.206">찐</span>
   </a>
-  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">목록</span>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;" data-i18n="my-places.207">목록</span>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-    <a href="/profile.html" class="back-btn" style="margin-left:0;">👤 프로필로</a>
+    <a href="/profile.html" class="back-btn" style="margin-left:0;" data-i18n="my-places.208">👤 프로필로</a>
   </div>
 </header>
 
@@ -122,5 +121,6 @@ function renderPlaces(places, emptyText, isLiked) {
 init();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

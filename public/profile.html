@@ -1,11 +1,9 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>프로필 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title data-i18n="profile.340">프로필 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <script src="/config.js"></script>
 <style>
 :root{--paper:#FFFFFF;--paper-deep:#F6F4F1;--ink:#1C1917;--ink-soft:#8A8580;--stamp:#E1392A;--stamp-deep:#B92C1F;--mustard:#D9A441;--line:#E7E4DF;--radius:10px;}
@@ -81,16 +79,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
 
 .loading{text-align:center;padding:40px;color:#aaa;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand">
-    <span class="brand-mark">찐</span>
+    <span class="brand-mark" data-i18n="profile.324">찐</span>
   </a>
-  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;">프로필</span>
+  <span style="font-family:'Black Han Sans',sans-serif;font-size:18px;" data-i18n="profile.325">프로필</span>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-    <a href="/" class="back-btn" style="margin-left:0;">🔍 검색으로</a>
+    <a href="/" class="back-btn" style="margin-left:0;" data-i18n="profile.337">🔍 검색으로</a>
   </div>
 </header>
 
@@ -102,19 +101,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
     <div class="profile-card">
       <div class="profile-top">
         <div class="avatar-wrap">
-          <img id="avatarImg" class="avatar" style="display:none;" />
+          <img id="avatarImg" class="avatar" style="display:none;">
           <div id="avatarPlaceholder" class="avatar-placeholder">👤</div>
           <label id="avatarEditBtn" for="avatarFileInput" style="display:none;position:absolute;bottom:-2px;right:-2px;
             width:26px;height:26px;border-radius:50%;background:var(--stamp);border:2px solid #fff;
             align-items:center;justify-content:center;font-size:13px;cursor:pointer;">📷</label>
-          <input type="file" id="avatarFileInput" accept="image/*" style="display:none;" />
+          <input type="file" id="avatarFileInput" accept="image/*" style="display:none;">
         </div>
         <div class="profile-info">
           <div class="profile-name" id="profileName">—</div>
           <div class="profile-email" id="profileEmail"></div>
           <div class="profile-code" id="profileCode" style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;"></div>
           <div class="badge-row">
-            <span class="badge-chip" id="badgeChip">탐험 시작</span>
+            <span class="badge-chip" id="badgeChip" data-i18n="profile.326">탐험 시작</span>
             <span class="badge-next" id="badgeNext"></span>
           </div>
         </div>
@@ -125,40 +124,40 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
       <div class="stats-row">
         <div class="stat-item">
           <span class="stat-num" id="statPlaces">0</span>
-          <span class="stat-label">등록 맛집</span>
+          <span class="stat-label" data-i18n="profile.327">등록 맛집</span>
         </div>
         <div class="stat-item">
           <span class="stat-num" id="statBadge">–</span>
-          <span class="stat-label">뱃지 등급</span>
+          <span class="stat-label" data-i18n="profile.328">뱃지 등급</span>
         </div>
         <div class="stat-item">
           <span class="stat-num" id="statVisit">0</span>
-          <span class="stat-label">방문 횟수</span>
+          <span class="stat-label" data-i18n="profile.329">방문 횟수</span>
         </div>
       </div>
 
       <!-- 내 프로필일 때만 편집/로그아웃 버튼 표시 -->
       <div id="editSection" style="display:none;">
-        <button class="edit-btn" onclick="toggleEdit()">✏️ 프로필 편집</button>
+        <button class="edit-btn" onclick="toggleEdit()" data-i18n="profile.334">✏️ 프로필 편집</button>
         <div class="edit-form" id="editForm">
-          <label class="form-label">표시 이름</label>
-          <input class="form-input" id="editName" placeholder="표시할 이름 입력" maxlength="20"/>
-          <label class="form-label">소개</label>
-          <textarea class="form-input" id="editBio" rows="3" placeholder="나를 소개해보세요 (100자 이내)" maxlength="100"></textarea>
-          <button class="save-btn" onclick="saveProfile()">저장</button>
+          <label class="form-label" data-i18n="profile.332">표시 이름</label>
+          <input class="form-input" id="editName" placeholder="표시할 이름 입력" maxlength="20" data-i18n-placeholder="profile.338">
+          <label class="form-label" data-i18n="profile.333">소개</label>
+          <textarea class="form-input" id="editBio" rows="3" placeholder="나를 소개해보세요 (100자 이내)" maxlength="100" data-i18n-placeholder="profile.339"></textarea>
+          <button class="save-btn" onclick="saveProfile()" data-i18n="profile.335">저장</button>
         </div>
-        <button class="edit-btn" onclick="logout()" style="margin-top:8px;color:var(--stamp);border-color:var(--stamp);">🚪 로그아웃</button>
+        <button class="edit-btn" onclick="logout()" style="margin-top:8px;color:var(--stamp);border-color:var(--stamp);" data-i18n="profile.336">🚪 로그아웃</button>
       </div>
     </div>
 
     <!-- 등록 맛집 목록 (전체보기를 눌러야 보임) -->
-    <div class="section-title" id="placesSectionTitle" style="cursor:pointer;">🍽️ 등록한 맛집 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
+    <div class="section-title" id="placesSectionTitle" style="cursor:pointer;">🍽️ 등록한 맛집 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;" data-i18n="profile.330">전체보기 ›</span></div>
     <div class="places-grid" id="placesList" style="display:none;">
       <div class="empty-places">등록한 맛집이 없어요.</div>
     </div>
 
     <!-- 찜한 가게 목록 (본인 프로필에서만 표시, 전체보기를 눌러야 보임) -->
-    <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;cursor:pointer;">❤️ 찜한 가게 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
+    <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;cursor:pointer;">❤️ 찜한 가게 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;" data-i18n="profile.331">전체보기 ›</span></div>
     <div class="places-grid" id="likedList" style="display:none;"></div>
   </div>
 </div>
@@ -383,5 +382,6 @@ async function saveProfile() {
 init();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>맞춤추천 구독 — 찐맛집</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="subscribe.371">맞춤추천 구독 — 찐맛집</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
 <script src="https://js.tosspayments.com/v2/standard"></script>
 <style>
 .sub-wrap{max-width:420px;margin:0 auto;padding:48px 20px 60px;}
@@ -24,38 +22,39 @@
 .rec-card h3{margin:0 0 4px;font-size:15px;}
 .rec-reason{font-size:13px;margin-top:6px;line-height:1.5;}
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;color:inherit;">
-    <span class="brand-mark">찐</span>
-    <div class="brand-text"><strong>찐맛집</strong><span>사람이 찾고, AI가 확인한 진짜 맛집</span></div>
+    <span class="brand-mark" data-i18n="subscribe.362">찐</span>
+    <div class="brand-text"><strong data-i18n="subscribe.369">찐맛집</strong><span data-i18n="subscribe.363">사람이 찾고, AI가 확인한 진짜 맛집</span></div>
   </a>
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="subscribe.368">🔍 검색으로</a>
     <div class="auth-area" id="authArea" style="visibility:hidden;"></div>
   </div>
 </header>
 
 <div class="sub-wrap">
-  <h1>🎯 맞춤추천</h1>
-  <p class="desc">취향을 적어두면 AI가 딱 맞는 찐맛집을 골라드려요.</p>
+  <h1 data-i18n="subscribe.359">🎯 맞춤추천</h1>
+  <p class="desc" data-i18n="subscribe.360">취향을 적어두면 AI가 딱 맞는 찐맛집을 골라드려요.</p>
 
   <div id="subscribeCard" class="card" style="display:none;">
     <div class="price" id="priceText">월 14,900원</div>
-    <p class="desc">월 구독 · 언제든 해지 가능</p>
-    <button type="button" class="btn-primary" id="subscribeBtn" style="width:100%;">구독 시작하기</button>
+    <p class="desc" data-i18n="subscribe.361">월 구독 · 언제든 해지 가능</p>
+    <button type="button" class="btn-primary" id="subscribeBtn" style="width:100%;" data-i18n="subscribe.365">구독 시작하기</button>
   </div>
 
   <div id="mainArea" style="display:none;">
     <div class="card">
-      <label style="font-weight:700;font-size:14px;display:block;margin-bottom:8px;">내 취향</label>
-      <textarea id="prefInput" placeholder="예: 매운 음식 좋아함, 혼밥 편한 곳, 예산 1만원 이하, 조용한 분위기 선호"></textarea>
-      <button type="button" class="btn-primary" id="saveAndRecommendBtn" style="width:100%;margin-top:2px;">취향 저장하고 추천받기</button>
+      <label style="font-weight:700;font-size:14px;display:block;margin-bottom:8px;" data-i18n="subscribe.364">내 취향</label>
+      <textarea id="prefInput" placeholder="예: 매운 음식 좋아함, 혼밥 편한 곳, 예산 1만원 이하, 조용한 분위기 선호" data-i18n-placeholder="subscribe.370"></textarea>
+      <button type="button" class="btn-primary" id="saveAndRecommendBtn" style="width:100%;margin-top:2px;" data-i18n="subscribe.366">취향 저장하고 추천받기</button>
     </div>
     <div id="recommendResults"></div>
-    <button type="button" class="btn-ghost" id="cancelSubBtn" style="width:100%;margin-top:10px;">구독 해지</button>
+    <button type="button" class="btn-ghost" id="cancelSubBtn" style="width:100%;margin-top:10px;" data-i18n="subscribe.367">구독 해지</button>
   </div>
 </div>
 
@@ -206,5 +205,6 @@ async function init() {
 init();
 </script>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

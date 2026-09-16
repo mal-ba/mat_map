@@ -1,13 +1,11 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>찐맛집 — 진짜 검증된 맛집 지도</title>
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title data-i18n="map.205">찐맛집 — 진짜 검증된 맛집 지도</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="/config.js"></script>
 <style>
 .hidden { display: none !important; }
@@ -18,23 +16,24 @@
 }
 .listing-tab.active{ background:#1C1917; color:#fff; }
 </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
 
 <header class="topbar">
   <a href="/" class="brand" style="text-decoration:none;color:inherit;">
-    <span class="brand-mark">찐</span>
+    <span class="brand-mark" data-i18n="map.175">찐</span>
     <div class="brand-text">
-      <strong>찐맛집</strong>
-      <span>사람이 찾고, AI가 확인한 진짜 맛집</span>
+      <strong data-i18n="map.197">찐맛집</strong>
+      <span data-i18n="map.176">사람이 찾고, AI가 확인한 진짜 맛집</span>
     </div>
   </a>
   <div style="display:flex;align-items:center;gap:10px;">
-    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;">🔍 검색으로</a>
-    <a href="/community.html" class="btn-ghost" style="display:inline-block;text-decoration:none;">👥 커뮤니티</a>
+    <a href="/" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="map.190">🔍 검색으로</a>
+    <a href="/community.html" class="btn-ghost" style="display:inline-block;text-decoration:none;" data-i18n="map.191">👥 커뮤니티</a>
     <div class="auth-area" id="authArea" style="visibility:hidden;">
-      <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;">로그인</a>
-      <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;">회원가입</a>
+      <a class="btn-ghost" href="/login.html" style="display:inline-block;text-decoration:none;" data-i18n="map.192">로그인</a>
+      <a class="btn-primary" href="/signup.html" style="display:inline-block;text-decoration:none;margin-left:6px;" data-i18n="map.193">회원가입</a>
     </div>
   </div>
 </header>
@@ -44,19 +43,17 @@
     <div class="sheet-handle" id="sheetHandle"></div>
     <div class="panel-scroll">
       <div class="panel-head">
-        <h2 id="panelTitle">공개된 맛집</h2>
-        <button id="addBtn" class="btn-primary" disabled title="로그인 후 등록할 수 있어요">+ 맛집 등록</button>
+        <h2 id="panelTitle" data-i18n="map.171">공개된 맛집</h2>
+        <button id="addBtn" class="btn-primary" disabled="" title="로그인 후 등록할 수 있어요" data-i18n="map.179" data-i18n-title="map.204">+ 맛집 등록</button>
       </div>
       <div class="listing-tabs" style="display:flex;gap:6px;margin-bottom:10px;">
-        <button class="listing-tab active" data-listing="verified">🍽 찐맛집</button>
-        <button class="listing-tab" data-listing="new_opening">🆕 신규 오픈</button>
+        <button class="listing-tab active" data-listing="verified" data-i18n="map.180">🍽 찐맛집</button>
+        <button class="listing-tab" data-listing="new_opening" data-i18n="map.181">🆕 신규 오픈</button>
       </div>
       <div id="tagFilterBar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
       <div style="margin-bottom:10px;">
-        <input id="placeFilterInput" type="text" placeholder="🔍 등록된 맛집 검색"
-          oninput="filterPlaceList(this.value)"
-          style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;
-          font-family:inherit;font-size:14px;" />
+        <input id="placeFilterInput" type="text" placeholder="🔍 등록된 맛집 검색" oninput="filterPlaceList(this.value)" style="width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:8px;
+          font-family:inherit;font-size:14px;" data-i18n-placeholder="map.198">
       </div>
       <ul id="placeList" class="place-list">
         <li class="empty-state">아직 검증된 맛집이 없어요.<br>첫 번째로 등록해보세요.</li>
@@ -75,20 +72,19 @@
       </div>
       <button onclick="closeStreetView()" style="position:absolute;top:12px;right:12px;z-index:30;
               background:#E1392A;color:#FFFFFF;border:2px solid #1C1917;border-radius:4px;
-              padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;">✕ 지도로</button>
+              padding:6px 14px;font-weight:700;font-size:13px;cursor:pointer;" data-i18n="map.182">✕ 지도로</button>
     </div>
     <div class="map-tabs">
-      <button class="map-tab active" data-provider="jjin" data-tier="0">지도</button>
-      <button class="map-tab" data-provider="naver" data-tier="1">네이버지도</button>
-      <button class="map-tab" data-provider="kakao" data-tier="2">카카오맵</button>
-      <button class="map-tab" data-provider="google" data-tier="3">구글맵</button>
+      <button class="map-tab active" data-provider="jjin" data-tier="0" data-i18n="map.183">지도</button>
+      <button class="map-tab" data-provider="naver" data-tier="1" data-i18n="map.184">네이버지도</button>
+      <button class="map-tab" data-provider="kakao" data-tier="2" data-i18n="map.185">카카오맵</button>
+      <button class="map-tab" data-provider="google" data-tier="3" data-i18n="map.186">구글맵</button>
     </div>
     <div id="mapLockMsg" style="display:none;position:absolute;top:56px;left:50%;transform:translateX(-50%);
          z-index:1200;background:#1C1917;color:#FFFFFF;padding:8px 16px;border-radius:4px;
          font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.25);"></div>
     <!-- 검색 토글 버튼 -->
-    <button id="searchToggleBtn" onclick="toggleMapSearch()"
-      style="position:absolute;top:56px;right:12px;z-index:1200;
+    <button id="searchToggleBtn" onclick="toggleMapSearch()" style="position:absolute;top:56px;right:12px;z-index:1200;
              width:40px;height:40px;background:#fff;border:2px solid #1C1917;
              border-radius:4px;font-size:18px;cursor:pointer;
              box-shadow:0 2px 6px rgba(0,0,0,.2);">🔍</button>
@@ -96,15 +92,12 @@
     <!-- 검색창 (기본 숨김) -->
     <div id="mapSearchBar" style="position:absolute;top:56px;left:12px;right:60px;
          z-index:1200;display:none;gap:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
-      <input id="mapSearchInput" type="text" placeholder="가게 이름으로 검색"
-        style="flex:1;width:100%;padding:10px 14px;border:2px solid #1C1917;border-right:none;
+      <input id="mapSearchInput" type="text" placeholder="가게 이름으로 검색" style="flex:1;width:100%;padding:10px 14px;border:2px solid #1C1917;border-right:none;
                border-radius:4px 0 0 4px;font-size:14px;font-family:'Noto Sans KR',sans-serif;
-               outline:none;box-sizing:border-box;"
-        onkeydown="if(event.key==='Enter'){searchKakaoPlaces(this.value);}" />
-      <button onclick="searchKakaoPlaces(document.getElementById('mapSearchInput').value)"
-        style="padding:10px 16px;background:#E1392A;color:#FFFFFF;border:2px solid #1C1917;
+               outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter'){searchKakaoPlaces(this.value);}" data-i18n-placeholder="map.199">
+      <button onclick="searchKakaoPlaces(document.getElementById('mapSearchInput').value)" style="padding:10px 16px;background:#E1392A;color:#FFFFFF;border:2px solid #1C1917;
                border-left:none;border-radius:0 4px 4px 0;font-weight:700;font-size:14px;
-               cursor:pointer;white-space:nowrap;">검색</button>
+               cursor:pointer;white-space:nowrap;" data-i18n="map.187">검색</button>
     </div>
     <div id="searchDropdown" style="display:none;position:absolute;top:100px;left:12px;right:60px;
          z-index:1200;background:#fff;border:1.5px solid #1C1917;border-radius:8px;
@@ -123,67 +116,67 @@
 <!-- 등록 모달 -->
 <dialog id="registerModal">
   <form id="registerForm" class="register-form">
-    <h3>새 맛집 등록</h3>
-    <p class="hint">등록하면 카카오맵 + AI가 실제 존재 여부와 신뢰도를 확인한 뒤 지도에 공개됩니다.</p>
+    <h3 data-i18n="map.172">새 맛집 등록</h3>
+    <p class="hint" data-i18n="map.173">등록하면 카카오맵 + AI가 실제 존재 여부와 신뢰도를 확인한 뒤 지도에 공개됩니다.</p>
 
     <label>등록 종류
       <div style="display:flex;gap:16px;margin-top:6px;">
         <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
-          <input type="radio" name="listing_type" value="verified" checked style="width:16px;height:16px;"> 🍽 찐맛집 (기존/단골 맛집)
+          <input type="radio" name="listing_type" value="verified" checked="" style="width:16px;height:16px;"> 🍽 찐맛집 (기존/단골 맛집)
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
           <input type="radio" name="listing_type" value="new_opening" style="width:16px;height:16px;"> 🆕 신규 오픈 (최근 문 연 곳)
         </label>
       </div>
-      <span style="font-size:12px;color:#8A8580;display:block;margin-top:4px;">신규 오픈은 아직 리뷰가 없어도 괜찮아요 — 실존 여부만 확인해요.</span>
+      <span style="font-size:12px;color:#8A8580;display:block;margin-top:4px;" data-i18n="map.177">신규 오픈은 아직 리뷰가 없어도 괜찮아요 — 실존 여부만 확인해요.</span>
     </label>
 
     <label>가게 이름
-      <input name="name" required placeholder="예: 왕십리곱창골목" />
+      <input name="name" required="" placeholder="예: 왕십리곱창골목" data-i18n-placeholder="map.200">
     </label>
 
     <label>주소
       <div style="position:relative;">
-        <input name="address" id="addressInput" required placeholder="도로명 또는 지번 주소 입력" autocomplete="off" />
+        <input name="address" id="addressInput" required="" placeholder="도로명 또는 지번 주소 입력" autocomplete="off" data-i18n-placeholder="map.201">
         <span id="geocodeStatus" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;"></span>
       </div>
       <span id="geocodeResult" style="font-size:12px;margin-top:4px;display:block;min-height:16px;color:#888;"></span>
     </label>
 
     <!-- 좌표: 주소 검색으로 자동 입력 -->
-    <input type="hidden" name="lat" id="latInput" />
-    <input type="hidden" name="lng" id="lngInput" />
+    <input type="hidden" name="lat" id="latInput">
+    <input type="hidden" name="lng" id="lngInput">
 
     <label>표시할 지도 선택
       <div style="display:flex;gap:16px;margin-top:6px;">
         <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
-          <input type="checkbox" name="map_kakao" value="kakao" checked style="width:16px;height:16px;"> 카카오맵
+          <input type="checkbox" name="map_kakao" value="kakao" checked="" style="width:16px;height:16px;"> 카카오맵
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
-          <input type="checkbox" name="map_naver" value="naver" checked style="width:16px;height:16px;"> 네이버지도
+          <input type="checkbox" name="map_naver" value="naver" checked="" style="width:16px;height:16px;"> 네이버지도
         </label>
         <label style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:400;cursor:pointer;">
-          <input type="checkbox" name="map_google" value="google" checked style="width:16px;height:16px;"> 구글맵
+          <input type="checkbox" name="map_google" value="google" checked="" style="width:16px;height:16px;"> 구글맵
         </label>
       </div>
     </label>
 
     <label>카테고리
-      <input name="category" placeholder="예: 분식 / 곱창 / 카페" />
+      <input name="category" placeholder="예: 분식 / 곱창 / 카페" data-i18n-placeholder="map.202">
     </label>
     <label>한줄평
-      <textarea name="comment" rows="2" placeholder="여기 진짜 맛있어요..."></textarea>
+      <textarea name="comment" rows="2" placeholder="여기 진짜 맛있어요..." data-i18n-placeholder="map.203"></textarea>
     </label>
 
-    <label>가게 사진 <span style="font-weight:400;color:#8A8580;">(선택)</span>
-      <input type="file" id="placePhotoInput" accept="image/*" style="font-size:13px;" />
+    <label>가게 사진 <span style="font-weight:400;color:#8A8580;" data-i18n="map.178">(선택)</span>
+      <input type="file" id="placePhotoInput" accept="image/*" style="font-size:13px;">
       <span id="photoUploadStatus" style="font-size:12px;color:#8A8580;min-height:16px;"></span>
     </label>
-    <input type="hidden" name="image_url" id="imageUrlInput" />
+    <input type="hidden" name="image_url" id="imageUrlInput">
 
     <div class="modal-actions">
-      <button type="button" id="cancelBtn" class="btn-ghost">취소</button>
-      <button type="submit" class="btn-primary">검증 요청</button>
+      <button type="button" id="cancelBtn" class="btn-ghost" data-i18n="map.188">취소</button>
+      <button type="submit" class="btn-primary" data-i18n="map.189">검증 요청</button>
     </div>
   </form>
 </dialog>
@@ -191,20 +184,21 @@
 <!-- 검증 진행 스탬프 오버레이 -->
 <div id="verifyOverlay" class="verify-overlay hidden">
   <div class="stamp-spin">확인중</div>
-  <p>실존 여부와 신뢰도를 확인하고 있어요...</p>
+  <p data-i18n="map.174">실존 여부와 신뢰도를 확인하고 있어요...</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="/app.js?v=13"></script>
 <script src="/feedback-widget.js"></script>
 <footer style="text-align:center;padding:20px;font-size:12px;color:#8A8580;border-top:2px solid rgba(28,25,23,0.16);margin-top:auto;">
-  <a href="/verification.html" style="color:#8A8580;text-decoration:underline;">검증 방법론</a>
+  <a href="/verification.html" style="color:#8A8580;text-decoration:underline;" data-i18n="map.194">검증 방법론</a>
   &nbsp;|&nbsp;
-  <a href="/privacy.html" style="color:#8A8580;text-decoration:underline;">개인정보처리방침</a>
+  <a href="/privacy.html" style="color:#8A8580;text-decoration:underline;" data-i18n="map.195">개인정보처리방침</a>
   &nbsp;|&nbsp;
-  <a href="#" onclick="jjinOpenFeedbackWidget(); return false;" style="color:#8A8580;text-decoration:underline;">문의/제보</a>
+  <a href="#" onclick="jjinOpenFeedbackWidget(); return false;" style="color:#8A8580;text-decoration:underline;" data-i18n="map.196">문의/제보</a>
   &nbsp;|&nbsp; © 2026 찐맛집
 </footer>
 <script src="/nav-menu.js?v=2"></script>
-</body>
-</html>
+
+
+</body></html>

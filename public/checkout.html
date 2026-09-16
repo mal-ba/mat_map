@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>찐맛집 - 끌어올리기 결제 데모</title>
+<!DOCTYPE html><html lang="ko"><head>
+  <meta charset="UTF-8">
+  <title data-i18n="checkout.63">찐맛집 - 끌어올리기 결제 데모</title>
   <script src="https://js.tosspayments.com/v2/standard"></script>
   <style>
     body { font-family: sans-serif; max-width: 420px; margin: 60px auto; padding: 0 20px; }
@@ -15,12 +13,13 @@
     }
     button:hover { background: #1b64da; }
   </style>
+<script src="/i18n/i18n.js" defer=""></script>
 </head>
 <body>
-  <h2>가게 끌어올리기 (1주)</h2>
-  <p class="desc">지도·검색 결과 상단에 1주간 우선 노출됩니다.</p>
+  <h2 data-i18n="checkout.60">가게 끌어올리기 (1주)</h2>
+  <p class="desc" data-i18n="checkout.61">지도·검색 결과 상단에 1주간 우선 노출됩니다.</p>
   <div class="price">5,000원</div>
-  <button id="payment-button">결제하기 (테스트)</button>
+  <button id="payment-button" data-i18n="checkout.62">결제하기 (테스트)</button>
 
   <script>
     const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
@@ -59,5 +58,6 @@
       }
     });
   </script>
-</body>
-</html>
+
+
+</body></html>
