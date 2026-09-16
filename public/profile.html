@@ -151,13 +151,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--paper-deep);color:va
       </div>
     </div>
 
-    <!-- 등록 맛집 목록 -->
+    <!-- 등록 맛집 목록 (전체보기를 눌러야 보임) -->
     <div class="section-title" id="placesSectionTitle" style="cursor:pointer;">🍽️ 등록한 맛집 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
-    <div class="places-grid" id="placesList">
+    <div class="places-grid" id="placesList" style="display:none;">
       <div class="empty-places">등록한 맛집이 없어요.</div>
     </div>
 
-    <!-- 찜한 가게 목록 (본인 프로필에서만 표시) -->
+    <!-- 찜한 가게 목록 (본인 프로필에서만 표시, 전체보기를 눌러야 보임) -->
     <div class="section-title" id="likedSectionTitle" style="display:none;margin-top:20px;cursor:pointer;">❤️ 찜한 가게 <span style="font-size:12px;color:var(--ink-soft);font-weight:400;">전체보기 ›</span></div>
     <div class="places-grid" id="likedList" style="display:none;"></div>
   </div>
@@ -216,6 +216,7 @@ async function init() {
   const placesRes = await fetch(`/api/auth/public-places/${userId}`);
   const places = placesRes.ok ? await placesRes.json() : [];
   renderPlaces(places);
+  document.querySelector('#placesSectionTitle').firstChild.textContent = `🍽️ 등록한 맛집 (${places.length}) `;
 
   // "등록한 맛집" 제목 클릭 시 전체 목록 페이지를 새 탭으로 열기
   document.getElementById('placesSectionTitle').onclick = () => {
@@ -227,6 +228,7 @@ async function init() {
     const likedRes = await fetch('/api/places/liked', { credentials: 'include' });
     const liked = likedRes.ok ? await likedRes.json() : [];
     renderLikedPlaces(liked);
+    document.querySelector('#likedSectionTitle').firstChild.textContent = `❤️ 찜한 가게 (${liked.length}) `;
 
     // "찜한 가게" 제목 클릭 시 전체 목록 페이지를 새 탭으로 열기
     document.getElementById('likedSectionTitle').onclick = () => {
@@ -312,7 +314,6 @@ function renderPlaces(places) {
 function renderLikedPlaces(places) {
   document.getElementById('likedSectionTitle').style.display = 'block';
   const list = document.getElementById('likedList');
-  list.style.display = 'flex'; // .places-grid는 flex column 레이아웃이라 block이 아닌 flex로 보여야 gap이 유지됨
   if (!places.length) {
     list.innerHTML = '<div class="empty-places">아직 찜한 가게가 없어요.</div>';
     return;
