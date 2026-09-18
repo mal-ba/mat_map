@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const path = require('path');
@@ -27,14 +28,39 @@ const app = express();
 app.set('trust proxy', 1);
 
 // 관리자 이메일 — routes/places.js, routes/reports.js, routes/feedback.js 와 동일한 기준
-const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+// .env의 ADMIN_EMAILS(콤마로 구분)에서 읽어옴. 레포가 public이라 코드에 직접 적어두지 않음 —
+// 반드시 Render 환경변수에 ADMIN_EMAILS=본인이메일 형태로 등록해야 관리자 기능이 동작함.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map((e) => e.trim())
+  .filter(Boolean);
+
+// 요청을 credentials(쿠키)와 함께 허용할 출처 목록.
+// .env의 ALLOWED_ORIGINS(콤마로 구분)로 덮어쓸 수 있고, 없으면 아래 기본값(운영 도메인 + 로컬 개발)만 허용.
+// 나중에 커스텀 도메인을 추가로 쓰게 되면 ALLOWED_ORIGINS 환경변수에 콤마로 이어붙이면 됨 — 코드 수정 불필요.
+const DEFAULT_ALLOWED_ORIGINS = ['https://mat-map.onrender.com', 'http://localhost:3000'];
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+  : DEFAULT_ALLOWED_ORIGINS;
+
+// 여러 보안 관련 HTTP 헤더(클릭재킹 방지, MIME 스니핑 방지 등)를 자동으로 붙여줌.
+// contentSecurityPolicy는 일단 꺼둠 — 기존 페이지들이 인라인 스크립트를 쓰고 있어서
+// 기본 CSP를 켜면 화면이 깨질 수 있음. 나중에 페이지별로 점검하며 점진적으로 켜는 걸 추천.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // 응답을 gzip으로 압축 — HTML/CSS/JS 전송량을 크게 줄여서 느린 네트워크(4G 등)에서
 // 첫 화면이 뜨는 속도(FCP)를 개선함. 반드시 다른 미들웨어보다 위쪽에 둬야
 // 그 아래에서 만들어지는 모든 응답(API 포함)이 압축 대상이 됨.
 app.use(compression());
 
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // origin이 없는 요청(서버-서버 호출, 앱 내 webview 등)은 그대로 허용
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('CORS로 차단된 출처: ' + origin));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(cookieParser());
 
