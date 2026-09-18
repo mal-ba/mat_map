@@ -4,7 +4,7 @@ const supabase = require('../services/supabase');
 
 const router = express.Router();
 
-const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
 function softAuth(req, res, next) {
   const token = req.cookies?.token;

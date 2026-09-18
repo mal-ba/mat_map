@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { OAuth2Client } = require('google-auth-library');
 const supabase = require('../services/supabase');
+const { loginLimiter, sendCodeLimiter, verifyCodeLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -268,7 +269,7 @@ router.get('/naver/callback', async (req, res) => {
 });
 
 // 이메일 인증코드 발송
-router.post('/send-code', async (req, res) => {
+router.post('/send-code', sendCodeLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: '이메일을 입력해주세요' });
 
@@ -303,7 +304,7 @@ router.post('/send-code', async (req, res) => {
 });
 
 // 이메일 인증코드 확인
-router.post('/verify-code', async (req, res) => {
+router.post('/verify-code', verifyCodeLimiter, async (req, res) => {
   const { email, code } = req.body;
   if (!email || !code) return res.status(400).json({ error: '이메일과 코드를 입력해주세요' });
 
@@ -374,7 +375,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // 이메일 로그인
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요' });
 

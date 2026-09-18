@@ -11,7 +11,7 @@ const { regionKey, regionLabel } = require('../services/region');
 const router = express.Router();
 
 // 관리자 이메일만 반려 목록 조회/재검증/삭제 가능
-const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 function requireAdmin(req, res, next) {
   if (!ADMIN_EMAILS.includes(req.user?.email)) {
     return res.status(403).json({ error: '관리자만 할 수 있어요' });

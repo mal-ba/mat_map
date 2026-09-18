@@ -4,7 +4,7 @@ const supabase = require('../services/supabase');
 
 const router = express.Router();
 
-const ADMIN_EMAILS = ['jehoon100703@gmail.com'];
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
 // 로그인 안 해도 신고는 가능 — 되어 있으면 누가 신고했는지만 같이 기록
 function softAuth(req, res, next) {
